@@ -1,4 +1,4 @@
-// CONFIGURATION FIREBASE (REMETTRE VOS CLÉS)
+// --- CONFIGURATION FIREBASE POUPOULES ---
 const firebaseConfig = {
     apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEtJ0SqA",
     authDomain: "poulettes-75fb5.firebaseapp.com",
@@ -6,16 +6,16 @@ const firebaseConfig = {
     storageBucket: "poulettes-75fb5.firebasestorage.app",
     messagingSenderId: "479553710488",
     appId: "1:479553710488:web:8cb5ec0285f330c51e23ed"
-  };
+};
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DATA
+// --- DATA ---
 const DEMO_DATA = {
     chickens: [
-        { id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-05-10', price: 15, status: 'active', photo: 'https://cdn-icons-png.flaticon.com/512/1826/1826224.png' },
-        { id: 'c2', name: 'Gertrude', breed: 'Sussex', date: '2022-08-15', price: 18, status: 'active', photo: 'https://cdn-icons-png.flaticon.com/512/2829/2829821.png' }
+        { id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-05-10', price: 15, status: 'active', photo: 'icon.png' },
+        { id: 'c2', name: 'Gertrude', breed: 'Sussex', date: '2022-08-15', price: 18, status: 'active', photo: 'icon.png' }
     ],
     eggs: [
         { chickenId: 'c1', chickenName: 'Huguette', date: new Date().toISOString() },
@@ -23,12 +23,11 @@ const DEMO_DATA = {
     ],
     expenses: [
         { id: 'e1', type: 'graines', amount: 25.50, date: new Date().toISOString() },
-        { id: 'e2', type: 'paille', amount: 12.00, date: new Date().toISOString() },
-        { id: 'e3', type: 'soins', amount: 8.50, date: new Date().toISOString() }
+        { id: 'e2', type: 'paille', amount: 12.00, date: new Date().toISOString() }
     ]
 };
 
-// STATE
+// --- STATE ---
 let currentUser = null;
 let isDemoMode = true;
 let localChickens = [...DEMO_DATA.chickens];
@@ -39,7 +38,7 @@ let currentFilter = 'active';
 let currentStatsPeriod = 'month';
 let eggsChartInstance = null;
 
-// INIT
+// --- INIT ---
 document.addEventListener('DOMContentLoaded', () => {
     initEggsChart();
     auth.onAuthStateChanged(user => {
@@ -60,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.close-modal').forEach(x => x.addEventListener('click', () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none')));
 });
 
-// NAVIGATION
+// --- NAVIGATION ---
 window.toggleMenu = () => { document.getElementById('menu-overlay').classList.toggle('open'); };
 window.navigate = (targetId) => {
     toggleMenu();
@@ -72,7 +71,7 @@ window.navigate = (targetId) => {
     document.getElementById('scroll-container').scrollTop = 0;
 };
 
-// RENDER
+// --- RENDER ---
 function renderAll() {
     renderChickensList();
     renderDashboard();
@@ -85,7 +84,7 @@ function renderChickensList() {
     const list = localChickens.filter(c => (c.status || 'active') === currentFilter);
     if (list.length === 0) { grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#999; margin-top:30px;">Vide 🐣</p>'; return; }
     list.forEach(chk => {
-        const img = chk.photo || 'https://cdn-icons-png.flaticon.com/512/1826/1826224.png';
+        const img = chk.photo || 'icon.png';
         const card = document.createElement('div');
         card.className = `chicken-card ${chk.status === 'archived' ? 'grayscale-card' : ''}`;
         card.onclick = (e) => { if (!e.target.closest('.egg-btn')) openChickenDetails(chk.id); };
@@ -95,6 +94,7 @@ function renderChickensList() {
 }
 function filterChickens(status, btn) { currentFilter = status; document.querySelectorAll('#view-chickens .segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderChickensList(); }
 function switchStatsPeriod(period, btn) { currentStatsPeriod = period; document.querySelectorAll('#view-dashboard .segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderDashboard(); }
+
 function renderDashboard() {
     const now = new Date(); const currentMonth = now.getMonth(); const currentYear = now.getFullYear();
     let filteredEggs = [], filteredExpenses = [];
@@ -153,6 +153,7 @@ function renderFinance() {
     for (const [type, amount] of Object.entries(map)) { if (amount > 0 || total === 0) { legend.innerHTML += `<div class="legend-item"><div class="legend-color bg-${type}"></div><span>${labels[type]} (${total > 0 ? Math.round((amount/total)*100) : 0}%)</span></div>`; } }
 }
 
+// --- MODALS (ADD / EDIT / DELETE) ---
 window.openExpenseModal = (expenseId = null) => {
     const modal = document.getElementById('modal-expense');
     const deleteBtn = document.getElementById('btn-delete-expense');
@@ -207,10 +208,10 @@ window.openChickenModal = (isEdit = false) => {
         document.getElementById('modal-chicken-title').innerText = "Modifier";
         document.getElementById('chk-id').value = chk.id; document.getElementById('chk-name').value = chk.name; document.getElementById('chk-breed').value = chk.breed;
         document.getElementById('chk-date').value = chk.date || ''; document.getElementById('chk-price').value = chk.price || '';
-        document.getElementById('preview-photo').src = chk.photo || '';
+        document.getElementById('preview-photo').src = chk.photo || 'icon.png';
     } else {
         document.getElementById('form-chicken').reset(); document.getElementById('modal-chicken-title').innerText = "Nouvelle";
-        document.getElementById('chk-id').value = ''; document.getElementById('preview-photo').src = 'https://cdn-icons-png.flaticon.com/512/1826/1826224.png';
+        document.getElementById('chk-id').value = ''; document.getElementById('preview-photo').src = 'icon.png';
     }
     modal.style.display = 'flex';
 };
@@ -250,11 +251,8 @@ function toggleArchiveStatus(id, status) {
     else { db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).update({status}); closeChickenDetails(); }
 }
 function calculateAge(d) { if(!d) return '?'; const m = (new Date().getFullYear()-new Date(d).getFullYear())*12 - new Date(d).getMonth() + new Date().getMonth(); return m<12 ? m+" mois" : Math.floor(m/12)+" ans"; }
-
-// UPDATE AUTH UI (AJUSTÉ)
 function updateAuthUI(isLoggedIn) {
     document.getElementById('auth-logged-out').style.display = isLoggedIn ? 'none' : 'block';
-    // On met 'flex' ici, et c'est le CSS qui gère le flex-direction: column
     document.getElementById('auth-logged-in').style.display = isLoggedIn ? 'flex' : 'none';
     if(isLoggedIn) {
         document.getElementById('user-name').innerText = currentUser.displayName;
