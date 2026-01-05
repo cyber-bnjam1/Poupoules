@@ -22,129 +22,148 @@
         <div class="blob blob-3"></div>
     </div>
 
-    <div id="layout-wrapper">
-        
-        <div id="top-bar-area">
-            <div id="app-status" class="status-banner demo">
-                <i class="fas fa-info-circle"></i> Mode Démo
-            </div>
+    <header id="app-header">
+        <button id="burger-btn" onclick="toggleMenu()">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div id="header-status" class="status-badge demo">
+            Mode Démo
         </div>
+    </header>
 
-        <main id="scroll-container">
-            
-            <section id="view-dashboard" class="active-view">
-                <header class="page-header">
-                    <h1>Vue d'ensemble</h1>
-                </header>
-
-                <div class="segment-control" style="margin-bottom: 15px;">
-                    <button class="segment-btn active" onclick="switchStatsPeriod('month', this)">Ce Mois</button>
-                    <button class="segment-btn" onclick="switchStatsPeriod('year', this)">Cette Année</button>
-                </div>
-
-                <div class="glass-card summary-card">
-                    <div class="stat-item">
-                        <div class="icon-box egg-color"><i class="fas fa-egg"></i></div>
-                        <div class="stat-text"><span id="total-eggs-display">0</span><small id="label-eggs-display">Œufs</small></div>
-                    </div>
-                    <div class="divider"></div>
-                    <div class="stat-item">
-                        <div class="icon-box money-color"><i class="fas fa-euro-sign"></i></div>
-                        <div class="stat-text"><span id="total-spent-display">0</span><small>Dépenses</small></div>
-                    </div>
-                </div>
-
-                <div class="glass-card chart-card">
-                    <h3 id="chart-title"><i class="fas fa-chart-bar"></i> Ponte</h3>
-                    <div class="chart-container"><canvas id="eggsChart"></canvas></div>
-                </div>
-
-                <h3>Activités Récentes</h3>
-                <ul id="recent-activity-list" class="glass-list activity-list"></ul>
-            </section>
-
-            <section id="view-chickens">
-                <header class="page-header">
-                    <h1>Le Poulailler</h1>
-                    <button class="glass-btn-small" onclick="openChickenModal()"><i class="fas fa-plus"></i></button>
-                </header>
-                <div class="segment-control">
-                    <button class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
-                    <button class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
-                </div>
-                <div id="chickens-grid" class="grid-container"></div>
-            </section>
-
-            <section id="view-finance">
-                <header class="page-header">
-                    <h1>Budget</h1>
-                    <button class="glass-btn-small" onclick="showAddExpenseModal()"><i class="fas fa-plus"></i></button>
-                </header>
-                <div class="glass-card chart-card">
-                    <h3>Répartition</h3>
-                    <div class="chart-container" style="height:200px"><canvas id="financeChart"></canvas></div>
-                </div>
-                <h3>Historique</h3>
-                <ul id="expenses-list" class="glass-list"></ul>
-            </section>
-
-            <section id="view-settings">
-                <header class="page-header"><h1>Réglages</h1></header>
-                <div class="glass-card profile-card">
-                    <div id="auth-logged-out">
-                        <div class="profile-placeholder"><i class="fas fa-user"></i></div>
-                        <h3>Cloud Sync</h3>
-                        <button id="google-login-btn" class="glass-btn primary-btn"><i class="fab fa-google"></i> Connexion</button>
-                    </div>
-                    <div id="auth-logged-in" style="display:none;">
-                        <img id="user-photo" src="" alt="User">
-                        <h3 id="user-name">User</h3>
-                        <p id="user-email">...</p>
-                        <div class="badge-success">Connecté</div>
-                        <button id="logout-btn" class="glass-btn danger-btn">Déconnexion</button>
-                    </div>
-                </div>
-                 <div class="glass-list-container">
-                    <h3>Général</h3>
-                    <ul class="glass-list settings-list">
-                        <li><span><i class="fas fa-bell"></i> Notifications</span> <label class="switch"><input type="checkbox" checked><span class="slider round"></span></label></li>
-                    </ul>
-                </div>
-            </section>
-
-            <section id="view-chicken-detail">
-                <header class="page-header">
-                    <button class="glass-btn-small" onclick="closeChickenDetails()"><i class="fas fa-arrow-left"></i></button>
-                    <h1 style="font-size: 20px;">Détails</h1>
-                    <button class="glass-btn-small" onclick="editCurrentChicken()"><i class="fas fa-pen"></i></button>
-                </header>
-                <div class="glass-card profile-card" style="margin-top:20px;">
-                    <div class="detail-photo-container"><img id="detail-photo" src="" alt="Poule"></div>
-                    <h2 id="detail-name">Nom</h2>
-                    <p id="detail-breed" style="color:var(--text-light)">Race</p>
-                    <div class="tags-row"><span id="detail-age" class="tag-badge">Age</span><span id="detail-price" class="tag-badge money">Prix</span></div>
-                </div>
-                <div class="glass-card">
-                    <h3>Statistiques</h3>
-                    <ul class="glass-list">
-                        <li><span>🥚 Total Œufs</span> <span id="detail-total-eggs">0</span></li>
-                        <li><span>📅 Arrivée</span> <span id="detail-date">--/--/----</span></li>
-                        <li><span>🩺 Statut</span> <span id="detail-status" class="badge-success">Active</span></li>
-                    </ul>
-                </div>
-                <button id="btn-archive" class="glass-btn danger-btn" onclick="archiveCurrentChicken()">Archiver</button>
-            </section>
-
-            <div style="height: 100px;"></div>
-        </main>
-
-        <nav class="glass-tabbar" id="main-tabbar">
-            <button class="tab-btn active" data-target="view-dashboard"><i class="fas fa-home"></i><span>Accueil</span></button>
-            <button class="tab-btn" data-target="view-chickens"><i class="fas fa-crow"></i><span>Poules</span></button>
-            <button class="tab-btn" data-target="view-finance"><i class="fas fa-coins"></i><span>Budget</span></button>
-            <button class="tab-btn" data-target="view-settings"><i class="fas fa-cog"></i><span>Réglages</span></button>
-        </nav>
+    <div id="menu-overlay">
+        <div class="menu-content">
+            <button class="close-menu-btn" onclick="toggleMenu()">&times;</button>
+            <div class="menu-title">Menu</div>
+            <nav class="menu-nav">
+                <button class="menu-link active" onclick="navigate('view-dashboard')">
+                    <i class="fas fa-home"></i> Accueil
+                </button>
+                <button class="menu-link" onclick="navigate('view-chickens')">
+                    <i class="fas fa-crow"></i> Poules
+                </button>
+                <button class="menu-link" onclick="navigate('view-finance')">
+                    <i class="fas fa-coins"></i> Budget
+                </button>
+                <button class="menu-link" onclick="navigate('view-settings')">
+                    <i class="fas fa-cog"></i> Réglages
+                </button>
+            </nav>
+            <p class="menu-footer">Mes Poulettes v7.0</p>
+        </div>
     </div>
+
+    <main id="scroll-container">
+        
+        <section id="view-dashboard" class="active-view">
+            <div class="spacer-top"></div> <h1 class="big-title">Vue d'ensemble</h1>
+
+            <div class="segment-control">
+                <button class="segment-btn active" onclick="switchStatsPeriod('month', this)">Ce Mois</button>
+                <button class="segment-btn" onclick="switchStatsPeriod('year', this)">Cette Année</button>
+            </div>
+
+            <div class="glass-card summary-card">
+                <div class="stat-item">
+                    <div class="icon-box egg-color"><i class="fas fa-egg"></i></div>
+                    <div class="stat-text"><span id="total-eggs-display">0</span><small id="label-eggs-display">Œufs</small></div>
+                </div>
+                <div class="divider"></div>
+                <div class="stat-item">
+                    <div class="icon-box money-color"><i class="fas fa-euro-sign"></i></div>
+                    <div class="stat-text"><span id="total-spent-display">0</span><small>Dépenses</small></div>
+                </div>
+            </div>
+
+            <div class="glass-card chart-card">
+                <h3 id="chart-title"><i class="fas fa-chart-bar"></i> Ponte</h3>
+                <div class="chart-container"><canvas id="eggsChart"></canvas></div>
+            </div>
+
+            <h3>Activités Récentes</h3>
+            <ul id="recent-activity-list" class="glass-list activity-list"></ul>
+        </section>
+
+        <section id="view-chickens">
+            <div class="spacer-top"></div>
+            <div class="page-header-row">
+                <h1 class="big-title">Le Poulailler</h1>
+                <button class="glass-btn-round" onclick="openChickenModal()"><i class="fas fa-plus"></i></button>
+            </div>
+            
+            <div class="segment-control">
+                <button class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
+                <button class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
+            </div>
+            <div id="chickens-grid" class="grid-container"></div>
+        </section>
+
+        <section id="view-finance">
+            <div class="spacer-top"></div>
+            <div class="page-header-row">
+                <h1 class="big-title">Budget</h1>
+                <button class="glass-btn-round" onclick="showAddExpenseModal()"><i class="fas fa-plus"></i></button>
+            </div>
+            
+            <div class="glass-card chart-card">
+                <h3>Répartition</h3>
+                <div class="chart-container" style="height:200px"><canvas id="financeChart"></canvas></div>
+            </div>
+            <h3>Historique</h3>
+            <ul id="expenses-list" class="glass-list"></ul>
+        </section>
+
+        <section id="view-settings">
+            <div class="spacer-top"></div>
+            <h1 class="big-title">Réglages</h1>
+            
+            <div class="glass-card profile-card">
+                <div id="auth-logged-out">
+                    <div class="profile-placeholder"><i class="fas fa-user"></i></div>
+                    <h3>Cloud Sync</h3>
+                    <button id="google-login-btn" class="glass-btn primary-btn"><i class="fab fa-google"></i> Connexion Google</button>
+                </div>
+                <div id="auth-logged-in" style="display:none;">
+                    <img id="user-photo" src="" alt="User">
+                    <h3 id="user-name">User</h3>
+                    <p id="user-email">...</p>
+                    <div class="badge-success">Connecté</div>
+                    <button id="logout-btn" class="glass-btn danger-btn">Déconnexion</button>
+                </div>
+            </div>
+            <div class="glass-list-container">
+                <h3>Général</h3>
+                <ul class="glass-list settings-list">
+                    <li><span><i class="fas fa-bell"></i> Notifications</span> <label class="switch"><input type="checkbox" checked><span class="slider round"></span></label></li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="view-chicken-detail">
+            <div class="spacer-top"></div>
+            <div class="page-header-row">
+                <button class="glass-btn-round" onclick="closeChickenDetails()"><i class="fas fa-arrow-left"></i></button>
+                <h2 style="margin:0;">Fiche Poule</h2>
+                <button class="glass-btn-round" onclick="editCurrentChicken()"><i class="fas fa-pen"></i></button>
+            </div>
+
+            <div class="glass-card profile-card" style="margin-top:20px;">
+                <div class="detail-photo-container"><img id="detail-photo" src="" alt="Poule"></div>
+                <h2 id="detail-name">Nom</h2>
+                <p id="detail-breed" style="color:var(--text-light)">Race</p>
+                <div class="tags-row"><span id="detail-age" class="tag-badge">Age</span><span id="detail-price" class="tag-badge money">Prix</span></div>
+            </div>
+            <div class="glass-card">
+                <h3>Statistiques</h3>
+                <ul class="glass-list">
+                    <li><span>🥚 Total Œufs</span> <span id="detail-total-eggs">0</span></li>
+                    <li><span>📅 Arrivée</span> <span id="detail-date">--/--/----</span></li>
+                    <li><span>🩺 Statut</span> <span id="detail-status" class="badge-success">Active</span></li>
+                </ul>
+            </div>
+            <button id="btn-archive" class="glass-btn danger-btn" onclick="archiveCurrentChicken()">Archiver</button>
+        </section>
+    </main>
 
     <div id="modal-chicken" class="modal">
         <div class="glass-card modal-content">
