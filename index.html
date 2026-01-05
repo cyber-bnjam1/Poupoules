@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Mes Poulettes</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2829/2829821.png">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div id="app-status" class="status-banner demo">
+        <i class="fas fa-info-circle"></i> Mode Démo
+    </div>
+
+    <main id="app-container">
+        
+        <div class="content-scroll">
+            
+            <section id="view-dashboard" class="active-view">
+                <header class="page-header">
+                    <h1>Vue d'ensemble</h1>
+                </header>
+
+                <div class="segment-control" style="margin-bottom: 15px;">
+                    <button class="segment-btn active" onclick="switchStatsPeriod('month', this)">Ce Mois</button>
+                    <button class="segment-btn" onclick="switchStatsPeriod('year', this)">Cette Année</button>
+                </div>
+
+                <div class="glass-card summary-card">
+                    <div class="stat-item">
+                        <div class="icon-box egg-color"><i class="fas fa-egg"></i></div>
+                        <div class="stat-text">
+                            <span id="total-eggs-display">0</span>
+                            <small id="label-eggs-display">Œufs</small>
+                        </div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="stat-item">
+                        <div class="icon-box money-color"><i class="fas fa-euro-sign"></i></div>
+                        <div class="stat-text">
+                            <span id="total-spent-display">0</span>
+                            <small>Dépenses</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card chart-card">
+                    <h3 id="chart-title"><i class="fas fa-chart-bar"></i> Ponte</h3>
+                    <div class="chart-container">
+                        <canvas id="eggsChart"></canvas>
+                    </div>
+                </div>
+
+                <h3>Activités Récentes</h3>
+                <ul id="recent-activity-list" class="glass-list activity-list">
+                    </ul>
+            </section>
+
+            <section id="view-chickens">
+                <header class="page-header">
+                    <h1>Le Poulailler</h1>
+                    <button class="glass-btn-small" onclick="openChickenModal()"><i class="fas fa-plus"></i></button>
+                </header>
+                
+                <div class="segment-control">
+                    <button class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
+                    <button class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
+                </div>
+
+                <div id="chickens-grid" class="grid-container">
+                    </div>
+            </section>
+
+            <section id="view-finance">
+                <header class="page-header">
+                    <h1>Budget & Stock</h1>
+                    <button class="glass-btn-small" onclick="showAddExpenseModal()"><i class="fas fa-plus"></i></button>
+                </header>
+                <div class="glass-card chart-card">
+                    <h3>Répartition Globale</h3>
+                    <div class="chart-container" style="height:200px">
+                        <canvas id="financeChart"></canvas>
+                    </div>
+                </div>
+                <h3>Historique Dépenses</h3>
+                <ul id="expenses-list" class="glass-list">
+                    </ul>
+            </section>
+
+            <section id="view-settings">
+                <header class="page-header">
+                    <h1>Réglages</h1>
+                </header>
+
+                <div class="glass-card profile-card">
+                    <div id="auth-logged-out">
+                        <div class="profile-placeholder"><i class="fas fa-user"></i></div>
+                        <h3>Synchronisation Cloud</h3>
+                        <p>Sauvegardez vos données.</p>
+                        <button id="google-login-btn" class="glass-btn primary-btn">
+                            <i class="fab fa-google"></i> Connexion Google
+                        </button>
+                    </div>
+                    
+                    <div id="auth-logged-in" style="display:none;">
+                        <img id="user-photo" src="" alt="User">
+                        <h3 id="user-name">Utilisateur</h3>
+                        <p id="user-email">...</p>
+                        <div class="badge-success"><i class="fas fa-check"></i> Synchronisé</div>
+                        <button id="logout-btn" class="glass-btn danger-btn">Déconnexion</button>
+                    </div>
+                </div>
+
+                <div class="glass-list-container">
+                    <h3>Général</h3>
+                    <ul class="glass-list settings-list">
+                        <li><span><i class="fas fa-bell"></i> Notifications</span> <label class="switch"><input type="checkbox" checked><span class="slider round"></span></label></li>
+                        <li><span><i class="fas fa-moon"></i> Mode Sombre</span> <label class="switch"><input type="checkbox" checked><span class="slider round"></span></label></li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="view-chicken-detail">
+                <header class="page-header">
+                    <button class="glass-btn-small" onclick="closeChickenDetails()"><i class="fas fa-arrow-left"></i></button>
+                    <h1 style="font-size: 20px;">Fiche Poule</h1>
+                    <button class="glass-btn-small" onclick="editCurrentChicken()"><i class="fas fa-pen"></i></button>
+                </header>
+
+                <div class="glass-card profile-card" style="margin-top:20px;">
+                    <div class="detail-photo-container">
+                        <img id="detail-photo" src="" alt="Poule">
+                    </div>
+                    <h2 id="detail-name">Nom</h2>
+                    <p id="detail-breed" style="color:var(--text-light)">Race</p>
+                    
+                    <div class="tags-row">
+                        <span id="detail-age" class="tag-badge">Age</span>
+                        <span id="detail-price" class="tag-badge money">Prix</span>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h3>Statistiques</h3>
+                    <ul class="glass-list">
+                        <li><span>🥚 Total Œufs</span> <span id="detail-total-eggs">0</span></li>
+                        <li><span>📅 Arrivée</span> <span id="detail-date">--/--/----</span></li>
+                        <li><span>🩺 Statut</span> <span id="detail-status" class="badge-success">Active</span></li>
+                    </ul>
+                </div>
+
+                <button id="btn-archive" class="glass-btn danger-btn" onclick="archiveCurrentChicken()">
+                    <i class="fas fa-box-archive"></i> Archiver
+                </button>
+            </section>
+
+        </div>
+
+        <nav class="glass-tabbar" id="main-tabbar">
+            <button class="tab-btn active" data-target="view-dashboard"><i class="fas fa-home"></i><span>Accueil</span></button>
+            <button class="tab-btn" data-target="view-chickens"><i class="fas fa-crow"></i><span>Poules</span></button>
+            <button class="tab-btn" data-target="view-finance"><i class="fas fa-coins"></i><span>Budget</span></button>
+            <button class="tab-btn" data-target="view-settings"><i class="fas fa-cog"></i><span>Réglages</span></button>
+        </nav>
+    </main>
+
+    <div id="modal-chicken" class="modal">
+        <div class="glass-card modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-chicken-title">Nouvelle Poule</h2>
+            <form id="form-chicken">
+                <input type="hidden" id="chk-id">
+                <div class="photo-upload-wrapper" onclick="document.getElementById('chk-photo-file').click()">
+                    <img id="preview-photo" src="https://cdn-icons-png.flaticon.com/512/1826/1826224.png">
+                    <div class="upload-icon"><i class="fas fa-camera"></i></div>
+                </div>
+                <input type="file" id="chk-photo-file" accept="image/*" hidden>
+                <div class="form-row">
+                    <div style="flex:1"><label class="input-label">Nom</label><input type="text" id="chk-name" required></div>
+                    <div style="flex:1"><label class="input-label">Race</label><input type="text" id="chk-breed" required></div>
+                </div>
+                <label class="input-label">Date d'arrivée</label><input type="date" id="chk-date" required>
+                <label class="input-label">Prix d'achat (€)</label><input type="number" id="chk-price" step="0.01" placeholder="0.00">
+                <button type="submit" class="glass-btn full-width primary-btn">Sauvegarder</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-expense" class="modal">
+        <div class="glass-card modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Dépense</h2>
+            <form id="form-expense">
+                <label class="input-label">Date de la dépense</label>
+                <input type="date" id="exp-date" required>
+
+                <label class="input-label">Type</label>
+                <select id="exp-type">
+                    <option value="graines">Graines / Nourriture</option>
+                    <option value="paille">Paille / Litière</option>
+                    <option value="soins">Soins / Vétérinaire</option>
+                    <option value="materiel">Matériel / Enclos</option>
+                    <option value="autre">Autre</option>
+                </select>
+
+                <label class="input-label">Montant (€)</label>
+                <input type="number" id="exp-amount" step="0.01" required>
+
+                <button type="submit" class="glass-btn full-width primary-btn">Ajouter</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
