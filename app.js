@@ -24,10 +24,9 @@ const DEMO_DATA = {
         { id: 't1', category: 'expense', type: 'graines', amount: 25.50, date: new Date().toISOString() }
     ],
     treatments: [],
-    // NOUVELLE STRUCTURE DE TACHES
     tasks: [
-        { id: 'task1', title: 'Changer l\'eau', frequency: 2, lastDone: new Date(Date.now() - 86400000).toISOString() }, // Fait hier (freq 2j)
-        { id: 'task2', title: 'Nettoyer le poulailler', frequency: 7, lastDone: new Date(Date.now() - 604800000).toISOString() } // Fait il y a 7j (freq 7j)
+        { id: 'task1', title: 'Changer l\'eau', frequency: 2, lastDone: new Date(Date.now() - 86400000).toISOString() }, 
+        { id: 'task2', title: 'Nettoyer le poulailler', frequency: 7, lastDone: new Date(Date.now() - 604800000).toISOString() }
     ]
 };
 
@@ -73,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Fermeture des modales au clic sur la croix
     document.querySelectorAll('.close-modal').forEach(x => {
         x.addEventListener('click', (e) => {
             e.target.closest('.modal').style.display = 'none';
@@ -124,12 +122,11 @@ function renderAll() {
     renderTasks();
 }
 
-// 1. DASHBOARD & TASKS LOGIC (PLATINUM)
+// 1. DASHBOARD & TASKS LOGIC
 function renderTasks() {
     const list = document.getElementById('tasks-list');
     list.innerHTML = '';
     
-    // Tri par urgence (Ratio temps écoulé / fréquence)
     const sortedTasks = [...localTasks].sort((a,b) => {
         const ratioA = getDaysDiff(a.lastDone) / a.frequency;
         const ratioB = getDaysDiff(b.lastDone) / b.frequency;
@@ -156,8 +153,6 @@ function renderTasks() {
 
         const li = document.createElement('li');
         li.className = 'task-item';
-        
-        // Au clic, on valide la tache (reset lastDone)
         li.onclick = () => confirmCompleteTask(task.id, task.title);
 
         li.innerHTML = `
@@ -173,7 +168,6 @@ function renderTasks() {
         list.appendChild(li);
     });
     
-    // Update badge count
     const badge = document.getElementById('task-info-count');
     badge.innerText = urgentCount > 0 ? `${urgentCount} urgente(s)` : 'Tout est propre ✨';
     badge.style.color = urgentCount > 0 ? 'var(--danger)' : 'var(--text-light)';
@@ -198,7 +192,6 @@ window.confirmCompleteTask = (id, title) => {
     }
 };
 
-// GESTION MODALE TASKS (SETTINGS)
 window.openTaskManagerModal = () => {
     const list = document.getElementById('settings-tasks-list');
     list.innerHTML = '';
@@ -249,13 +242,13 @@ document.getElementById('form-task').addEventListener('submit', (e) => {
             id: 'task_'+Date.now(),
             title: title,
             frequency: freq,
-            lastDone: new Date(Date.now() - (freq * 86400000 * 2)).toISOString() // Force urgent au début
+            lastDone: new Date(Date.now() - (freq * 86400000 * 2)).toISOString()
         });
     }
     saveTasksData();
     document.getElementById('modal-edit-task').style.display = 'none';
-    openTaskManagerModal(); // Refresh list
-    renderTasks(); // Refresh dashboard
+    openTaskManagerModal();
+    renderTasks();
 });
 
 window.deleteCurrentTask = () => {
@@ -322,7 +315,7 @@ function updateEggsChart(eggsData) {
     eggsChartInstance.data.labels = labels; eggsChartInstance.data.datasets[0].data = data; eggsChartInstance.update();
 }
 
-// 3. POULES (FIX EDIT CLICK)
+// 3. POULES
 function renderChickensList() {
     const grid = document.getElementById('chickens-grid'); grid.innerHTML = '';
     const list = localChickens.filter(c => (c.status || 'active') === currentFilter);
@@ -332,7 +325,6 @@ function renderChickensList() {
         const card = document.createElement('div'); 
         card.className = `chicken-card ${chk.status === 'archived' ? 'grayscale-card' : ''}`;
         
-        // IMPORTANT: On utilise stopPropagation sur le bouton œuf pour ne pas déclencher l'ouverture du détail
         card.innerHTML = `
             <div onclick="openChickenDetails('${chk.id}')">
                 <img src="${img}" class="chicken-img">
@@ -392,7 +384,7 @@ function renderFinance() {
 
 // --- MODALS ACTIONS ---
 
-// OEUFS
+// OEUFS (Fix Delete)
 window.handleAddEgg = (id, name) => {
     const newEgg = { id: 'egg_'+Date.now(), chickenId: id, chickenName: name, date: new Date().toISOString() };
     if (isDemoMode) { localEggs.push(newEgg); renderDashboard(); alert(`Top ${name} !`); }
@@ -405,10 +397,10 @@ window.deleteEgg = (eggId) => {
     }
 };
 
-// POULES
+// POULES (Fix Edit)
 window.openChickenDetails = (id) => {
     currentChickenId = id; const chk = localChickens.find(c => c.id === id); 
-    if(!chk) { console.error("Poule non trouvée avec ID:", id); return; }
+    if(!chk) return;
 
     document.getElementById('detail-name').innerText = chk.name; document.getElementById('detail-breed').innerText = chk.breed;
     document.getElementById('detail-price').innerText = (chk.price || 0) + ' €'; document.getElementById('detail-date').innerText = new Date(chk.date).toLocaleDateString();
@@ -431,7 +423,6 @@ window.openChickenDetails = (id) => {
 };
 window.closeChickenDetails = () => { document.getElementById('view-chicken-detail').classList.remove('active-view'); document.getElementById('view-chickens').classList.add('active-view'); };
 
-// MODAL TRAITEMENT
 window.openTreatmentModal = () => {
     document.getElementById('form-treatment').reset(); document.getElementById('treat-date').valueAsDate = new Date();
     document.getElementById('modal-treatment').style.display = 'flex';
@@ -449,7 +440,6 @@ document.getElementById('form-treatment').addEventListener('submit', (e) => {
     document.getElementById('modal-treatment').style.display = 'none';
 });
 
-// MODAL TRANSACTION
 window.setTransactionType = (type) => {
     document.getElementById('trans-category').value = type;
     document.getElementById('btn-type-expense').className = type === 'expense' ? 'segment-btn active' : 'segment-btn';
@@ -512,7 +502,6 @@ window.deleteCurrentTransaction = () => {
     }
 };
 
-// GESTION POULES & IMAGE
 function compressImage(file, callback) {
     const reader = new FileReader(); reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -533,22 +522,25 @@ window.openChickenModal = (isEdit = false) => {
     const deleteBtn = document.getElementById('btn-delete-chicken');
     document.getElementById('form-chicken').reset();
     
-    if (!isEdit) { 
+    // Si isEdit est TRUE et qu'on a bien un ID selectionné
+    if (isEdit && currentChickenId) {
+        const chk = localChickens.find(c => c.id === currentChickenId);
+        if(chk) {
+            document.getElementById('modal-chicken-title').innerText="Modifier"; 
+            document.getElementById('chk-id').value=chk.id; 
+            document.getElementById('chk-name').value=chk.name; 
+            document.getElementById('chk-breed').value=chk.breed; 
+            document.getElementById('chk-date').value=chk.date||''; 
+            document.getElementById('chk-price').value=chk.price||''; 
+            document.getElementById('preview-photo').src=chk.photo||'icon.png';
+            deleteBtn.style.display='flex';
+        }
+    } else {
+        // Mode Ajout
         document.getElementById('modal-chicken-title').innerText="Nouvelle Poule"; 
         document.getElementById('chk-id').value=''; 
         document.getElementById('preview-photo').src='icon.png'; 
         deleteBtn.style.display='none'; 
-    }
-    else if (isEdit && currentChickenId) {
-        const chk = localChickens.find(c => c.id === currentChickenId);
-        document.getElementById('modal-chicken-title').innerText="Modifier"; 
-        document.getElementById('chk-id').value=chk.id; 
-        document.getElementById('chk-name').value=chk.name; 
-        document.getElementById('chk-breed').value=chk.breed; 
-        document.getElementById('chk-date').value=chk.date||''; 
-        document.getElementById('chk-price').value=chk.price||''; 
-        document.getElementById('preview-photo').src=chk.photo||'icon.png';
-        deleteBtn.style.display='flex';
     }
     modal.style.display='flex';
 };
@@ -590,7 +582,7 @@ function updateAuthUI(isLoggedIn) {
 document.getElementById('google-login-btn').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
 document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
 
-// DATA
+// LOAD DATA
 function loadFirebaseData() { 
     const r = db.collection('users').doc(currentUser.uid); 
     r.collection('chickens').onSnapshot(s => { localChickens = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); 
