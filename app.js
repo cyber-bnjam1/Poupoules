@@ -3,14 +3,13 @@ const firebaseConfig = {
     apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEtJ0SqA",
     authDomain: "poulettes-75fb5.firebaseapp.com",
     projectId: "poulettes-75fb5",
-    storageBucket: "poulettes-75fb5.appspot.com",
+    storageBucket: "poulettes-75fb5.firebasestorage.app",
     messagingSenderId: "479553710488",
     appId: "1:479553710488:web:8cb5ec0285f330c51e23ed"
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-const storage = firebase.storage();
 
 // --- ETAT GLOBAL ---
 let currentUser = null;
@@ -18,21 +17,21 @@ let isDemoMode = true;
 let localChickens = [];
 let localEggs = [];
 let localTransactions = [];
-let localTasks = [
-    { id: 't1', title: 'Nettoyer le poulailler', frequency: 7, lastDone: new Date().toISOString() },
-    { id: 't2', title: 'Changer l\'eau', frequency: 1, lastDone: new Date().toISOString() }
-];
+let localTasks = [];
 let currentStatsPeriod = 'month';
 let eggsChartInstance = null;
-let currentUploadedPhotoUrl = null;
+let tempPhotoBase64 = null;
 let currentViewId = 'view-dashboard';
 
 // --- INITIALISATION ---
 document.addEventListener('DOMContentLoaded', () => {
+    if(localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('dark-mode-toggle').checked = true;
+    }
     initEggsChart();
     fetchWeather();
-    
-    if(localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+    updateFabVisibility('view-dashboard');
 
     auth.onAuthStateChanged(user => {
         if (user) {
@@ -56,29 +55,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.querySelectorAll('.close-modal').forEach(b => b.onclick = () => b.closest('.modal').style.display='none');
+    document.querySelectorAll('.close-modal').forEach(x => {
+        x.addEventListener('click', () => x.closest('.modal').style.display = 'none');
+    });
 });
 
-// --- CLOUD STORAGE PHOTOS ---
-window.uploadChickenPhoto = async (input) => {
-    if (!input.files[0] || isDemoMode) return;
-    const file = input.files[0];
-    const loader = document.getElementById('upload-loader');
-    loader.style.display = 'flex';
-    try {
-        const ref = storage.ref(`chickens/${currentUser.uid}/${Date.now()}_${file.name}`);
-        const snap = await ref.put(file);
-        currentUploadedPhotoUrl = await snap.ref.getDownloadURL();
-        document.getElementById('preview-photo').src = currentUploadedPhotoUrl;
-    } catch (e) { alert("Erreur upload photo"); }
-    loader.style.display = 'none';
-};
-
-// --- SYNC & DATA ---
+// --- SAUVEGARDE & PERSISTANCE ---
 function saveData() {
-    const data = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks };
+    const data = {
+        chickens: localChickens,
+        eggs: localEggs,
+        transactions: localTransactions,
+        tasks: localTasks
+    };
     localStorage.setItem('poupoules_data', JSON.stringify(data));
-    if (currentUser) db.collection('users').doc(currentUser.uid).set(data);
+    if (currentUser) {
+        db.collection('users').doc(currentUser.uid).set(data);
+    }
+}
+
+function loadLocalData() {
+    const data = JSON.parse(localStorage.getItem('poupoules_data'));
+    if(data) {
+        localChickens = data.chickens || [];
+        localEggs = data.eggs || [];
+        localTransactions = data.transactions || [];
+        localTasks = data.tasks || [];
+    }
 }
 
 function loadFirebaseData() {
@@ -88,21 +91,24 @@ function loadFirebaseData() {
             localChickens = d.chickens || [];
             localEggs = d.eggs || [];
             localTransactions = d.transactions || [];
-            localTasks = d.tasks || localTasks;
+            localTasks = d.tasks || [];
             renderAll();
         }
     });
 }
 
-function loadLocalData() {
-    const d = JSON.parse(localStorage.getItem('poupoules_data'));
-    if(d) {
-        localChickens = d.chickens || [];
-        localEggs = d.eggs || [];
-        localTransactions = d.transactions || [];
-        localTasks = d.tasks || localTasks;
+// --- PHOTO GESTION (Base64 Persistant) ---
+window.handlePhotoUpload = (input) => {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const b64 = e.target.result;
+            document.getElementById('preview-photo').src = b64;
+            tempPhotoBase64 = b64;
+        };
+        reader.readAsDataURL(input.files[0]);
     }
-}
+};
 
 // --- LOGIQUE POULES ---
 window.renderChickensList = () => {
@@ -125,17 +131,17 @@ window.openChickenModal = (id = null) => {
     const f = document.getElementById('form-chicken');
     f.reset();
     document.getElementById('preview-photo').src = 'icon.png';
-    currentUploadedPhotoUrl = null;
+    tempPhotoBase64 = null;
     if(id) {
         const c = localChickens.find(x => x.id === id);
         document.getElementById('chicken-id').value = c.id;
         document.getElementById('chicken-name').value = c.name;
         document.getElementById('chicken-breed').value = c.breed;
         document.getElementById('chicken-date').value = c.date;
-        document.getElementById('preview-photo').src = c.photo || 'icon.png';
-        currentUploadedPhotoUrl = c.photo;
+        document.getElementById('chicken-price').value = c.price;
+        if(c.photo) document.getElementById('preview-photo').src = c.photo;
         document.getElementById('btn-delete-chicken').style.display = 'block';
-        document.getElementById('btn-archive-chicken').style.display = c.status==='archived'?'none':'block';
+        document.getElementById('btn-archive-chicken').style.display = c.status === 'archived' ? 'none' : 'block';
     } else {
         document.getElementById('chicken-id').value = '';
         document.getElementById('btn-delete-chicken').style.display = 'none';
@@ -147,61 +153,72 @@ window.openChickenModal = (id = null) => {
 document.getElementById('form-chicken').onsubmit = (e) => {
     e.preventDefault();
     const id = document.getElementById('chicken-id').value;
-    const data = {
+    const photo = tempPhotoBase64 || document.getElementById('preview-photo').src;
+    const chickenData = {
         name: document.getElementById('chicken-name').value,
         breed: document.getElementById('chicken-breed').value,
         date: document.getElementById('chicken-date').value,
-        photo: currentUploadedPhotoUrl || 'icon.png'
+        price: document.getElementById('chicken-price').value,
+        photo: photo
     };
     if(id) {
-        const i = localChickens.findIndex(c => c.id === id);
-        localChickens[i] = { ...localChickens[i], ...data };
+        const idx = localChickens.findIndex(c => c.id === id);
+        localChickens[idx] = { ...localChickens[idx], ...chickenData };
     } else {
-        localChickens.push({ id: 'c'+Date.now(), ...data, status: 'active' });
+        localChickens.push({ id: 'c'+Date.now(), ...chickenData, status: 'active' });
     }
     saveData(); renderChickensList(); document.getElementById('modal-chicken').style.display='none';
 };
 
 window.archiveChicken = () => {
     const id = document.getElementById('chicken-id').value;
-    const i = localChickens.findIndex(c => c.id === id);
-    localChickens[i].status = 'archived';
+    const idx = localChickens.findIndex(c => c.id === id);
+    localChickens[idx].status = 'archived';
     saveData(); renderChickensList(); document.getElementById('modal-chicken').style.display='none';
 };
 
-window.deleteChicken = () => {
-    if(!confirm("Supprimer ?")) return;
-    const id = document.getElementById('chicken-id').value;
-    localChickens = localChickens.filter(c => c.id !== id);
-    saveData(); renderChickensList(); document.getElementById('modal-chicken').style.display='none';
-};
-
-// --- LOGIQUE DASHBOARD & CHART ---
+// --- GRAPHIQUE CORRIGÉ ---
 function initEggsChart() {
     const ctx = document.getElementById('eggsChart').getContext('2d');
     eggsChartInstance = new Chart(ctx, {
         type: 'bar',
         data: { labels: [], datasets: [{ label: 'Œufs', data: [], backgroundColor: '#ffcc00' }] },
-        options: { scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        options: { 
+            scales: { 
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } 
+            } 
+        }
     });
+}
+
+// --- MÉTÉO ---
+function fetchWeather() {
+    navigator.geolocation.getCurrentPosition(pos => {
+        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
+            .then(r => r.json()).then(data => {
+                const w = document.getElementById('weather-widget');
+                w.querySelector('span').innerText = Math.round(data.current_weather.temperature) + '°C';
+                w.style.display = 'flex';
+            });
+    });
+}
+
+// --- FONCTIONS DASHBOARD / FINANCE / TACHES (RESTAURÉES) ---
+function renderAll() {
+    renderChickensList();
+    renderDashboard();
+    renderFinance();
+    renderMaintenance();
 }
 
 function renderDashboard() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('eggs-today-count').innerText = localEggs.filter(e => e.date.startsWith(today)).length;
     updateEggsChart();
-    const act = document.getElementById('recent-activity-list');
-    act.innerHTML = '';
-    localEggs.slice(-5).reverse().forEach(e => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span>${e.chickenName}</span><small>${e.date.split('T')[0]}</small>`;
-        act.appendChild(li);
-    });
 }
 
 function updateEggsChart() {
     const labels = []; const values = [];
-    // Logique simplifiée pour l'exemple
     for(let i=6; i>=0; i--) {
         const d = new Date(); d.setDate(d.getDate()-i);
         const s = d.toISOString().split('T')[0];
@@ -213,86 +230,66 @@ function updateEggsChart() {
     eggsChartInstance.update();
 }
 
-// --- AUTRES FONCTIONS ---
 window.openAddEggModal = () => {
-    const g = document.getElementById('egg-chickens-list');
-    g.innerHTML = '';
+    const grid = document.getElementById('egg-chickens-list');
+    grid.innerHTML = '';
     localChickens.filter(c => c.status !== 'archived').forEach(c => {
-        const d = document.createElement('div');
-        d.className = 'selection-card';
-        d.innerHTML = `<img src="${c.photo}"><span>${c.name}</span>`;
-        d.onclick = () => {
+        const div = document.createElement('div');
+        div.className = 'selection-card';
+        div.innerHTML = `<img src="${c.photo || 'icon.png'}"><span>${c.name}</span>`;
+        div.onclick = () => {
             localEggs.push({ chickenName: c.name, date: new Date().toISOString() });
             saveData(); renderDashboard(); document.getElementById('modal-add-egg').style.display='none';
         };
-        g.appendChild(d);
+        grid.appendChild(div);
     });
     document.getElementById('modal-add-egg').style.display = 'flex';
 };
-
-window.openTransactionModal = () => document.getElementById('modal-transaction').style.display = 'flex';
-document.getElementById('form-transaction').onsubmit = (e) => {
-    e.preventDefault();
-    localTransactions.push({
-        amount: parseFloat(document.getElementById('trans-amount').value),
-        category: document.getElementById('trans-category').value,
-        date: new Date().toISOString()
-    });
-    saveData(); renderFinance(); document.getElementById('modal-transaction').style.display='none';
-};
-
-function renderFinance() {
-    const list = document.getElementById('finance-list');
-    list.innerHTML = '';
-    let bal = 0;
-    localTransactions.forEach(t => {
-        bal += (t.category === 'income' ? t.amount : -t.amount);
-        const li = document.createElement('li');
-        li.innerHTML = `<span>${t.category}</span><strong>${t.amount}€</strong>`;
-        list.appendChild(li);
-    });
-    document.getElementById('total-balance').innerText = bal.toFixed(2) + '€';
-}
 
 function renderMaintenance() {
     const list = document.getElementById('tasks-list');
     list.innerHTML = '';
     localTasks.forEach(t => {
         const li = document.createElement('li');
-        li.innerHTML = `<span>${t.title}</span><button onclick="doTask('${t.id}')">Fait</button>`;
+        li.className = 'task-item';
+        li.innerHTML = `<span>${t.title}</span><button onclick="completeTask('${t.id}')">Fait</button>`;
         list.appendChild(li);
     });
 }
 
-window.doTask = (id) => {
-    const i = localTasks.findIndex(t => t.id === id);
-    localTasks[i].lastDone = new Date().toISOString();
+window.completeTask = (id) => {
+    const idx = localTasks.findIndex(t => t.id === id);
+    localTasks[idx].lastDone = new Date().toISOString();
     saveData(); renderMaintenance();
 };
 
-function fetchWeather() {
-    navigator.geolocation.getCurrentPosition(p => {
-        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.coords.latitude}&longitude=${p.coords.longitude}&current_weather=true`)
-        .then(r => r.json()).then(d => {
-            const w = document.getElementById('weather-widget');
-            w.querySelector('span').innerText = Math.round(d.current_weather.temperature) + '°C';
-            w.style.display = 'flex';
-        });
+function renderFinance() {
+    const list = document.getElementById('finance-list');
+    list.innerHTML = '';
+    localTransactions.forEach(t => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${t.type || 'Autre'}</span><strong>${t.amount}€</strong>`;
+        list.appendChild(li);
     });
 }
 
-function renderAll() { renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }
-
+// --- UTILS ---
 window.navigate = (id) => {
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
     document.getElementById(id).classList.add('active-view');
     currentViewId = id;
     document.getElementById('menu-overlay').classList.remove('open');
+    updateFabVisibility(id);
 };
+
+function updateFabVisibility(id) {
+    const fab = document.getElementById('main-fab');
+    fab.classList.toggle('hidden', !['view-chickens', 'view-finance'].includes(id));
+}
 
 window.handleFabClick = () => {
     if(currentViewId === 'view-chickens') openChickenModal();
-    else if(currentViewId === 'view-finance') openTransactionModal();
+    else if(currentViewId === 'view-finance') document.getElementById('modal-transaction').style.display='flex';
 };
 
 window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
