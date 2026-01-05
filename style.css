@@ -144,8 +144,36 @@ html, body {
 .stat-text small { font-size: 12px; color: var(--text-light); }
 .divider { width: 1px; height: 40px; background: rgba(0,0,0,0.1); }
 
+/* ... LE DÉBUT RESTE PAREIL ... */
+
+/* LISTES (UPDATED v13) */
 .glass-list { list-style: none; padding: 0; margin: 0; }
-.glass-list li { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.glass-list li { 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.05); 
+}
+.glass-list li:last-child { border-bottom: none; }
+
+/* Style spécifique pour la suppression dans la liste */
+.delete-icon-btn {
+    background: none; border: none;
+    color: var(--text-light);
+    padding: 8px;
+    margin-left: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+.delete-icon-btn:hover { color: var(--danger); }
+
+/* Item de dépense cliquable */
+.expenses-list-item { 
+    cursor: pointer; transition: background 0.2s; border-radius: 10px; padding: 10px !important; margin-bottom: 5px; 
+}
+.expenses-list-item:active { background: rgba(0,0,0,0.05); }
+
+/* ... LE RESTE RESTE PAREIL ... */
+
 .expenses-list-item { cursor: pointer; transition: background 0.2s; border-radius: 10px; padding: 10px !important; margin-bottom: 5px; }
 .expenses-list-item:active { background: rgba(0,0,0,0.05); }
 
