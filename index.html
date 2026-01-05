@@ -12,7 +12,6 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -23,13 +22,15 @@
         <div class="blob blob-3"></div>
     </div>
 
-    <div id="app-status" class="status-banner demo">
-        <i class="fas fa-info-circle"></i> Mode Démo
-    </div>
-
-    <main id="app-container">
+    <div id="layout-wrapper">
         
-        <div class="content-scroll">
+        <div id="top-bar-area">
+            <div id="app-status" class="status-banner demo">
+                <i class="fas fa-info-circle"></i> Mode Démo
+            </div>
+        </div>
+
+        <main id="scroll-container">
             
             <section id="view-dashboard" class="active-view">
                 <header class="page-header">
@@ -44,26 +45,18 @@
                 <div class="glass-card summary-card">
                     <div class="stat-item">
                         <div class="icon-box egg-color"><i class="fas fa-egg"></i></div>
-                        <div class="stat-text">
-                            <span id="total-eggs-display">0</span>
-                            <small id="label-eggs-display">Œufs</small>
-                        </div>
+                        <div class="stat-text"><span id="total-eggs-display">0</span><small id="label-eggs-display">Œufs</small></div>
                     </div>
                     <div class="divider"></div>
                     <div class="stat-item">
                         <div class="icon-box money-color"><i class="fas fa-euro-sign"></i></div>
-                        <div class="stat-text">
-                            <span id="total-spent-display">0</span>
-                            <small>Dépenses</small>
-                        </div>
+                        <div class="stat-text"><span id="total-spent-display">0</span><small>Dépenses</small></div>
                     </div>
                 </div>
 
                 <div class="glass-card chart-card">
                     <h3 id="chart-title"><i class="fas fa-chart-bar"></i> Ponte</h3>
-                    <div class="chart-container">
-                        <canvas id="eggsChart"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="eggsChart"></canvas></div>
                 </div>
 
                 <h3>Activités Récentes</h3>
@@ -75,42 +68,33 @@
                     <h1>Le Poulailler</h1>
                     <button class="glass-btn-small" onclick="openChickenModal()"><i class="fas fa-plus"></i></button>
                 </header>
-                
                 <div class="segment-control">
                     <button class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
                     <button class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
                 </div>
-
                 <div id="chickens-grid" class="grid-container"></div>
             </section>
 
             <section id="view-finance">
                 <header class="page-header">
-                    <h1>Budget & Stock</h1>
+                    <h1>Budget</h1>
                     <button class="glass-btn-small" onclick="showAddExpenseModal()"><i class="fas fa-plus"></i></button>
                 </header>
                 <div class="glass-card chart-card">
                     <h3>Répartition</h3>
-                    <div class="chart-container" style="height:200px">
-                        <canvas id="financeChart"></canvas>
-                    </div>
+                    <div class="chart-container" style="height:200px"><canvas id="financeChart"></canvas></div>
                 </div>
                 <h3>Historique</h3>
                 <ul id="expenses-list" class="glass-list"></ul>
             </section>
 
             <section id="view-settings">
-                <header class="page-header">
-                    <h1>Réglages</h1>
-                </header>
-
+                <header class="page-header"><h1>Réglages</h1></header>
                 <div class="glass-card profile-card">
                     <div id="auth-logged-out">
                         <div class="profile-placeholder"><i class="fas fa-user"></i></div>
                         <h3>Cloud Sync</h3>
-                        <button id="google-login-btn" class="glass-btn primary-btn">
-                            <i class="fab fa-google"></i> Connexion Google
-                        </button>
+                        <button id="google-login-btn" class="glass-btn primary-btn"><i class="fab fa-google"></i> Connexion</button>
                     </div>
                     <div id="auth-logged-in" style="display:none;">
                         <img id="user-photo" src="" alt="User">
@@ -131,22 +115,15 @@
             <section id="view-chicken-detail">
                 <header class="page-header">
                     <button class="glass-btn-small" onclick="closeChickenDetails()"><i class="fas fa-arrow-left"></i></button>
-                    <h1 style="font-size: 20px;">Fiche Poule</h1>
+                    <h1 style="font-size: 20px;">Détails</h1>
                     <button class="glass-btn-small" onclick="editCurrentChicken()"><i class="fas fa-pen"></i></button>
                 </header>
-
                 <div class="glass-card profile-card" style="margin-top:20px;">
-                    <div class="detail-photo-container">
-                        <img id="detail-photo" src="" alt="Poule">
-                    </div>
+                    <div class="detail-photo-container"><img id="detail-photo" src="" alt="Poule"></div>
                     <h2 id="detail-name">Nom</h2>
                     <p id="detail-breed" style="color:var(--text-light)">Race</p>
-                    <div class="tags-row">
-                        <span id="detail-age" class="tag-badge">Age</span>
-                        <span id="detail-price" class="tag-badge money">Prix</span>
-                    </div>
+                    <div class="tags-row"><span id="detail-age" class="tag-badge">Age</span><span id="detail-price" class="tag-badge money">Prix</span></div>
                 </div>
-
                 <div class="glass-card">
                     <h3>Statistiques</h3>
                     <ul class="glass-list">
@@ -155,10 +132,11 @@
                         <li><span>🩺 Statut</span> <span id="detail-status" class="badge-success">Active</span></li>
                     </ul>
                 </div>
-
                 <button id="btn-archive" class="glass-btn danger-btn" onclick="archiveCurrentChicken()">Archiver</button>
             </section>
-        </div>
+
+            <div style="height: 100px;"></div>
+        </main>
 
         <nav class="glass-tabbar" id="main-tabbar">
             <button class="tab-btn active" data-target="view-dashboard"><i class="fas fa-home"></i><span>Accueil</span></button>
@@ -166,7 +144,7 @@
             <button class="tab-btn" data-target="view-finance"><i class="fas fa-coins"></i><span>Budget</span></button>
             <button class="tab-btn" data-target="view-settings"><i class="fas fa-cog"></i><span>Réglages</span></button>
         </nav>
-    </main>
+    </div>
 
     <div id="modal-chicken" class="modal">
         <div class="glass-card modal-content">
