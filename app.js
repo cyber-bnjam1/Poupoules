@@ -201,38 +201,63 @@ window.handleAddEgg = (id, name) => {
     if (isDemoMode) { localEggs.push(newEgg); renderDashboard(); alert(`Top ${name} !`); }
     else { db.collection('users').doc(currentUser.uid).collection('eggs').add(newEgg); }
 };
+
+// --- GESTION POULES CORRECTIVE (FIX ID) ---
 window.openChickenModal = (isEdit = false) => {
     const modal = document.getElementById('modal-chicken');
-    if (isEdit && currentChickenId) {
+    // On force le nettoyage complet
+    if (!isEdit) {
+        document.getElementById('form-chicken').reset();
+        document.getElementById('modal-chicken-title').innerText = "Nouvelle";
+        document.getElementById('chk-id').value = ''; // CRUCIAL : On vide l'ID
+        document.getElementById('preview-photo').src = 'icon.png';
+    } else if (isEdit && currentChickenId) {
         const chk = localChickens.find(c => c.id === currentChickenId);
         document.getElementById('modal-chicken-title').innerText = "Modifier";
-        document.getElementById('chk-id').value = chk.id; document.getElementById('chk-name').value = chk.name; document.getElementById('chk-breed').value = chk.breed;
-        document.getElementById('chk-date').value = chk.date || ''; document.getElementById('chk-price').value = chk.price || '';
+        document.getElementById('chk-id').value = chk.id; 
+        document.getElementById('chk-name').value = chk.name; 
+        document.getElementById('chk-breed').value = chk.breed;
+        document.getElementById('chk-date').value = chk.date || ''; 
+        document.getElementById('chk-price').value = chk.price || '';
         document.getElementById('preview-photo').src = chk.photo || 'icon.png';
-    } else {
-        document.getElementById('form-chicken').reset(); document.getElementById('modal-chicken-title').innerText = "Nouvelle";
-        document.getElementById('chk-id').value = ''; document.getElementById('preview-photo').src = 'icon.png';
     }
     modal.style.display = 'flex';
 };
 window.editCurrentChicken = () => openChickenModal(true);
+
 document.getElementById('chk-photo-file').addEventListener('change', (e) => {
     if (e.target.files[0]) { const reader = new FileReader(); reader.onload = (e) => document.getElementById('preview-photo').src = e.target.result; reader.readAsDataURL(e.target.files[0]); }
 });
+
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('chk-id').value;
     const data = { name: document.getElementById('chk-name').value, breed: document.getElementById('chk-breed').value, date: document.getElementById('chk-date').value, price: parseFloat(document.getElementById('chk-price').value), photo: document.getElementById('preview-photo').src, status: 'active' };
+    
     if (isDemoMode) {
-        if(id) { const idx = localChickens.findIndex(c => c.id === id); localChickens[idx] = { ...localChickens[idx], ...data }; if(currentChickenId === id) openChickenDetails(id); }
-        else { localChickens.push({ id: 'demo'+Date.now(), ...data }); }
+        if(id) { 
+            const idx = localChickens.findIndex(c => c.id === id); 
+            localChickens[idx] = { ...localChickens[idx], ...data }; 
+            if(currentChickenId === id) openChickenDetails(id); 
+        } else { 
+            localChickens.push({ id: 'demo'+Date.now(), ...data }); 
+            // Correction : On force l'affichage de l'onglet actif pour voir la nouvelle poule
+            filterChickens('active', document.getElementById('btn-filter-active'));
+        }
         renderChickensList();
     } else {
-        if(id) { db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).update(data); if(currentChickenId === id) openChickenDetails(id); }
-        else { db.collection('users').doc(currentUser.uid).collection('chickens').add(data); }
+        if(id) { 
+            db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).update(data); 
+            if(currentChickenId === id) openChickenDetails(id); 
+        } else { 
+            db.collection('users').doc(currentUser.uid).collection('chickens').add(data);
+            // On bascule sur l'onglet actif
+            filterChickens('active', document.getElementById('btn-filter-active'));
+        }
     }
     document.getElementById('modal-chicken').style.display = 'none';
 });
+
 window.openChickenDetails = (id) => {
     currentChickenId = id; const chk = localChickens.find(c => c.id === id); if(!chk) return;
     document.getElementById('detail-name').innerText = chk.name; document.getElementById('detail-breed').innerText = chk.breed;
