@@ -7,7 +7,6 @@
     --glass-bg: rgba(255, 255, 255, 0.85);
     --glass-border: rgba(255, 255, 255, 0.5);
     --bg-color: #f2f2f7;
-    /* Couleurs du graphique */
     --color-graines: #ffcc00;
     --color-paille: #ff9500;
     --color-soins: #ff3b30;
@@ -116,6 +115,48 @@ html, body {
     box-shadow: 0 8px 30px rgba(0,0,0,0.04);
 }
 
+/* SETTINGS PROFILE FIX */
+.profile-card {
+    text-align: center;
+    display: flex;
+    flex-direction: column; /* Force l'alignement vertical */
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 200px;
+}
+#auth-logged-in {
+    display: none; /* JS le passera en flex */
+    flex-direction: column; /* IMPORTANT : Empile les éléments */
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+}
+#user-photo {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    margin-bottom: 5px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+#user-name {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+#user-email {
+    margin: 0;
+    color: var(--text-light);
+    font-size: 14px;
+    word-break: break-all; /* Coupe l'email s'il est trop long */
+    max-width: 100%;
+    padding: 0 10px;
+}
+.badge-success {
+    background: rgba(52, 199, 89, 0.15); color: var(--success);
+    padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: 600;
+    margin-top: 5px;
+}
+
 .summary-card { display: flex; align-items: center; justify-content: space-around; }
 .stat-item { display: flex; align-items: center; gap: 15px; }
 .icon-box { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
@@ -126,7 +167,6 @@ html, body {
 .stat-text small { font-size: 12px; color: var(--text-light); }
 .divider { width: 1px; height: 40px; background: rgba(0,0,0,0.1); }
 
-/* Updated Lists */
 .glass-list { list-style: none; padding: 0; margin: 0; }
 .glass-list li { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
 .expenses-list-item { cursor: pointer; transition: background 0.2s; border-radius: 10px; padding: 10px !important; margin-bottom: 5px; }
