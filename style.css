@@ -2,14 +2,13 @@
     --primary: #0071e3;
     --danger: #ff3b30;
     --success: #34c759;
-    --warning: #ff9f0a; /* Nouvelle couleur pour "Bientôt" */
+    --warning: #ff9f0a;
     --text-dark: #1c1c1e;
     --text-light: #8e8e93;
-    --glass-bg: rgba(255, 255, 255, 0.90); /* Plus opaque pour lisibilité */
+    --glass-bg: rgba(255, 255, 255, 0.90);
     --glass-border: rgba(255, 255, 255, 0.5);
     --bg-color: #f2f2f7;
     
-    /* Couleurs Graphiques */
     --color-graines: #ffcc00;
     --color-paille: #ff9500;
     --color-soins: #ff3b30;
@@ -131,23 +130,17 @@ html, body {
 .task-content h4 { margin: 0; font-size: 16px; font-weight: 500; }
 .task-content p { margin: 0; font-size: 12px; color: var(--text-light); }
 
-/* Badges de temps pour les tâches */
 .task-badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 .task-badge-urgent { background: rgba(255, 59, 48, 0.15); color: var(--danger); }
 .task-badge-soon { background: rgba(255, 159, 10, 0.15); color: var(--warning); }
 .task-badge-ok { background: rgba(52, 199, 89, 0.15); color: var(--success); }
 
-/* PROFILE CARD FIX */
+/* PROFILE CARD */
 .profile-card {
-    text-align: center;
-    display: flex; flex-direction: column; 
-    align-items: center; justify-content: center;
-    gap: 15px; min-height: 200px;
+    text-align: center; display: flex; flex-direction: column; 
+    align-items: center; justify-content: center; gap: 15px; min-height: 200px;
 }
-#auth-logged-in {
-    display: none; flex-direction: column; 
-    align-items: center; width: 100%; gap: 5px;
-}
+#auth-logged-in { display: none; flex-direction: column; align-items: center; width: 100%; gap: 5px; }
 .profile-info { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
 #user-photo {
     width: 80px; height: 80px; border-radius: 50%; margin-bottom: 5px; 
@@ -156,13 +149,13 @@ html, body {
 #user-name { margin: 0; font-size: 20px; font-weight: 700; word-break: break-word; }
 #user-email { margin: 0; color: var(--text-light); font-size: 14px; word-break: break-all; max-width: 100%; padding: 0 10px; }
 
-/* INPUTS & MODALS FIX */
+/* INPUTS & MODALS */
 input, select { 
     width: 100%; padding: 14px; border-radius: 12px; 
     border: 1px solid #e5e5e5; background: var(--glass-bg); 
     margin-bottom: 15px; box-sizing: border-box; 
     font-size: 16px; -webkit-appearance: none; appearance: none;
-    min-width: 0; /* Empêche le débordement dans flex */
+    min-width: 0;
 }
 input[type="date"] { min-width: 0; display: block; }
 
@@ -172,11 +165,7 @@ input[type="date"] { min-width: 0; display: block; }
     padding: 25px; border-radius: 24px; position: relative; 
     color: var(--text-dark); box-shadow: 0 20px 40px rgba(0,0,0,0.2);
 }
-/* IMPORTANT : Permet le scroll dans la modale si l'écran est petit */
-.scrollable-modal {
-    max-height: 85vh;
-    overflow-y: auto;
-}
+.scrollable-modal { max-height: 85vh; overflow-y: auto; }
 
 /* Common Styles */
 .big-title { font-size: 34px; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.5px; }
@@ -191,6 +180,15 @@ input[type="date"] { min-width: 0; display: block; }
 .chicken-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); border-radius: 20px; padding: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid rgba(255,255,255,0.5); cursor: pointer; }
 .chicken-img { width: 65px; height: 65px; border-radius: 50%; object-fit: cover; margin-bottom: 8px; }
 .grayscale-card { filter: grayscale(100%); opacity: 0.6; }
+
+/* FIX STATS TEXT SIZE */
+.stat-text span { font-size: 18px; font-weight: 700; } /* REDUCED */
+.stat-text small { font-size: 12px; color: var(--text-light); }
+
+/* FIX PREVIEW PHOTO */
+.photo-upload-wrapper { width: 80px; height: 80px; margin: 0 auto 20px auto; position: relative; overflow: hidden; border-radius: 50%; }
+#preview-photo { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px dashed #ccc; }
+.upload-icon { position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
 /* Finance Bars */
 .finance-bar-container { margin-top: 20px; margin-bottom: 20px; }
@@ -221,9 +219,6 @@ input[type="date"] { min-width: 0; display: block; }
 .icon-box { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .egg-color { background: rgba(255, 204, 0, 0.2); color: #ffcc00; }
 .money-color { background: rgba(255, 59, 48, 0.15); color: #ff3b30; }
-.stat-text { display: flex; flex-direction: column; }
-.stat-text span { font-size: 22px; font-weight: 700; }
-.stat-text small { font-size: 12px; color: var(--text-light); }
 .switch { position: relative; display: inline-block; width: 50px; height: 30px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e5e5; transition: .4s; border-radius: 34px; }
