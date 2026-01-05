@@ -36,27 +36,26 @@ let localChickens = [...DEMO_DATA.chickens];
 let localEggs = [...DEMO_DATA.eggs];
 let localTransactions = [...DEMO_DATA.transactions];
 let localTasks = [...DEMO_DATA.tasks];
-
 let currentStatsPeriod = 'month';
 let eggsChartInstance = null;
 let tempPhotoBase64 = null;
+let currentViewId = 'view-dashboard'; // Suivi de la vue active
 
 // --- INITIALISATION ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Mode sombre
     if(localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');
         document.getElementById('dark-mode-toggle').checked = true;
     }
-
     initEggsChart();
     fetchWeather();
+    updateFabVisibility('view-dashboard'); // Init FAB
 
     auth.onAuthStateChanged(user => {
         if (user) {
             currentUser = user;
             isDemoMode = false;
-            document.getElementById('auth-logged-in').style.display = 'flex';
+            document.getElementById('auth-logged-in').style.display = 'block'; // Block pour layout vertical
             document.getElementById('auth-logged-out').style.display = 'none';
             document.getElementById('user-name').innerText = user.displayName || 'Éleveur';
             document.getElementById('user-email').innerText = user.email;
@@ -68,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser = null;
             isDemoMode = true;
             document.getElementById('auth-logged-in').style.display = 'none';
-            document.getElementById('auth-logged-out').style.display = 'flex';
+            document.getElementById('auth-logged-out').style.display = 'block';
             document.getElementById('header-status').classList.replace('connected', 'demo');
             document.getElementById('header-status').innerHTML = '<i class="fas fa-save"></i> <span>Démo</span>';
             loadLocalData();
@@ -83,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// --- NAVIGATION ---
+// --- NAVIGATION & FAB LOGIC ---
 window.toggleMenu = () => { document.getElementById('menu-overlay').classList.toggle('open'); };
 
 window.navigate = (targetId) => {
@@ -91,10 +90,33 @@ window.navigate = (targetId) => {
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
     const target = document.getElementById(targetId);
     if(target) target.classList.add('active-view');
+    
     document.querySelectorAll('.menu-link').forEach(l => l.classList.remove('active'));
     const link = Array.from(document.querySelectorAll('.menu-link')).find(l => l.getAttribute('onclick').includes(targetId));
     if(link) link.classList.add('active');
+    
     document.getElementById('scroll-container').scrollTop = 0;
+    
+    currentViewId = targetId;
+    updateFabVisibility(targetId);
+};
+
+// Logique du bouton flottant
+function updateFabVisibility(viewId) {
+    const fab = document.getElementById('main-fab');
+    // On cache le FAB par défaut
+    fab.classList.add('hidden');
+    
+    // On l'affiche seulement pour les pages qui ont besoin d'un ajout
+    if (viewId === 'view-chickens' || viewId === 'view-finance' || viewId === 'view-maintenance') {
+        fab.classList.remove('hidden');
+    }
+}
+
+window.handleFabClick = () => {
+    if (currentViewId === 'view-chickens') openChickenModal();
+    else if (currentViewId === 'view-finance') openTransactionModal();
+    else if (currentViewId === 'view-maintenance') openEditTaskModal();
 };
 
 // --- RENDU GLOBAL ---
@@ -105,7 +127,7 @@ function renderAll() {
     renderMaintenance();
 }
 
-// 1. DASHBOARD & WIDGETS
+// 1. DASHBOARD
 function renderDashboard() {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -119,7 +141,6 @@ function renderDashboard() {
         filteredEggs = localEggs.filter(e => new Date(e.date).getFullYear() === currentYear);
         document.getElementById('label-eggs-display').innerText = "Œufs (Année)";
     }
-
     document.getElementById('total-eggs-display').innerText = filteredEggs.length;
     
     const yearTransactions = localTransactions.filter(e => new Date(e.date).getFullYear() === currentYear && e.category === 'expense');
@@ -137,7 +158,6 @@ function renderDashboard() {
     const list = document.getElementById('recent-activity-list');
     list.innerHTML = '';
     const recentEggs = [...localEggs].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
-    
     recentEggs.forEach(egg => {
         const li = document.createElement('li');
         const d = new Date(egg.date);
@@ -210,7 +230,6 @@ function renderMaintenance() {
         } else {
             statusHtml = `<span class="task-badge task-badge-ok">OK (${diff}j)</span>`;
         }
-
         const li = document.createElement('li');
         li.className = 'task-item';
         li.innerHTML = `
@@ -235,19 +254,16 @@ function renderMaintenance() {
         badge.innerHTML = `<i class="fas fa-sparkles"></i> <span>Propre</span>`;
     }
 }
-
 window.completeTask = (id) => {
     const task = localTasks.find(t => t.id === id);
     if(task) { task.lastDone = new Date().toISOString(); saveData(); renderMaintenance(); }
 };
 
-// 3. POULES (Gestion)
+// 3. POULES
 function renderChickensList() {
     const grid = document.getElementById('chickens-grid');
     grid.innerHTML = '';
     const filter = document.querySelector('#btn-filter-active').classList.contains('active') ? 'active' : 'archived';
-
-    // Sécurité anti-crash si status est undefined
     localChickens.filter(c => (c.status || 'active') === filter).forEach(c => {
         const div = document.createElement('div');
         div.className = 'chicken-card';
@@ -260,13 +276,11 @@ function renderChickensList() {
         grid.appendChild(div);
     });
 }
-
 window.filterChickens = (status, btn) => {
     document.querySelectorAll('#view-chickens .segment-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderChickensList();
 };
-
 window.openChickenModal = (chickenId = null) => {
     const modal = document.getElementById('modal-chicken');
     const form = document.getElementById('form-chicken');
@@ -274,7 +288,6 @@ window.openChickenModal = (chickenId = null) => {
     form.reset();
     document.getElementById('preview-photo').src = 'icon.png';
     tempPhotoBase64 = null;
-
     if (chickenId) {
         const c = localChickens.find(x => x.id === chickenId);
         if (c) {
@@ -285,28 +298,25 @@ window.openChickenModal = (chickenId = null) => {
             document.getElementById('chicken-date').value = c.date;
             document.getElementById('chicken-price').value = c.price || 0;
             if(c.photo) document.getElementById('preview-photo').src = c.photo;
-            deleteBtn.style.display = 'block'; // Afficher bouton supprimer
+            deleteBtn.style.display = 'block';
         }
     } else {
         document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule";
         document.getElementById('chicken-id').value = "";
         document.getElementById('chicken-date').valueAsDate = new Date();
-        deleteBtn.style.display = 'none'; // Masquer bouton supprimer
+        deleteBtn.style.display = 'none';
     }
     modal.style.display = 'flex';
 };
-
-// --- NOUVEAU: Suppression de poule ---
 window.deleteChicken = () => {
     const id = document.getElementById('chicken-id').value;
-    if(confirm("Êtes-vous sûr de vouloir supprimer cette poule ?")) {
+    if(confirm("Supprimer cette poule ?")) {
         localChickens = localChickens.filter(c => c.id !== id);
         saveData();
         document.getElementById('modal-chicken').style.display = 'none';
         renderChickensList();
     }
 };
-
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('chicken-id').value;
@@ -315,12 +325,9 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
     const date = document.getElementById('chicken-date').value;
     const price = parseFloat(document.getElementById('chicken-price').value) || 0;
     const photo = tempPhotoBase64 || document.getElementById('preview-photo').getAttribute('src');
-
     if (id) {
         const idx = localChickens.findIndex(c => c.id === id);
-        if (idx > -1) {
-            localChickens[idx] = { ...localChickens[idx], name, breed, date, price, photo };
-        }
+        if (idx > -1) { localChickens[idx] = { ...localChickens[idx], name, breed, date, price, photo }; }
     } else {
         localChickens.push({ id: 'c' + Date.now(), name, breed, date, price, photo, status: 'active' });
     }
@@ -334,7 +341,6 @@ function renderFinance() {
     const list = document.getElementById('finance-list');
     list.innerHTML = '';
     const sorted = [...localTransactions].sort((a,b) => new Date(b.date) - new Date(a.date));
-    
     sorted.forEach(t => {
         const li = document.createElement('li');
         li.onclick = () => openTransactionModal(t.id);
@@ -347,12 +353,10 @@ function renderFinance() {
         list.appendChild(li);
     });
 }
-
 window.openTransactionModal = (transId = null) => {
     const modal = document.getElementById('modal-transaction');
     document.getElementById('form-transaction').reset();
     const deleteBtn = document.getElementById('btn-delete-trans');
-    
     if (transId) {
         const t = localTransactions.find(x => x.id === transId);
         document.getElementById('modal-transaction-title').innerText = "Modifier Transaction";
@@ -371,7 +375,6 @@ window.openTransactionModal = (transId = null) => {
     }
     modal.style.display = 'flex';
 };
-
 document.getElementById('form-transaction').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('trans-id').value;
@@ -379,7 +382,6 @@ document.getElementById('form-transaction').addEventListener('submit', (e) => {
     const date = document.getElementById('trans-date').value;
     const type = document.getElementById('trans-type').value;
     const category = document.getElementById('btn-expense').classList.contains('active') ? 'expense' : 'income';
-
     if(id) {
         const idx = localTransactions.findIndex(t => t.id === id);
         if(idx > -1) localTransactions[idx] = { id, amount, date, type, category };
@@ -390,7 +392,6 @@ document.getElementById('form-transaction').addEventListener('submit', (e) => {
     document.getElementById('modal-transaction').style.display = 'none';
     renderFinance();
 });
-
 window.deleteTransaction = () => {
     const id = document.getElementById('trans-id').value;
     if(confirm("Supprimer ?")) {
@@ -400,7 +401,6 @@ window.deleteTransaction = () => {
         renderFinance();
     }
 };
-
 window.setTransactionType = (type) => {
     document.querySelectorAll('#modal-transaction .segment-btn').forEach(b => b.classList.remove('active'));
     if(type === 'expense') {
@@ -411,14 +411,12 @@ window.setTransactionType = (type) => {
         document.getElementById('group-type').style.display = 'none';
     }
 };
-
 function formatType(t) {
     const map = { 'graines': 'Graines', 'paille': 'Paille', 'soins': 'Vétérinaire', 'materiel': 'Matériel', 'achat_poule': 'Achat Poule' };
     return map[t] || 'Autre';
 }
 
 // 5. UTILS & SANITIZATION
-// Fonction pour nettoyer les vieilles données et éviter les bugs
 function sanitizeChickens(list) {
     if(!Array.isArray(list)) return [];
     return list.map(c => ({
@@ -427,16 +425,14 @@ function sanitizeChickens(list) {
         breed: c.breed || '',
         date: c.date || new Date().toISOString().split('T')[0],
         price: c.price || 0,
-        status: c.status || 'active', // Important pour l'affichage
-        photo: c.photo || c.photoUrl || 'icon.png' // Rétro-compatibilité
+        status: c.status || 'active',
+        photo: c.photo || c.photoUrl || 'icon.png'
     }));
 }
-
 window.openEditTaskModal = (taskId = null) => {
     const modal = document.getElementById('modal-edit-task');
     const deleteBtn = document.getElementById('btn-delete-task');
     document.getElementById('form-task').reset();
-    
     if(taskId) {
         const t = localTasks.find(x => x.id === taskId);
         document.getElementById('task-id').value = t.id;
@@ -449,13 +445,11 @@ window.openEditTaskModal = (taskId = null) => {
     }
     modal.style.display = 'flex';
 };
-
 document.getElementById('form-task').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('task-id').value;
     const title = document.getElementById('task-title').value;
     const freq = parseInt(document.getElementById('task-freq').value);
-
     if(id) {
         const idx = localTasks.findIndex(t => t.id === id);
         if(idx > -1) { localTasks[idx].title = title; localTasks[idx].frequency = freq; }
@@ -466,7 +460,6 @@ document.getElementById('form-task').addEventListener('submit', (e) => {
     document.getElementById('modal-edit-task').style.display = 'none';
     renderMaintenance();
 });
-
 window.deleteCurrentTask = () => {
     const id = document.getElementById('task-id').value;
     if(confirm("Supprimer cette tâche ?")) {
@@ -476,14 +469,12 @@ window.deleteCurrentTask = () => {
         renderMaintenance();
     }
 };
-
 function getDaysDiff(dateStr) {
     if(!dateStr) return 999;
     const past = new Date(dateStr);
     const now = new Date();
     return Math.floor(Math.abs(now - past) / (1000 * 60 * 60 * 24)); 
 }
-
 window.handlePhotoUpload = (input) => {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
@@ -494,12 +485,10 @@ window.handlePhotoUpload = (input) => {
         reader.readAsDataURL(input.files[0]);
     }
 };
-
 window.toggleDarkMode = () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
 };
-
 function fetchWeather() {
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition((position) => {
@@ -516,8 +505,6 @@ function fetchWeather() {
         }, () => {});
     }
 }
-
-// 6. DATA & CHART
 function initEggsChart() {
     const ctx = document.getElementById('eggsChart').getContext('2d');
     eggsChartInstance = new Chart(ctx, {
@@ -530,7 +517,6 @@ function initEggsChart() {
         }
     });
 }
-
 function updateEggsChart(data) {
     const labels = [];
     const values = [];
@@ -551,14 +537,12 @@ function updateEggsChart(data) {
     eggsChartInstance.data.datasets[0].data = values;
     eggsChartInstance.update();
 }
-
 window.switchStatsPeriod = (period, btn) => {
     currentStatsPeriod = period;
     document.querySelectorAll('#view-dashboard .segment-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderDashboard();
 };
-
 function saveData() {
     if(isDemoMode) {
         localStorage.setItem('poupoules_data', JSON.stringify({
@@ -576,7 +560,6 @@ function saveData() {
         });
     }
 }
-
 function loadLocalData() {
     const data = localStorage.getItem('poupoules_data');
     if(data) {
@@ -587,7 +570,6 @@ function loadLocalData() {
         localTasks = parsed.tasks || [];
     }
 }
-
 function loadFirebaseData() {
     db.collection('users').doc(currentUser.uid).get().then(doc => {
         if(doc.exists) {
@@ -600,7 +582,6 @@ function loadFirebaseData() {
         }
     });
 }
-
 window.login = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider).catch(e => alert(e.message));
