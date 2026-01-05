@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isDemoMode = false;
             document.getElementById('auth-logged-in').style.display = 'block';
             document.getElementById('auth-logged-out').style.display = 'none';
-            document.getElementById('user-name').innerText = user.displayName;
+            document.getElementById('user-name').innerText = user.displayName || 'Éleveur';
             document.getElementById('user-email').innerText = user.email;
             document.getElementById('user-photo').src = user.photoURL || 'icon.png';
             document.getElementById('header-status').innerHTML = '<i class="fas fa-wifi"></i> <span>Cloud</span>';
@@ -77,7 +77,7 @@ function saveData() {
 function loadLocalData() {
     const data = JSON.parse(localStorage.getItem('poupoules_data'));
     if(data) {
-        localChickens = data.chickens || [];
+        localChickens = sanitizeChickens(data.chickens);
         localEggs = data.eggs || [];
         localTransactions = data.transactions || [];
         localTasks = data.tasks || [];
@@ -88,7 +88,7 @@ function loadFirebaseData() {
     db.collection('users').doc(currentUser.uid).get().then(doc => {
         if(doc.exists) {
             const d = doc.data();
-            localChickens = d.chickens || [];
+            localChickens = sanitizeChickens(d.chickens);
             localEggs = d.eggs || [];
             localTransactions = d.transactions || [];
             localTasks = d.tasks || [];
@@ -97,7 +97,7 @@ function loadFirebaseData() {
     });
 }
 
-// --- PHOTO GESTION (Base64 Persistant) ---
+// --- PHOTO (BASE64) ---
 window.handlePhotoUpload = (input) => {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
@@ -136,9 +136,9 @@ window.openChickenModal = (id = null) => {
         const c = localChickens.find(x => x.id === id);
         document.getElementById('chicken-id').value = c.id;
         document.getElementById('chicken-name').value = c.name;
-        document.getElementById('chicken-breed').value = c.breed;
+        document.getElementById('chicken-breed').value = c.breed || '';
         document.getElementById('chicken-date').value = c.date;
-        document.getElementById('chicken-price').value = c.price;
+        document.getElementById('chicken-price').value = c.price || 0;
         if(c.photo) document.getElementById('preview-photo').src = c.photo;
         document.getElementById('btn-delete-chicken').style.display = 'block';
         document.getElementById('btn-archive-chicken').style.display = c.status === 'archived' ? 'none' : 'block';
@@ -153,13 +153,12 @@ window.openChickenModal = (id = null) => {
 document.getElementById('form-chicken').onsubmit = (e) => {
     e.preventDefault();
     const id = document.getElementById('chicken-id').value;
-    const photo = tempPhotoBase64 || document.getElementById('preview-photo').src;
     const chickenData = {
         name: document.getElementById('chicken-name').value,
         breed: document.getElementById('chicken-breed').value,
         date: document.getElementById('chicken-date').value,
-        price: document.getElementById('chicken-price').value,
-        photo: photo
+        price: parseFloat(document.getElementById('chicken-price').value) || 0,
+        photo: tempPhotoBase64 || document.getElementById('preview-photo').src
     };
     if(id) {
         const idx = localChickens.findIndex(c => c.id === id);
@@ -177,6 +176,13 @@ window.archiveChicken = () => {
     saveData(); renderChickensList(); document.getElementById('modal-chicken').style.display='none';
 };
 
+window.deleteChicken = () => {
+    if(!confirm("Supprimer ?")) return;
+    const id = document.getElementById('chicken-id').value;
+    localChickens = localChickens.filter(c => c.id !== id);
+    saveData(); renderChickensList(); document.getElementById('modal-chicken').style.display='none';
+};
+
 // --- GRAPHIQUE CORRIGÉ ---
 function initEggsChart() {
     const ctx = document.getElementById('eggsChart').getContext('2d');
@@ -184,26 +190,43 @@ function initEggsChart() {
         type: 'bar',
         data: { labels: [], datasets: [{ label: 'Œufs', data: [], backgroundColor: '#ffcc00' }] },
         options: { 
-            scales: { 
-                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } 
-            } 
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } } 
         }
     });
 }
 
-// --- MÉTÉO ---
-function fetchWeather() {
-    navigator.geolocation.getCurrentPosition(pos => {
-        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
-            .then(r => r.json()).then(data => {
-                const w = document.getElementById('weather-widget');
-                w.querySelector('span').innerText = Math.round(data.current_weather.temperature) + '°C';
-                w.style.display = 'flex';
-            });
-    });
+function updateEggsChart(data) {
+    const labels = []; const values = [];
+    if(currentStatsPeriod === 'month') {
+        const days = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate();
+        for(let i=1; i<=days; i++) { labels.push(i); values.push(0); }
+        data.forEach(e => { values[new Date(e.date).getDate()-1]++; });
+    } else {
+        const months = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
+        labels.push(...months); values.push(...new Array(12).fill(0));
+        data.forEach(e => { values[new Date(e.date).getMonth()]++; });
+    }
+    eggsChartInstance.data.labels = labels;
+    eggsChartInstance.data.datasets[0].data = values;
+    eggsChartInstance.update();
 }
 
-// --- FONCTIONS DASHBOARD / FINANCE / TACHES (RESTAURÉES) ---
+// --- MÉTÉO RESTAURÉE ---
+function fetchWeather() {
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
+                .then(r => r.json()).then(data => {
+                    const w = document.getElementById('weather-widget');
+                    w.querySelector('span').innerText = Math.round(data.current_weather.temperature) + '°C';
+                    w.style.display = 'flex';
+                }).catch(() => {});
+        });
+    }
+}
+
+// --- DASHBOARD / FINANCE / ENTRETIEN (RESTAURÉS) ---
 function renderAll() {
     renderChickensList();
     renderDashboard();
@@ -212,22 +235,25 @@ function renderAll() {
 }
 
 function renderDashboard() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('eggs-today-count').innerText = localEggs.filter(e => e.date.startsWith(today)).length;
-    updateEggsChart();
-}
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    let filteredEggs = (currentStatsPeriod === 'month') ? 
+        localEggs.filter(e => { const d = new Date(e.date); return d.getMonth() === currentMonth && d.getFullYear() === currentYear; }) :
+        localEggs.filter(e => new Date(e.date).getFullYear() === currentYear);
 
-function updateEggsChart() {
-    const labels = []; const values = [];
-    for(let i=6; i>=0; i--) {
-        const d = new Date(); d.setDate(d.getDate()-i);
-        const s = d.toISOString().split('T')[0];
-        labels.push(s.split('-')[2]);
-        values.push(localEggs.filter(e => e.date.startsWith(s)).length);
-    }
-    eggsChartInstance.data.labels = labels;
-    eggsChartInstance.data.datasets[0].data = values;
-    eggsChartInstance.update();
+    document.getElementById('total-eggs-display').innerText = filteredEggs.length;
+    document.getElementById('eggs-today-count').innerText = localEggs.filter(e => e.date.startsWith(now.toISOString().split('T')[0])).length;
+    
+    updateEggsChart(filteredEggs);
+
+    const act = document.getElementById('recent-activity-list');
+    act.innerHTML = '';
+    [...localEggs].reverse().slice(0, 8).forEach(egg => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${egg.chickenName}</span><small>${egg.date.split('T')[0]}</small>`;
+        act.appendChild(li);
+    });
 }
 
 window.openAddEggModal = () => {
@@ -257,23 +283,30 @@ function renderMaintenance() {
     });
 }
 
-window.completeTask = (id) => {
-    const idx = localTasks.findIndex(t => t.id === id);
-    localTasks[idx].lastDone = new Date().toISOString();
-    saveData(); renderMaintenance();
-};
-
 function renderFinance() {
     const list = document.getElementById('finance-list');
     list.innerHTML = '';
     localTransactions.forEach(t => {
         const li = document.createElement('li');
-        li.innerHTML = `<span>${t.type || 'Autre'}</span><strong>${t.amount}€</strong>`;
+        li.innerHTML = `<span>${t.type}</span><strong>${t.amount}€</strong>`;
         list.appendChild(li);
     });
 }
 
 // --- UTILS ---
+function sanitizeChickens(list) {
+    if(!Array.isArray(list)) return [];
+    return list.map(c => ({
+        id: c.id || 'c'+Math.random(),
+        name: c.name || 'Sans nom',
+        status: c.status || 'active',
+        photo: c.photo || 'icon.png',
+        date: c.date || '',
+        breed: c.breed || '',
+        price: c.price || 0
+    }));
+}
+
 window.navigate = (id) => {
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
     document.getElementById(id).classList.add('active-view');
@@ -284,12 +317,13 @@ window.navigate = (id) => {
 
 function updateFabVisibility(id) {
     const fab = document.getElementById('main-fab');
-    fab.classList.toggle('hidden', !['view-chickens', 'view-finance'].includes(id));
+    fab.classList.toggle('hidden', !['view-chickens', 'view-finance', 'view-maintenance'].includes(id));
 }
 
 window.handleFabClick = () => {
     if(currentViewId === 'view-chickens') openChickenModal();
     else if(currentViewId === 'view-finance') document.getElementById('modal-transaction').style.display='flex';
+    else if(currentViewId === 'view-maintenance') document.getElementById('modal-edit-task').style.display='flex';
 };
 
 window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
@@ -298,6 +332,11 @@ window.toggleMenu = () => document.getElementById('menu-overlay').classList.togg
 window.filterChickens = (s, b) => {
     document.querySelectorAll('#view-chickens .segment-btn').forEach(x => x.classList.remove('active'));
     b.classList.add('active'); renderChickensList();
+};
+window.switchStatsPeriod = (p, b) => {
+    currentStatsPeriod = p;
+    document.querySelectorAll('#view-dashboard .segment-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); renderDashboard();
 };
 window.toggleDarkMode = () => {
     document.body.classList.toggle('dark-mode');
