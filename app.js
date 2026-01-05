@@ -11,27 +11,13 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// --- DONNÉES DE DÉMO ---
-const DEMO_DATA = {
-    chickens: [
-        { id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-05-10', price: 15, status: 'active', photo: 'icon.png' },
-        { id: 'c2', name: 'Gertrude', breed: 'Sussex', date: '2022-08-15', price: 18, status: 'active', photo: 'icon.png' }
-    ],
-    eggs: [],
-    transactions: [],
-    tasks: [
-        { id: 'task1', title: "Changer l'eau", frequency: 2, lastDone: new Date().toISOString() }, 
-        { id: 'task2', title: 'Nettoyer le poulailler', frequency: 7, lastDone: new Date().toISOString() }
-    ]
-};
-
 // --- ETAT GLOBAL ---
 let currentUser = null;
 let isDemoMode = true;
-let localChickens = [...DEMO_DATA.chickens];
-let localEggs = [...DEMO_DATA.eggs];
-let localTransactions = [...DEMO_DATA.transactions];
-let localTasks = [...DEMO_DATA.tasks];
+let localChickens = [];
+let localEggs = [];
+let localTransactions = [];
+let localTasks = [];
 let currentStatsPeriod = 'month';
 let eggsChartInstance = null;
 let tempPhotoBase64 = null;
@@ -91,6 +77,7 @@ window.navigate = (targetId) => {
     const link = Array.from(document.querySelectorAll('.menu-link')).find(l => l.getAttribute('onclick').includes(targetId));
     if(link) link.classList.add('active');
     
+    document.getElementById('scroll-container').scrollTop = 0;
     currentViewId = targetId;
     updateFabVisibility(targetId);
 };
@@ -129,11 +116,59 @@ function initEggsChart() {
                 y: { 
                     beginAtZero: true, 
                     grid: { display: false },
-                    ticks: { stepSize: 1, precision: 0 } // PAS DE 1 EN 1 POUR L'AXE Y
+                    ticks: {
+                        stepSize: 1, // Pas de 1 en 1
+                        precision: 0  // Entiers uniquement
+                    }
                 }, 
                 x: { grid: { display: false } } 
             }
         }
+    });
+}
+
+function renderDashboard() {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    let filteredEggs = [];
+    if (currentStatsPeriod === 'month') {
+        filteredEggs = localEggs.filter(e => { const d = new Date(e.date); return d.getMonth() === currentMonth && d.getFullYear() === currentYear; });
+        document.getElementById('label-eggs-display').innerText = "Œufs (Mois)";
+    } else {
+        filteredEggs = localEggs.filter(e => new Date(e.date).getFullYear() === currentYear);
+        document.getElementById('label-eggs-display').innerText = "Œufs (Année)";
+    }
+    document.getElementById('total-eggs-display').innerText = filteredEggs.length;
+    
+    const yearTransactions = localTransactions.filter(e => new Date(e.date).getFullYear() === currentYear && e.category === 'expense');
+    const totalExpenses = yearTransactions.reduce((acc, curr) => acc + curr.amount, 0);
+    const yearEggs = localEggs.filter(e => new Date(e.date).getFullYear() === currentYear).length;
+    const cost = yearEggs > 0 ? (totalExpenses / yearEggs).toFixed(2) : "0.00";
+    document.getElementById('cost-per-egg-display').innerText = cost + ' €';
+
+    const todayStr = now.toISOString().split('T')[0];
+    const eggsToday = localEggs.filter(e => e.date.startsWith(todayStr)).length;
+    document.getElementById('eggs-today-count').innerText = eggsToday > 0 ? `${eggsToday} œuf(s)` : 'Rien';
+
+    updateEggsChart(filteredEggs);
+
+    const list = document.getElementById('recent-activity-list');
+    list.innerHTML = '';
+    [...localEggs].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 8).forEach(egg => {
+        const li = document.createElement('li');
+        const d = new Date(egg.date);
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="background:var(--color-graines); width:8px; height:8px; border-radius:50%;"></div>
+                <span style="font-weight:600;">${egg.chickenName}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:13px; color:var(--text-light);">${d.getDate()}/${d.getMonth()+1}</span>
+                <button class="delete-icon-btn" onclick="deleteEgg('${egg.id}')"><i class="fas fa-times"></i></button>
+            </div>`;
+        list.appendChild(li);
     });
 }
 
@@ -158,57 +193,24 @@ function updateEggsChart(data) {
     eggsChartInstance.update();
 }
 
-function renderDashboard() {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+// --- 2. GESTION DES POULES & PHOTO ---
+window.handlePhotoUpload = (input) => {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64Image = e.target.result;
+            document.getElementById('preview-photo').src = base64Image;
+            tempPhotoBase64 = base64Image; // Stockage base64 pour persistance
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+};
 
-    let filteredEggs = localEggs.filter(e => {
-        const d = new Date(e.date);
-        return currentStatsPeriod === 'month' 
-            ? (d.getMonth() === currentMonth && d.getFullYear() === currentYear)
-            : (d.getFullYear() === currentYear);
-    });
-
-    document.getElementById('total-eggs-display').innerText = filteredEggs.length;
-    document.getElementById('label-eggs-display').innerText = currentStatsPeriod === 'month' ? "Œufs (Mois)" : "Œufs (Année)";
-    
-    const yearExpenses = localTransactions.filter(e => new Date(e.date).getFullYear() === currentYear && e.category === 'expense')
-                                          .reduce((acc, curr) => acc + curr.amount, 0);
-    const yearEggsTotal = localEggs.filter(e => new Date(e.date).getFullYear() === currentYear).length;
-    document.getElementById('cost-per-egg-display').innerText = yearEggsTotal > 0 ? (yearExpenses / yearEggsTotal).toFixed(2) + ' €' : '0.00 €';
-
-    const todayStr = now.toISOString().split('T')[0];
-    const eggsToday = localEggs.filter(e => e.date.startsWith(todayStr)).length;
-    document.getElementById('eggs-today-count').innerText = `${eggsToday} œuf(s)`;
-
-    updateEggsChart(filteredEggs);
-
-    const list = document.getElementById('recent-activity-list');
-    list.innerHTML = '';
-    [...localEggs].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 8).forEach(egg => {
-        const d = new Date(egg.date);
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px;">
-                <div style="background:var(--color-graines); width:8px; height:8px; border-radius:50%;"></div>
-                <span style="font-weight:600;">${egg.chickenName}</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span style="font-size:13px; color:var(--text-light);">${d.getDate()}/${d.getMonth()+1}</span>
-                <button class="delete-icon-btn" onclick="deleteEgg('${egg.id}')"><i class="fas fa-times"></i></button>
-            </div>`;
-        list.appendChild(li);
-    });
-}
-
-// --- 2. POULES & ARCHIVAGE ---
 window.renderChickensList = () => {
     const grid = document.getElementById('chickens-grid');
     grid.innerHTML = '';
-    const activeFilter = document.querySelector('#btn-filter-active').classList.contains('active') ? 'active' : 'archived';
-    
-    localChickens.filter(c => (c.status || 'active') === activeFilter).forEach(c => {
+    const filter = document.querySelector('#btn-filter-active').classList.contains('active') ? 'active' : 'archived';
+    localChickens.filter(c => (c.status || 'active') === filter).forEach(c => {
         const div = document.createElement('div');
         div.className = 'chicken-card';
         div.innerHTML = `
@@ -229,7 +231,7 @@ window.openChickenModal = (chickenId = null) => {
     form.reset();
     document.getElementById('preview-photo').src = 'icon.png';
     tempPhotoBase64 = null;
-
+    
     if (chickenId) {
         const c = localChickens.find(x => x.id === chickenId);
         if (c) {
@@ -241,7 +243,7 @@ window.openChickenModal = (chickenId = null) => {
             document.getElementById('chicken-price').value = c.price || 0;
             if(c.photo) document.getElementById('preview-photo').src = c.photo;
             deleteBtn.style.display = 'block';
-            archiveBtn.style.display = c.status === 'archived' ? 'none' : 'block';
+            archiveBtn.style.display = c.status !== 'archived' ? 'block' : 'none';
         }
     } else {
         document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule";
@@ -253,13 +255,12 @@ window.openChickenModal = (chickenId = null) => {
     modal.style.display = 'flex';
 };
 
-// FONCTION POUR RANGER LA POULE DANS "DÉCÉDÉE"
 window.archiveChicken = () => {
     const id = document.getElementById('chicken-id').value;
-    if(confirm("Triste nouvelle... Voulez-vous déplacer cette poule dans la catégorie 'Décédée' ?")) {
+    if(confirm("Confirmer que cette poule est décédée ? Elle sera rangée dans les archives.")) {
         const idx = localChickens.findIndex(c => c.id === id);
         if (idx > -1) {
-            localChickens[idx].status = 'archived'; 
+            localChickens[idx].status = 'archived';
             saveData();
             document.getElementById('modal-chicken').style.display = 'none';
             renderChickensList();
@@ -275,10 +276,10 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
     const date = document.getElementById('chicken-date').value;
     const price = parseFloat(document.getElementById('chicken-price').value) || 0;
     const photo = tempPhotoBase64 || document.getElementById('preview-photo').getAttribute('src');
-
+    
     if (id) {
         const idx = localChickens.findIndex(c => c.id === id);
-        if (idx > -1) localChickens[idx] = { ...localChickens[idx], name, breed, date, price, photo };
+        if (idx > -1) localChickens[idx] = { ...localChickens[idx], name, breed, date, price, photo }; 
     } else {
         localChickens.push({ id: 'c' + Date.now(), name, breed, date, price, photo, status: 'active' });
     }
@@ -287,56 +288,33 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
     renderChickensList();
 });
 
-// --- 3. PERSISTANCE (FIREBASE & BASE64) ---
-window.handlePhotoUpload = (input) => {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            document.getElementById('preview-photo').src = e.target.result;
-            tempPhotoBase64 = e.target.result; // SAUVEGARDE EN BASE64
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-};
-
+// --- 3. SAUVEGARDE & CLOUD ---
 function saveData() {
-    const data = {
+    const dataObj = {
         chickens: localChickens,
         eggs: localEggs,
         transactions: localTransactions,
         tasks: localTasks
     };
 
-    // Sauvegarde locale systématique
-    localStorage.setItem('poupoules_data', JSON.stringify(data));
+    // Sauvegarde locale (Persistance immédiate)
+    localStorage.setItem('poupoules_data', JSON.stringify(dataObj));
 
-    // Sauvegarde Cloud si connecté
+    // Sauvegarde Firebase (Persistance Cloud incluant images Base64)
     if (currentUser) {
-        db.collection('users').doc(currentUser.uid).set(data)
-          .then(() => console.log("Données synchronisées sur Firebase"))
-          .catch(err => console.error("Erreur Firebase:", err));
-    }
-}
-
-function loadLocalData() {
-    const data = localStorage.getItem('poupoules_data');
-    if(data) {
-        const p = JSON.parse(data);
-        localChickens = p.chickens || [];
-        localEggs = p.eggs || [];
-        localTransactions = p.transactions || [];
-        localTasks = p.tasks || [];
+        db.collection('users').doc(currentUser.uid).set(dataObj)
+        .catch(err => console.error("Erreur Cloud:", err));
     }
 }
 
 function loadFirebaseData() {
     db.collection('users').doc(currentUser.uid).get().then(doc => {
         if(doc.exists) {
-            const d = doc.data();
-            localChickens = d.chickens || [];
-            localEggs = d.eggs || [];
-            localTransactions = d.transactions || [];
-            localTasks = d.tasks || [];
+            const data = doc.data();
+            localChickens = data.chickens || [];
+            localEggs = data.eggs || [];
+            localTransactions = data.transactions || [];
+            localTasks = data.tasks || [];
             renderAll();
         } else {
             loadLocalData();
@@ -345,8 +323,18 @@ function loadFirebaseData() {
     });
 }
 
-// --- AUTRES FONCTIONS (Finance, Maintenance, etc.) ---
-// (Ces fonctions restent identiques à votre version originale)
+function loadLocalData() {
+    const data = localStorage.getItem('poupoules_data');
+    if(data) {
+        const parsed = JSON.parse(data);
+        localChickens = parsed.chickens || [];
+        localEggs = parsed.eggs || [];
+        localTransactions = parsed.transactions || [];
+        localTasks = parsed.tasks || [];
+    }
+}
+
+// --- 4. AUTRES FONCTIONS (Budget, Entretien, etc.) ---
 window.filterChickens = (status, btn) => {
     document.querySelectorAll('#view-chickens .segment-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -355,13 +343,72 @@ window.filterChickens = (status, btn) => {
 
 window.deleteChicken = () => {
     const id = document.getElementById('chicken-id').value;
-    if(confirm("Supprimer définitivement cette poule ?")) {
+    if(confirm("Supprimer DÉFINITIVEMENT cette poule ?")) {
         localChickens = localChickens.filter(c => c.id !== id);
         saveData();
         document.getElementById('modal-chicken').style.display = 'none';
         renderChickensList();
     }
 };
+
+window.completeTask = (id) => {
+    const task = localTasks.find(t => t.id === id);
+    if(task) { task.lastDone = new Date().toISOString(); saveData(); renderMaintenance(); }
+};
+
+window.deleteEgg = (eggId) => {
+    if(confirm("Supprimer cet œuf ?")) {
+        localEggs = localEggs.filter(e => e.id !== eggId);
+        saveData();
+        renderDashboard();
+    }
+};
+
+window.openAddEggModal = () => {
+    const modal = document.getElementById('modal-add-egg');
+    const grid = document.getElementById('egg-chickens-list');
+    grid.innerHTML = '';
+    localChickens.filter(c => c.status === 'active').forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'selection-card';
+        card.innerHTML = `<img src="${c.photo || 'icon.png'}"><span>${c.name}</span>`;
+        card.onclick = () => { 
+            localEggs.push({ id: 'egg_' + Date.now(), chickenId: c.id, chickenName: c.name, date: new Date().toISOString() });
+            saveData();
+            renderDashboard();
+            modal.style.display = 'none'; 
+        };
+        grid.appendChild(card);
+    });
+    modal.style.display = 'flex';
+};
+
+function renderMaintenance() {
+    const list = document.getElementById('tasks-list');
+    list.innerHTML = '';
+    localTasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div class="task-left">
+                <div><h4 style="margin:0;">${task.title}</h4><small>Tous les ${task.frequency}j</small></div>
+            </div>
+            <button class="glass-btn-round" onclick="completeTask('${task.id}')"><i class="fas fa-check"></i></button>`;
+        list.appendChild(li);
+    });
+}
+
+function renderFinance() {
+    const list = document.getElementById('finance-list');
+    list.innerHTML = '';
+    localTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div><span style="font-weight:600;">${t.type}</span><br><small>${t.date.split('T')[0]}</small></div>
+            <div style="font-weight:bold;">${t.amount.toFixed(2)}€</div>`;
+        list.appendChild(li);
+    });
+}
 
 window.switchStatsPeriod = (period, btn) => {
     currentStatsPeriod = period;
@@ -372,14 +419,15 @@ window.switchStatsPeriod = (period, btn) => {
 
 function fetchWeather() {
     if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
-                .then(r => r.json()).then(d => {
+        navigator.geolocation.getCurrentPosition((position) => {
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&current_weather=true`)
+                .then(r => r.json()).then(data => {
+                    const temp = Math.round(data.current_weather.temperature);
                     const w = document.getElementById('weather-widget');
-                    w.querySelector('span').innerText = `${Math.round(d.current_weather.temperature)}°C`;
+                    w.querySelector('span').innerText = `${temp}°C`;
                     w.style.display = 'flex';
                 }).catch(() => {});
-        });
+        }, () => {});
     }
 }
 
@@ -389,36 +437,3 @@ window.toggleDarkMode = () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
 };
-
-// ... Inclusion des fonctions finance/maintenance/oeufs simplifiées pour la démo ...
-window.deleteEgg = (id) => { localEggs = localEggs.filter(e => e.id !== id); saveData(); renderDashboard(); };
-window.openAddEggModal = () => {
-    const modal = document.getElementById('modal-add-egg');
-    const grid = document.getElementById('egg-chickens-list');
-    grid.innerHTML = '';
-    localChickens.filter(c => c.status !== 'archived').forEach(c => {
-        const d = document.createElement('div');
-        d.className = 'selection-card';
-        d.innerHTML = `<img src="${c.photo || 'icon.png'}"><span>${c.name}</span>`;
-        d.onclick = () => { 
-            localEggs.push({ id: 'e'+Date.now(), chickenId: c.id, chickenName: c.name, date: new Date().toISOString() });
-            saveData(); renderDashboard(); modal.style.display = 'none';
-        };
-        grid.appendChild(d);
-    });
-    modal.style.display = 'flex';
-};
-
-function renderMaintenance() {
-    const list = document.getElementById('tasks-list');
-    list.innerHTML = '';
-    localTasks.forEach(t => {
-        const li = document.createElement('li');
-        li.className = 'task-item';
-        li.innerHTML = `<div><h4>${t.title}</h4><small>Tous les ${t.frequency}j</small></div>
-                        <button class="glass-btn-round" onclick="completeTask('${t.id}')"><i class="fas fa-check"></i></button>`;
-        list.appendChild(li);
-    });
-}
-window.completeTask = (id) => { saveData(); renderMaintenance(); };
-function renderFinance() { /* Logique finance simplifiée */ }
