@@ -55,7 +55,7 @@
                 <button class="menu-link" onclick="navigate('view-maintenance')"><i class="fas fa-broom"></i> Entretien</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
-            <p class="menu-footer">Poupoules v2.4 (Full Restore)</p>
+            <p class="menu-footer">Poupoules v2.4 (Full Restoration)</p>
         </div>
     </div>
 
@@ -201,13 +201,17 @@
                     <div class="upload-icon"><i class="fas fa-camera"></i></div>
                 </div>
                 <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)">
+
                 <div class="form-group"><label>Nom</label><input type="text" id="chicken-name" required></div>
                 <div class="form-group"><label>Race</label><input type="text" id="chicken-breed"></div>
                 <div class="form-group"><label>Date d'arrivée</label><input type="date" id="chicken-date" required></div>
                 <div class="form-group"><label>Prix d'achat (€)</label><input type="number" id="chicken-price" step="0.5"></div>
+                
                 <div class="modal-actions">
                     <button type="button" class="delete-btn-text" id="btn-delete-chicken" style="display:none;" onclick="deleteChicken()">Supprimer</button>
-                    <button type="button" class="delete-btn-text" id="btn-archive-chicken" style="display:none; color:var(--text-dark);" onclick="archiveChicken()">✝ Décédée</button>
+                    <button type="button" class="delete-btn-text" id="btn-archive-chicken" style="display:none; color:var(--text-dark); margin-left:10px;" onclick="archiveChicken()">
+                        <i class="fas fa-cross"></i> Décédée
+                    </button>
                     <div style="flex:1"></div>
                     <button type="button" class="close-modal secondary-btn">Annuler</button>
                     <button type="submit" class="primary-btn">Enregistrer</button>
