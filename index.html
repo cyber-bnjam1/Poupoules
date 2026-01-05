@@ -45,7 +45,7 @@
                 <button class="menu-link" onclick="navigate('view-finance')"><i class="fas fa-coins"></i> Budget</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
-            <p class="menu-footer">Poupoules v14.0 Ultimate</p>
+            <p class="menu-footer">Poupoules v15.0 Platinum</p>
         </div>
     </div>
 
@@ -56,9 +56,9 @@
             <h1 class="big-title">Bonjour !</h1>
             
             <div class="glass-card tasks-card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3 style="margin:0;">À faire</h3>
-                    <button class="small-icon-btn" onclick="resetTasks()"><i class="fas fa-sync"></i></button>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;">Entretien</h3>
+                    <small style="color:var(--text-light)" id="task-info-count">--</small>
                 </div>
                 <ul id="tasks-list" class="tasks-list">
                     </ul>
@@ -135,6 +135,7 @@
 
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
+            
             <div class="glass-card profile-card">
                 <div id="auth-logged-out">
                     <div class="profile-placeholder"><i class="fas fa-user"></i></div>
@@ -143,16 +144,26 @@
                 </div>
                 <div id="auth-logged-in" style="display:none;">
                     <img id="user-photo" src="" alt="User">
-                    <h3 id="user-name">User</h3>
-                    <p id="user-email">...</p>
-                    <div class="badge-success">Connecté</div>
-                    <button id="logout-btn" class="glass-btn danger-btn">Déconnexion</button>
+                    <div class="profile-info">
+                        <h3 id="user-name">User</h3>
+                        <p id="user-email">...</p>
+                        <div class="badge-success">Connecté</div>
+                    </div>
+                    <button id="logout-btn" class="glass-btn danger-btn" style="margin-top:15px;">Déconnexion</button>
                 </div>
             </div>
+
             <div class="glass-list-container">
-                <h3>Apparence</h3>
+                <h3>Personnalisation</h3>
                 <ul class="glass-list settings-list">
-                    <li><span><i class="fas fa-moon"></i> Mode Sombre</span> <label class="switch"><input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()"><span class="slider round"></span></label></li>
+                    <li onclick="openTaskManagerModal()">
+                        <span><i class="fas fa-list-check"></i> Gérer les Tâches</span>
+                        <i class="fas fa-chevron-right" style="color:var(--text-light)"></i>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-moon"></i> Mode Sombre</span>
+                        <label class="switch"><input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()"><span class="slider round"></span></label>
+                    </li>
                 </ul>
             </div>
         </section>
@@ -176,16 +187,13 @@
                     <li><span>📅 Arrivée</span> <span id="detail-date">--/--/----</span></li>
                 </ul>
             </div>
-
             <div class="glass-card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h3><i class="fas fa-notes-medical" style="color:var(--danger)"></i> Santé</h3>
                     <button class="small-icon-btn" onclick="openTreatmentModal()"><i class="fas fa-plus"></i></button>
                 </div>
-                <ul id="health-list" class="glass-list small-list">
-                    </ul>
+                <ul id="health-list" class="glass-list small-list"></ul>
             </div>
-
             <button id="btn-archive" class="glass-btn danger-btn" onclick="archiveCurrentChicken()">Archiver</button>
         </section>
         
@@ -193,7 +201,7 @@
     </main>
 
     <div id="modal-chicken" class="modal">
-        <div class="glass-card modal-content">
+        <div class="glass-card modal-content scrollable-modal">
             <span class="close-modal">&times;</span>
             <h2 id="modal-chicken-title">Nouvelle Poule</h2>
             <form id="form-chicken">
@@ -217,20 +225,17 @@
     </div>
 
     <div id="modal-transaction" class="modal">
-        <div class="glass-card modal-content">
+        <div class="glass-card modal-content scrollable-modal">
             <span class="close-modal">&times;</span>
             <h2 id="modal-transaction-title">Transaction</h2>
             <form id="form-transaction">
                 <input type="hidden" id="trans-id">
-                
                 <div class="segment-control" style="margin-bottom:15px;">
                     <button type="button" id="btn-type-expense" class="segment-btn active" onclick="setTransactionType('expense')">Dépense</button>
                     <button type="button" id="btn-type-income" class="segment-btn" onclick="setTransactionType('income')">Vente</button>
                 </div>
                 <input type="hidden" id="trans-category" value="expense">
-
                 <label class="input-label">Date</label><input type="date" id="trans-date" required>
-                
                 <div id="field-expense-type">
                     <label class="input-label">Catégorie</label>
                     <select id="trans-type">
@@ -241,9 +246,7 @@
                         <option value="autre">Autre</option>
                     </select>
                 </div>
-
                 <label class="input-label">Montant (€)</label><input type="number" id="trans-amount" step="0.01" required>
-                
                 <button type="submit" class="glass-btn full-width primary-btn">Sauvegarder</button>
                 <button type="button" id="btn-delete-trans" class="glass-btn danger-btn" style="display:none; margin-top:10px;" onclick="deleteCurrentTransaction()"><i class="fas fa-trash"></i> Supprimer</button>
             </form>
@@ -267,6 +270,34 @@
                 <label class="input-label">Note (Optionnel)</label>
                 <input type="text" id="treat-note" placeholder="Ex: Patte gauche...">
                 <button type="submit" class="glass-btn full-width primary-btn">Ajouter</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-task-manager" class="modal">
+        <div class="glass-card modal-content scrollable-modal">
+            <span class="close-modal">&times;</span>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0;">Mes Tâches</h2>
+                <button class="small-icon-btn primary-btn" onclick="openEditTaskModal()"><i class="fas fa-plus"></i></button>
+            </div>
+            <p style="font-size:13px; color:var(--text-light); margin-bottom:20px;">Définissez les fréquences d'entretien.</p>
+            <ul id="settings-tasks-list" class="glass-list"></ul>
+        </div>
+    </div>
+
+    <div id="modal-edit-task" class="modal" style="z-index: 1001;">
+        <div class="glass-card modal-content">
+            <span class="close-modal" onclick="document.getElementById('modal-edit-task').style.display='none'">&times;</span>
+            <h2 id="modal-task-title">Nouvelle Tâche</h2>
+            <form id="form-task">
+                <input type="hidden" id="task-id">
+                <label class="input-label">Titre</label><input type="text" id="task-title" required placeholder="Ex: Nettoyer poulailler">
+                <label class="input-label">Fréquence (Jours)</label>
+                <input type="number" id="task-freq" required placeholder="7" min="1">
+                <p style="font-size:12px; color:var(--text-light); margin-top:-10px; margin-bottom:15px;">Mettre '1' pour tous les jours.</p>
+                <button type="submit" class="glass-btn full-width primary-btn">Sauvegarder</button>
+                <button type="button" id="btn-delete-task" class="glass-btn danger-btn" style="display:none; margin-top:10px;" onclick="deleteCurrentTask()"><i class="fas fa-trash"></i> Supprimer</button>
             </form>
         </div>
     </div>
