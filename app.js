@@ -11,7 +11,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// --- DATA ---
+// --- DATA INITIALE ---
 const DEMO_DATA = {
     chickens: [
         { id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-05-10', price: 15, status: 'active', photo: 'icon.png' },
@@ -20,15 +20,14 @@ const DEMO_DATA = {
     eggs: [
         { id: 'e1', chickenId: 'c1', chickenName: 'Huguette', date: new Date().toISOString() }
     ],
-    // Expenses est renommé en "Transactions" pour gérer dépenses ET revenus
     transactions: [
         { id: 't1', category: 'expense', type: 'graines', amount: 25.50, date: new Date().toISOString() }
     ],
     treatments: [],
+    // NOUVELLE STRUCTURE DE TACHES
     tasks: [
-        { id: 'task1', title: 'Donner à manger', lastDone: null },
-        { id: 'task2', title: 'Changer l\'eau', lastDone: null },
-        { id: 'task3', title: 'Nettoyer le poulailler', lastDone: null } // Reset tous les 7 jours par exemple
+        { id: 'task1', title: 'Changer l\'eau', frequency: 2, lastDone: new Date(Date.now() - 86400000).toISOString() }, // Fait hier (freq 2j)
+        { id: 'task2', title: 'Nettoyer le poulailler', frequency: 7, lastDone: new Date(Date.now() - 604800000).toISOString() } // Fait il y a 7j (freq 7j)
     ]
 };
 
@@ -50,13 +49,11 @@ let eggsChartInstance = null;
 document.addEventListener('DOMContentLoaded', () => {
     initEggsChart();
     
-    // Check Dark Mode
     if(localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');
         document.getElementById('dark-mode-toggle').checked = true;
     }
 
-    // Weather Init
     fetchWeather();
 
     auth.onAuthStateChanged(user => {
@@ -71,11 +68,17 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser = null;
             isDemoMode = true;
             updateAuthUI(false);
-            loadLocalTasks(); // Charger tâches depuis localStorage en mode démo
+            loadLocalTasks();
             renderAll();
         }
     });
-    document.querySelectorAll('.close-modal').forEach(x => x.addEventListener('click', () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none')));
+    
+    // Fermeture des modales au clic sur la croix
+    document.querySelectorAll('.close-modal').forEach(x => {
+        x.addEventListener('click', (e) => {
+            e.target.closest('.modal').style.display = 'none';
+        });
+    });
 });
 
 // --- NAVIGATION ---
@@ -101,7 +104,6 @@ function fetchWeather() {
         navigator.geolocation.getCurrentPosition((position) => {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
-            // API Gratuite Open-Meteo
             fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
                 .then(response => response.json())
                 .then(data => {
@@ -109,8 +111,8 @@ function fetchWeather() {
                     const widget = document.getElementById('weather-widget');
                     widget.querySelector('span').innerText = `${temp}°C`;
                     widget.style.display = 'flex';
-                });
-        });
+                }).catch(() => {});
+        }, () => {});
     }
 }
 
@@ -122,60 +124,165 @@ function renderAll() {
     renderTasks();
 }
 
-// 1. DASHBOARD & TASKS
+// 1. DASHBOARD & TASKS LOGIC (PLATINUM)
 function renderTasks() {
     const list = document.getElementById('tasks-list');
     list.innerHTML = '';
     
-    // On reset les taches à minuit (logique simplifiée ici: si date != aujourd'hui)
-    const today = new Date().toDateString();
+    // Tri par urgence (Ratio temps écoulé / fréquence)
+    const sortedTasks = [...localTasks].sort((a,b) => {
+        const ratioA = getDaysDiff(a.lastDone) / a.frequency;
+        const ratioB = getDaysDiff(b.lastDone) / b.frequency;
+        return ratioB - ratioA;
+    });
 
-    localTasks.forEach(task => {
-        const isDone = task.lastDone === today;
+    let urgentCount = 0;
+
+    sortedTasks.forEach(task => {
+        const diff = getDaysDiff(task.lastDone);
+        const freq = task.frequency;
+        let statusHtml = '';
+        let isUrgent = false;
+
+        if (diff >= freq) {
+            statusHtml = `<span class="task-badge task-badge-urgent">Fait il y a ${diff}j</span>`;
+            isUrgent = true;
+            urgentCount++;
+        } else if (diff >= freq * 0.8) {
+            statusHtml = `<span class="task-badge task-badge-soon">Bientôt</span>`;
+        } else {
+            statusHtml = `<span class="task-badge task-badge-ok">OK (${diff}j)</span>`;
+        }
+
         const li = document.createElement('li');
-        li.className = `task-item ${isDone ? 'completed' : ''}`;
-        li.onclick = () => toggleTask(task.id);
+        li.className = 'task-item';
+        
+        // Au clic, on valide la tache (reset lastDone)
+        li.onclick = () => confirmCompleteTask(task.id, task.title);
+
         li.innerHTML = `
-            <div class="task-checkbox"></div>
-            <span>${task.title}</span>
+            <div class="task-left">
+                <div class="task-checkbox">${isUrgent ? '!' : ''}</div>
+                <div class="task-content">
+                    <h4>${task.title}</h4>
+                    <p>Tous les ${freq}j</p>
+                </div>
+            </div>
+            ${statusHtml}
         `;
         list.appendChild(li);
     });
+    
+    // Update badge count
+    const badge = document.getElementById('task-info-count');
+    badge.innerText = urgentCount > 0 ? `${urgentCount} urgente(s)` : 'Tout est propre ✨';
+    badge.style.color = urgentCount > 0 ? 'var(--danger)' : 'var(--text-light)';
 }
 
-window.toggleTask = (id) => {
-    const today = new Date().toDateString();
-    const taskIndex = localTasks.findIndex(t => t.id === id);
-    if(taskIndex > -1) {
-        // Toggle logic
-        if(localTasks[taskIndex].lastDone === today) {
-            localTasks[taskIndex].lastDone = null; // Uncheck
-        } else {
-            localTasks[taskIndex].lastDone = today; // Check
-        }
-        
-        if(isDemoMode) {
-            localStorage.setItem('demoTasks', JSON.stringify(localTasks));
+function getDaysDiff(dateStr) {
+    if(!dateStr) return 999;
+    const past = new Date(dateStr);
+    const now = new Date();
+    const diffTime = Math.abs(now - past);
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+}
+
+window.confirmCompleteTask = (id, title) => {
+    if(confirm(`Marquer "${title}" comme fait maintenant ?`)) {
+        const taskIdx = localTasks.findIndex(t => t.id === id);
+        if(taskIdx > -1) {
+            localTasks[taskIdx].lastDone = new Date().toISOString();
+            saveTasksData();
             renderTasks();
-        } else {
-            // Save to Firebase (simplified: overwrite user tasks doc)
-            db.collection('users').doc(currentUser.uid).collection('settings').doc('tasks').set({ list: localTasks });
         }
     }
 };
 
-window.resetTasks = () => {
-    if(confirm("Réinitialiser la liste des tâches ?")) {
-        localTasks.forEach(t => t.lastDone = null);
+// GESTION MODALE TASKS (SETTINGS)
+window.openTaskManagerModal = () => {
+    const list = document.getElementById('settings-tasks-list');
+    list.innerHTML = '';
+    localTasks.forEach(task => {
+        const li = document.createElement('li');
+        li.onclick = () => openEditTaskModal(task.id);
+        li.style.cursor = 'pointer';
+        li.innerHTML = `<span>${task.title}</span><small style="color:var(--text-light)">Tous les ${task.frequency}j</small>`;
+        list.appendChild(li);
+    });
+    document.getElementById('modal-task-manager').style.display = 'flex';
+};
+
+window.openEditTaskModal = (taskId = null) => {
+    const modal = document.getElementById('modal-edit-task');
+    const deleteBtn = document.getElementById('btn-delete-task');
+    document.getElementById('form-task').reset();
+    
+    if(taskId) {
+        const t = localTasks.find(x => x.id === taskId);
+        document.getElementById('modal-task-title').innerText = "Modifier Tâche";
+        document.getElementById('task-id').value = t.id;
+        document.getElementById('task-title').value = t.title;
+        document.getElementById('task-freq').value = t.frequency;
+        deleteBtn.style.display = 'block';
+    } else {
+        document.getElementById('modal-task-title').innerText = "Nouvelle Tâche";
+        document.getElementById('task-id').value = '';
+        deleteBtn.style.display = 'none';
+    }
+    modal.style.display = 'flex';
+};
+
+document.getElementById('form-task').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('task-id').value;
+    const title = document.getElementById('task-title').value;
+    const freq = parseInt(document.getElementById('task-freq').value);
+
+    if(id) {
+        const idx = localTasks.findIndex(t => t.id === id);
+        if(idx > -1) {
+            localTasks[idx].title = title;
+            localTasks[idx].frequency = freq;
+        }
+    } else {
+        localTasks.push({
+            id: 'task_'+Date.now(),
+            title: title,
+            frequency: freq,
+            lastDone: new Date(Date.now() - (freq * 86400000 * 2)).toISOString() // Force urgent au début
+        });
+    }
+    saveTasksData();
+    document.getElementById('modal-edit-task').style.display = 'none';
+    openTaskManagerModal(); // Refresh list
+    renderTasks(); // Refresh dashboard
+});
+
+window.deleteCurrentTask = () => {
+    const id = document.getElementById('task-id').value;
+    if(confirm("Supprimer cette tâche ?")) {
+        localTasks = localTasks.filter(t => t.id !== id);
+        saveTasksData();
+        document.getElementById('modal-edit-task').style.display = 'none';
+        openTaskManagerModal();
         renderTasks();
     }
 };
+
+function saveTasksData() {
+    if(isDemoMode) {
+        localStorage.setItem('demoTasks', JSON.stringify(localTasks));
+    } else {
+        db.collection('users').doc(currentUser.uid).collection('settings').doc('tasks').set({ list: localTasks });
+    }
+}
 
 function loadLocalTasks() {
     const saved = localStorage.getItem('demoTasks');
     if(saved) localTasks = JSON.parse(saved);
 }
 
+// 2. DASHBOARD METRICS
 function renderDashboard() {
     const now = new Date(); const currentMonth = now.getMonth(); const currentYear = now.getFullYear();
     let filteredEggs = [], filteredTransactions = [];
@@ -192,7 +299,6 @@ function renderDashboard() {
     
     document.getElementById('total-eggs-display').innerText = filteredEggs.length;
     
-    // Calcul Rentabilité
     const totalExpenses = filteredTransactions.filter(t => t.category === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
     const costPerEgg = filteredEggs.length > 0 ? (totalExpenses / filteredEggs.length).toFixed(2) : "0.00";
     document.getElementById('cost-per-egg-display').innerText = costPerEgg + ' €';
@@ -216,23 +322,32 @@ function updateEggsChart(eggsData) {
     eggsChartInstance.data.labels = labels; eggsChartInstance.data.datasets[0].data = data; eggsChartInstance.update();
 }
 
-// 2. POULES & SANTE
+// 3. POULES (FIX EDIT CLICK)
 function renderChickensList() {
     const grid = document.getElementById('chickens-grid'); grid.innerHTML = '';
     const list = localChickens.filter(c => (c.status || 'active') === currentFilter);
     if (list.length === 0) { grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#999; margin-top:30px;">Vide 🐣</p>'; return; }
     list.forEach(chk => {
         const img = chk.photo || 'icon.png';
-        const card = document.createElement('div'); card.className = `chicken-card ${chk.status === 'archived' ? 'grayscale-card' : ''}`;
-        card.onclick = (e) => { if (!e.target.closest('.egg-btn')) openChickenDetails(chk.id); };
-        card.innerHTML = `<img src="${img}" class="chicken-img"><h3 style="margin:5px 0;">${chk.name}</h3><small style="color:#888">${chk.breed}</small>${chk.status === 'active' ? `<button class="egg-btn" onclick="handleAddEgg('${chk.id}', '${chk.name}')">🥚 A pondu !</button>` : `<small style="display:block;margin-top:10px">Archivée</small>`}`;
+        const card = document.createElement('div'); 
+        card.className = `chicken-card ${chk.status === 'archived' ? 'grayscale-card' : ''}`;
+        
+        // IMPORTANT: On utilise stopPropagation sur le bouton œuf pour ne pas déclencher l'ouverture du détail
+        card.innerHTML = `
+            <div onclick="openChickenDetails('${chk.id}')">
+                <img src="${img}" class="chicken-img">
+                <h3 style="margin:5px 0;">${chk.name}</h3>
+                <small style="color:#888">${chk.breed}</small>
+            </div>
+            ${chk.status === 'active' ? `<button class="egg-btn" onclick="event.stopPropagation(); handleAddEgg('${chk.id}', '${chk.name}')">🥚 A pondu !</button>` : `<small style="display:block;margin-top:10px">Archivée</small>`}
+        `;
         grid.appendChild(card);
     });
 }
 function filterChickens(status, btn) { currentFilter = status; document.querySelectorAll('#view-chickens .segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderChickensList(); }
 function switchStatsPeriod(period, btn) { currentStatsPeriod = period; document.querySelectorAll('#view-dashboard .segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderDashboard(); }
 
-// 3. FINANCE (TRANSACTIONS)
+// 4. FINANCE
 function renderFinance() {
     const list = document.getElementById('expenses-list'); list.innerHTML = '';
     localTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -268,7 +383,6 @@ function renderFinance() {
     document.getElementById('finance-expense').innerText = totalExpense.toFixed(2) + '€';
     document.getElementById('finance-balance').innerText = (totalIncome - totalExpense).toFixed(2) + '€';
 
-    // Graphique Dépenses
     const progressBar = document.getElementById('finance-progress-bar'); progressBar.innerHTML = '';
     if (totalExpense === 0) { progressBar.innerHTML = '<div class="progress-segment" style="width:100%; background-color:#e5e5e5;"></div>'; } 
     else { for (const [type, amount] of Object.entries(map)) { if (amount > 0) { const percentage = (amount / totalExpense) * 100; progressBar.innerHTML += `<div class="progress-segment bg-${type}" style="width:${percentage}%"></div>`; } } }
@@ -291,15 +405,16 @@ window.deleteEgg = (eggId) => {
     }
 };
 
-// POULES (Details & Santé)
+// POULES
 window.openChickenDetails = (id) => {
-    currentChickenId = id; const chk = localChickens.find(c => c.id === id); if(!chk) return;
+    currentChickenId = id; const chk = localChickens.find(c => c.id === id); 
+    if(!chk) { console.error("Poule non trouvée avec ID:", id); return; }
+
     document.getElementById('detail-name').innerText = chk.name; document.getElementById('detail-breed').innerText = chk.breed;
     document.getElementById('detail-price').innerText = (chk.price || 0) + ' €'; document.getElementById('detail-date').innerText = new Date(chk.date).toLocaleDateString();
     document.getElementById('detail-age').innerText = calculateAge(chk.date); document.getElementById('detail-photo').src = chk.photo;
     document.getElementById('detail-total-eggs').innerText = localEggs.filter(e => e.chickenId === id).length;
     
-    // Rendu Carnet de Santé
     const healthList = document.getElementById('health-list'); healthList.innerHTML = '';
     const myTreatments = localTreatments.filter(t => t.chickenId === id).sort((a,b) => new Date(b.date) - new Date(a.date));
     if(myTreatments.length === 0) healthList.innerHTML = '<li><small style="color:#999">Aucun soin enregistré</small></li>';
@@ -334,7 +449,7 @@ document.getElementById('form-treatment').addEventListener('submit', (e) => {
     document.getElementById('modal-treatment').style.display = 'none';
 });
 
-// MODAL TRANSACTION (Mixte Vente/Dépense)
+// MODAL TRANSACTION
 window.setTransactionType = (type) => {
     document.getElementById('trans-category').value = type;
     document.getElementById('btn-type-expense').className = type === 'expense' ? 'segment-btn active' : 'segment-btn';
@@ -346,8 +461,6 @@ window.openTransactionModal = (transId = null) => {
     const modal = document.getElementById('modal-transaction');
     const deleteBtn = document.getElementById('btn-delete-trans');
     document.getElementById('form-transaction').reset();
-    
-    // Default
     setTransactionType('expense');
     document.getElementById('trans-date').valueAsDate = new Date();
 
@@ -399,7 +512,7 @@ window.deleteCurrentTransaction = () => {
     }
 };
 
-// ... GESTION POULES (Reste identique V12 avec compression image, voir ci-dessous pour concision) ...
+// GESTION POULES & IMAGE
 function compressImage(file, callback) {
     const reader = new FileReader(); reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -414,19 +527,33 @@ function compressImage(file, callback) {
     };
 }
 document.getElementById('chk-photo-file').addEventListener('change', (e) => { if (e.target.files[0]) { compressImage(e.target.files[0], (src) => { document.getElementById('preview-photo').src = src; }); } });
+
 window.openChickenModal = (isEdit = false) => {
-    const modal = document.getElementById('modal-chicken'); const deleteBtn = document.getElementById('btn-delete-chicken');
+    const modal = document.getElementById('modal-chicken'); 
+    const deleteBtn = document.getElementById('btn-delete-chicken');
     document.getElementById('form-chicken').reset();
-    if (!isEdit) { document.getElementById('modal-chicken-title').innerText="Nouvelle Poule"; document.getElementById('chk-id').value=''; document.getElementById('preview-photo').src='icon.png'; deleteBtn.style.display='none'; }
+    
+    if (!isEdit) { 
+        document.getElementById('modal-chicken-title').innerText="Nouvelle Poule"; 
+        document.getElementById('chk-id').value=''; 
+        document.getElementById('preview-photo').src='icon.png'; 
+        deleteBtn.style.display='none'; 
+    }
     else if (isEdit && currentChickenId) {
         const chk = localChickens.find(c => c.id === currentChickenId);
-        document.getElementById('modal-chicken-title').innerText="Modifier"; document.getElementById('chk-id').value=chk.id; document.getElementById('chk-name').value=chk.name; 
-        document.getElementById('chk-breed').value=chk.breed; document.getElementById('chk-date').value=chk.date||''; document.getElementById('chk-price').value=chk.price||''; document.getElementById('preview-photo').src=chk.photo||'icon.png';
+        document.getElementById('modal-chicken-title').innerText="Modifier"; 
+        document.getElementById('chk-id').value=chk.id; 
+        document.getElementById('chk-name').value=chk.name; 
+        document.getElementById('chk-breed').value=chk.breed; 
+        document.getElementById('chk-date').value=chk.date||''; 
+        document.getElementById('chk-price').value=chk.price||''; 
+        document.getElementById('preview-photo').src=chk.photo||'icon.png';
         deleteBtn.style.display='flex';
     }
     modal.style.display='flex';
 };
 window.editCurrentChicken = () => openChickenModal(true);
+
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault(); const id = document.getElementById('chk-id').value;
     const data = { name: document.getElementById('chk-name').value, breed: document.getElementById('chk-breed').value, date: document.getElementById('chk-date').value, price: parseFloat(document.getElementById('chk-price').value), photo: document.getElementById('preview-photo').src, status: 'active' };
@@ -440,6 +567,7 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
     }
     document.getElementById('modal-chicken').style.display='none';
 });
+
 window.deleteCurrentChicken = () => {
     const id = document.getElementById('chk-id').value; if (!id) return;
     if (confirm("Supprimer cette poule ?")) {
@@ -448,6 +576,7 @@ window.deleteCurrentChicken = () => {
         document.getElementById('modal-chicken').style.display='none';
     }
 };
+
 window.archiveCurrentChicken = () => toggleArchiveStatus(currentChickenId, 'archived');
 function toggleArchiveStatus(id, status) {
     if(isDemoMode) { const chk = localChickens.find(c => c.id === id); if(chk) chk.status = status; closeChickenDetails(); renderChickensList(); }
@@ -461,15 +590,13 @@ function updateAuthUI(isLoggedIn) {
 document.getElementById('google-login-btn').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
 document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
 
-// LOAD DATA
+// DATA
 function loadFirebaseData() { 
     const r = db.collection('users').doc(currentUser.uid); 
     r.collection('chickens').onSnapshot(s => { localChickens = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); 
     r.collection('eggs').orderBy('date').onSnapshot(s => { localEggs = s.docs.map(d => ({ id: d.id, ...d.data() })); renderAll(); }); 
-    // Chargement Transactions (Anciennement Expenses)
     r.collection('transactions').orderBy('date').onSnapshot(s => { localTransactions = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); 
     r.collection('treatments').orderBy('date').onSnapshot(s => { localTreatments = s.docs.map(d=>({id:d.id, ...d.data()})); if(currentChickenId) openChickenDetails(currentChickenId); });
-    // Load Tasks from Settings
     r.collection('settings').doc('tasks').onSnapshot(s => { if(s.exists) { localTasks = s.data().list || []; renderTasks(); }});
 }
 function initEggsChart() { eggsChartInstance = new Chart(document.getElementById('eggsChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [{ label: 'Œufs', data: [], backgroundColor: '#0071e3', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}}, scales:{y:{beginAtZero:true, display:false}, x:{grid:{display:false}}} } }); }
