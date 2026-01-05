@@ -109,6 +109,7 @@ body.dark-mode .background-blobs { background: #000; }
     padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); box-sizing: border-box;
 }
 .spacer-top { height: calc(60px + env(safe-area-inset-top)); }
+.spacer-bottom { height: 80px; } /* Pour éviter que le FAB cache le contenu */
 
 .glass-card {
     background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -122,6 +123,71 @@ body.dark-mode .background-blobs { background: #000; }
 .subtitle { color: var(--text-light); margin-bottom: 15px; margin-top: -10px; }
 .no-margin { margin: 0; }
 
+/* FLOATING ACTION BUTTON (FAB) */
+#fab-container {
+    position: fixed; bottom: 30px; right: 20px; z-index: 500;
+    /* Ajustement pour iPhone safe area */
+    bottom: calc(30px + env(safe-area-inset-bottom));
+}
+.fab-btn {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: var(--primary); color: white; border: none;
+    font-size: 24px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 25px rgba(0, 113, 227, 0.4);
+    cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.fab-btn:active { transform: scale(0.9); }
+.fab-btn.hidden { display: none; }
+
+/* SETTINGS PAGE REDESIGN */
+.settings-profile-card {
+    text-align: center; padding: 30px 20px;
+}
+.profile-avatar-placeholder {
+    width: 80px; height: 80px; background: #e1e1e6; border-radius: 50%; margin: 0 auto 15px auto;
+    display: flex; align-items: center; justify-content: center; font-size: 30px; color: #a0a0a5;
+}
+.profile-avatar-img {
+    width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+.auth-section h2 { margin: 0 0 5px 0; font-size: 22px; }
+.auth-section p { margin: 0 0 20px 0; color: var(--text-light); font-size: 14px; }
+
+.ios-btn-primary {
+    background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 20px;
+    font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.ios-btn-secondary {
+    background: rgba(118, 118, 128, 0.12); color: var(--text-dark); border: none; padding: 10px 20px; 
+    border-radius: 20px; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+
+.settings-group-title {
+    margin: 20px 0 8px 10px; font-size: 13px; text-transform: uppercase; color: var(--text-light); letter-spacing: 0.5px;
+}
+.settings-group { padding: 0; overflow: hidden; }
+.setting-row {
+    padding: 16px; display: flex; align-items: center; gap: 15px;
+}
+.setting-row.clickable { cursor: pointer; }
+.setting-row.clickable:active { background: rgba(0,0,0,0.05); }
+
+.setting-icon {
+    width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;
+}
+.color-dark { background: #333; }
+.color-blue { background: #0071e3; }
+.color-gray { background: #8e8e93; }
+
+.setting-content {
+    flex: 1; display: flex; justify-content: space-between; align-items: center; border-bottom: 0px solid transparent;
+}
+.setting-divider { height: 1px; background: var(--glass-border); margin-left: 60px; } /* Separator iOS style */
+.arrow-icon { color: #c7c7cc; font-size: 14px; }
+.version-text { color: var(--text-light); }
+
+/* ... (Le reste du CSS : segment-control, lists, buttons, etc. reste identique) ... */
 .status-row { display: flex; gap: 15px; margin-bottom: 25px; }
 .mini-status-card {
     flex: 1; padding: 15px; display: flex; align-items: center; gap: 15px; margin-bottom: 0;
@@ -141,7 +207,6 @@ body.dark-mode .background-blobs { background: #000; }
 .status-label { font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .status-value { font-size: 20px; font-weight: 700; margin-top: 2px; }
 
-/* SEGMENT CONTROL */
 .segment-control {
     background: rgba(118, 118, 128, 0.12); padding: 2px; border-radius: 9px; display: flex; margin-bottom: 20px;
 }
@@ -151,7 +216,6 @@ body.dark-mode .background-blobs { background: #000; }
 }
 .segment-btn.active { background: var(--glass-bg); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
 
-/* LISTS & ITEMS */
 .glass-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .glass-list li {
     background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px;
@@ -159,7 +223,6 @@ body.dark-mode .background-blobs { background: #000; }
 }
 .activity-list li { padding: 12px 16px; }
 
-/* BUTTONS */
 .glass-btn-round {
     width: 40px; height: 40px; border-radius: 50%;
     background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -179,7 +242,6 @@ body.dark-mode .background-blobs { background: #000; }
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
 .delete-btn-text { background: none; border: none; color: var(--danger); font-weight: 600; cursor: pointer; white-space: nowrap; }
 
-/* CHICKEN GRID */
 .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
 .chicken-card {
     background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 20px; padding: 15px;
@@ -192,7 +254,6 @@ body.dark-mode .background-blobs { background: #000; }
     position: absolute; top: 10px; right: 10px; color: var(--text-light); background: none; border: none; cursor: pointer;
 }
 
-/* TASKS */
 .task-item { cursor: pointer; transition: transform 0.2s; }
 .task-item:active { transform: scale(0.98); }
 .task-left { display: flex; align-items: center; gap: 15px; }
@@ -204,7 +265,6 @@ body.dark-mode .background-blobs { background: #000; }
 .task-badge-urgent { background: rgba(255, 59, 48, 0.15); color: var(--danger); }
 .task-badge-ok { background: rgba(52, 199, 89, 0.15); color: var(--success); }
 
-/* MODALS & FORMS */
 .modal {
     display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1000;
     background: rgba(0,0,0,0.4); backdrop-filter: blur(5px);
@@ -213,7 +273,6 @@ body.dark-mode .background-blobs { background: #000; }
 .modal-content {
     background: var(--bg-color); width: 100%; max-width: 400px; border-radius: 24px; padding: 25px;
     max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-    /* Prevent animation/movement issues */
     margin: auto; transform: none;
 }
 .form-group { margin-bottom: 15px; }
@@ -221,10 +280,8 @@ body.dark-mode .background-blobs { background: #000; }
 input, select {
     width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e5e5e5;
     background: var(--glass-bg); font-size: 16px; color: var(--text-dark); box-sizing: border-box;
-    -webkit-appearance: none; /* iOS fix */
+    -webkit-appearance: none;
 }
-
-/* Photo Upload */
 .photo-upload-wrapper {
     width: 90px; height: 90px; margin: 0 auto 20px auto; position: relative; border-radius: 50%; cursor: pointer;
 }
@@ -233,8 +290,6 @@ input, select {
     position: absolute; bottom: 0; right: 0; background: var(--primary); color: white;
     width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
 }
-
-/* SELECTION GRID (Eggs) */
 .selection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
 .selection-card {
     background: var(--glass-bg); padding: 10px; border-radius: 12px; text-align: center; cursor: pointer; border: 1px solid transparent;
