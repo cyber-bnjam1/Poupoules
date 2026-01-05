@@ -153,7 +153,7 @@ function renderFinance() {
     for (const [type, amount] of Object.entries(map)) { if (amount > 0 || total === 0) { legend.innerHTML += `<div class="legend-item"><div class="legend-color bg-${type}"></div><span>${labels[type]} (${total > 0 ? Math.round((amount/total)*100) : 0}%)</span></div>`; } }
 }
 
-// --- MODALS (ADD / EDIT / DELETE) ---
+// --- MODALS EXPENSE ---
 window.openExpenseModal = (expenseId = null) => {
     const modal = document.getElementById('modal-expense');
     const deleteBtn = document.getElementById('btn-delete-expense');
@@ -202,15 +202,55 @@ window.handleAddEgg = (id, name) => {
     else { db.collection('users').doc(currentUser.uid).collection('eggs').add(newEgg); }
 };
 
-// --- GESTION POULES CORRECTIVE (FIX ID) ---
+// --- GESTION POULES AVEC COMPRESSION IMAGE ---
+
+// Utilitaire pour compresser l'image
+function compressImage(file, callback) {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+            const canvas = document.getElementById('compression-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // On limite la taille à 800px max de large
+            const maxWidth = 800;
+            const scaleSize = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * scaleSize;
+
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Compression JPEG à 70% de qualité
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            callback(dataUrl);
+        };
+    };
+}
+
+document.getElementById('chk-photo-file').addEventListener('change', (e) => {
+    if (e.target.files[0]) {
+        // On compresse dès la sélection
+        compressImage(e.target.files[0], (compressedSrc) => {
+            document.getElementById('preview-photo').src = compressedSrc;
+        });
+    }
+});
+
 window.openChickenModal = (isEdit = false) => {
     const modal = document.getElementById('modal-chicken');
-    // On force le nettoyage complet
+    const deleteBtn = document.getElementById('btn-delete-chicken');
+    
+    // Reset form avant ouverture pour éviter que les IDs restent
+    document.getElementById('form-chicken').reset();
+
     if (!isEdit) {
-        document.getElementById('form-chicken').reset();
-        document.getElementById('modal-chicken-title').innerText = "Nouvelle";
-        document.getElementById('chk-id').value = ''; // CRUCIAL : On vide l'ID
+        document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule";
+        document.getElementById('chk-id').value = ''; 
         document.getElementById('preview-photo').src = 'icon.png';
+        deleteBtn.style.display = 'none';
     } else if (isEdit && currentChickenId) {
         const chk = localChickens.find(c => c.id === currentChickenId);
         document.getElementById('modal-chicken-title').innerText = "Modifier";
@@ -220,19 +260,23 @@ window.openChickenModal = (isEdit = false) => {
         document.getElementById('chk-date').value = chk.date || ''; 
         document.getElementById('chk-price').value = chk.price || '';
         document.getElementById('preview-photo').src = chk.photo || 'icon.png';
+        deleteBtn.style.display = 'flex';
     }
     modal.style.display = 'flex';
 };
 window.editCurrentChicken = () => openChickenModal(true);
 
-document.getElementById('chk-photo-file').addEventListener('change', (e) => {
-    if (e.target.files[0]) { const reader = new FileReader(); reader.onload = (e) => document.getElementById('preview-photo').src = e.target.result; reader.readAsDataURL(e.target.files[0]); }
-});
-
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('chk-id').value;
-    const data = { name: document.getElementById('chk-name').value, breed: document.getElementById('chk-breed').value, date: document.getElementById('chk-date').value, price: parseFloat(document.getElementById('chk-price').value), photo: document.getElementById('preview-photo').src, status: 'active' };
+    const data = { 
+        name: document.getElementById('chk-name').value, 
+        breed: document.getElementById('chk-breed').value, 
+        date: document.getElementById('chk-date').value, 
+        price: parseFloat(document.getElementById('chk-price').value), 
+        photo: document.getElementById('preview-photo').src, // C'est déjà l'image compressée
+        status: 'active' 
+    };
     
     if (isDemoMode) {
         if(id) { 
@@ -241,7 +285,6 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
             if(currentChickenId === id) openChickenDetails(id); 
         } else { 
             localChickens.push({ id: 'demo'+Date.now(), ...data }); 
-            // Correction : On force l'affichage de l'onglet actif pour voir la nouvelle poule
             filterChickens('active', document.getElementById('btn-filter-active'));
         }
         renderChickensList();
@@ -251,12 +294,30 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
             if(currentChickenId === id) openChickenDetails(id); 
         } else { 
             db.collection('users').doc(currentUser.uid).collection('chickens').add(data);
-            // On bascule sur l'onglet actif
             filterChickens('active', document.getElementById('btn-filter-active'));
         }
     }
     document.getElementById('modal-chicken').style.display = 'none';
 });
+
+window.deleteCurrentChicken = () => {
+    const id = document.getElementById('chk-id').value;
+    if (!id) return;
+    
+    if (confirm("Voulez-vous vraiment supprimer cette poule définitivement ? (L'archivage est conseillé)")) {
+        if (isDemoMode) {
+            localChickens = localChickens.filter(c => c.id !== id);
+            closeChickenDetails();
+            renderChickensList();
+        } else {
+            db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).delete()
+            .then(() => {
+                closeChickenDetails();
+            });
+        }
+        document.getElementById('modal-chicken').style.display = 'none';
+    }
+};
 
 window.openChickenDetails = (id) => {
     currentChickenId = id; const chk = localChickens.find(c => c.id === id); if(!chk) return;
