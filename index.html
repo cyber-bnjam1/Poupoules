@@ -82,7 +82,7 @@
                 </div>
             </div>
 
-            <h3 class="section-title">Performances</h3>
+            <h3 class="section-title">Statistiques</h3>
             <div class="segment-control">
                 <button class="segment-btn active" onclick="switchStatsPeriod('month', this)">Ce Mois</button>
                 <button class="segment-btn" onclick="switchStatsPeriod('year', this)">Cette Année</button>
@@ -113,7 +113,7 @@
                 </div>
             <div class="segment-control">
                 <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
-                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
+                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Décédée</button>
             </div>
             <div id="chickens-grid" class="grid-container"></div>
         </section>
@@ -284,11 +284,11 @@
             <form id="form-task">
                 <input type="hidden" id="task-id">
                 <div class="form-group">
-                    <label>Titre</label>
+                    <label>Nom de la tâche</label>
                     <input type="text" id="task-title" required placeholder="Ex: Changer l'eau">
                 </div>
                 <div class="form-group">
-                    <label>Fréquence (jours)</label>
+                    <label>Fréquence (tous les X jours)</label>
                     <input type="number" id="task-freq" required min="1" placeholder="Ex: 2">
                 </div>
                 <div class="modal-actions">
