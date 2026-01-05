@@ -55,7 +55,7 @@
                 <button class="menu-link" onclick="navigate('view-maintenance')"><i class="fas fa-broom"></i> Entretien</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
-            <p class="menu-footer">Poupoules v2.3</p>
+            <p class="menu-footer">Poupoules v2.3 (Design Fix)</p>
         </div>
     </div>
 
@@ -116,16 +116,11 @@
                 <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
             </div>
             <div id="chickens-grid" class="grid-container"></div>
-            
-            <button class="fab-btn" onclick="openChickenModal()">
-                <i class="fas fa-plus"></i>
-            </button>
         </section>
 
         <section id="view-maintenance">
             <div class="page-header-row">
                 <h1 class="big-title no-margin">Entretien</h1>
-                <button class="glass-btn-round" onclick="openEditTaskModal()"><i class="fas fa-plus"></i></button>
             </div>
             <p class="subtitle">Tâches récurrentes et nettoyage</p>
             <ul id="tasks-list" class="glass-list task-list-full"></ul>
@@ -134,77 +129,78 @@
         <section id="view-finance">
             <div class="page-header-row">
                 <h1 class="big-title no-margin">Budget</h1>
-                </div>
+            </div>
             <div class="finance-bar-container">
                 <div class="progress-bar" id="finance-bar"></div>
             </div>
             <div class="legend-container" id="finance-legend"></div>
             <h3 class="section-title" style="margin-top:20px;">Historique</h3>
             <ul id="finance-list" class="glass-list"></ul>
-
-            <button class="fab-btn" onclick="openTransactionModal()">
-                <i class="fas fa-plus"></i>
-            </button>
         </section>
 
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
-
-            <div class="settings-group">
-                <div id="auth-logged-in" style="display:none; flex-direction:column;">
-                    <div class="profile-header">
-                        <img id="user-photo" class="profile-pic-large" src="icon.png">
-                        <div style="flex:1;">
-                            <h3 id="user-name" style="margin:0; font-size:18px;">Utilisateur</h3>
-                            <p id="user-email" style="margin:2px 0 0 0; color:var(--text-light); font-size:14px;">email@test.com</p>
-                        </div>
-                    </div>
-                    <div class="settings-item" onclick="logout()" style="color:var(--danger);">
-                        <div class="settings-icon-box" style="background:rgba(255,59,48,0.1); color:var(--danger);">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </div>
-                        <span style="flex:1; font-weight:600;">Déconnexion</span>
-                    </div>
-                </div>
-
-                <div id="auth-logged-out" class="profile-header">
-                    <div class="settings-icon-box" style="width:48px; height:48px; font-size:20px; background:var(--bg-color);">
+            
+            <div class="glass-card settings-profile-card">
+                <div id="auth-logged-out" class="auth-section">
+                    <div class="profile-avatar-placeholder">
                         <i class="fas fa-user"></i>
                     </div>
-                    <div style="flex:1;">
-                        <h3 style="margin:0; font-size:16px;">Compte Cloud</h3>
-                        <p style="margin:0; color:var(--text-light); font-size:13px;">Sauvegardez vos données</p>
+                    <h2>Invité</h2>
+                    <p>Sauvegardez vos données dans le cloud</p>
+                    <button class="ios-btn-primary" onclick="login()">Connexion Google</button>
+                </div>
+
+                <div id="auth-logged-in" class="auth-section" style="display:none;">
+                    <img id="user-photo" src="icon.png" alt="Profil" class="profile-avatar-img">
+                    <h2 id="user-name">Utilisateur</h2>
+                    <p id="user-email">email@test.com</p>
+                    <button class="ios-btn-secondary" onclick="logout()">Se déconnecter</button>
+                </div>
+            </div>
+
+            <h3 class="settings-group-title">Préférences</h3>
+            <div class="glass-card settings-group">
+                <div class="setting-row">
+                    <div class="setting-icon color-dark"><i class="fas fa-moon"></i></div>
+                    <div class="setting-content">
+                        <span>Mode Sombre</span>
+                        <label class="switch">
+                            <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    <button class="primary-btn" onclick="login()" style="width:auto; padding:8px 16px; font-size:14px;">Connexion</button>
+                </div>
+                <div class="setting-divider"></div>
+                <div class="setting-row clickable" onclick="exportData()">
+                    <div class="setting-icon color-blue"><i class="fas fa-file-export"></i></div>
+                    <div class="setting-content">
+                        <span>Exporter les données</span>
+                        <i class="fas fa-chevron-right arrow-icon"></i>
+                    </div>
                 </div>
             </div>
 
-            <h4 class="group-title">Préférences</h4>
-            <div class="settings-group">
-                <div class="settings-item">
-                    <div class="settings-icon-box" style="background:#323232; color:#fff;"><i class="fas fa-moon"></i></div>
-                    <span style="flex:1;">Mode Sombre</span>
-                    <label class="switch">
-                        <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
-                        <span class="slider"></span>
-                    </label>
+            <h3 class="settings-group-title">Application</h3>
+            <div class="glass-card settings-group">
+                <div class="setting-row">
+                    <div class="setting-icon color-gray"><i class="fas fa-info"></i></div>
+                    <div class="setting-content">
+                        <span>Version</span>
+                        <span class="version-text">2.3.0</span>
+                    </div>
                 </div>
-            </div>
-
-            <h4 class="group-title">Données</h4>
-            <div class="settings-group">
-                <div class="settings-item" onclick="exportData()">
-                    <div class="settings-icon-box" style="background:var(--color-graines); color:#b38f00;"><i class="fas fa-file-export"></i></div>
-                    <span style="flex:1;">Exporter JSON</span>
-                    <i class="fas fa-chevron-right" style="color:var(--text-light); font-size:14px;"></i>
-                </div>
-            </div>
-
-            <div style="text-align:center; margin-top:30px; color:var(--text-light); opacity:0.6; font-size:12px;">
-                Poupoules v2.3 <br> Made with ❤️
             </div>
         </section>
+
+        <div class="spacer-bottom"></div>
     </main>
+
+    <div id="fab-container">
+        <button id="main-fab" class="fab-btn" onclick="handleFabClick()">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
 
     <div id="modal-chicken" class="modal">
         <div class="modal-content glass-panel">
