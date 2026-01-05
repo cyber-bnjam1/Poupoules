@@ -15,18 +15,15 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
     <div class="background-blobs">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
         <div class="blob blob-3"></div>
     </div>
-
     <header id="app-header">
         <button id="burger-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
         <div id="header-status" class="status-badge demo">Mode Démo</div>
     </header>
-
     <div id="menu-overlay">
         <div class="menu-content">
             <button class="close-menu-btn" onclick="toggleMenu()">&times;</button>
@@ -37,13 +34,11 @@
                 <button class="menu-link" onclick="navigate('view-finance')"><i class="fas fa-coins"></i> Budget</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
-            <p class="menu-footer">Mes Poulettes v9.0</p>
+            <p class="menu-footer">Mes Poulettes v10.0</p>
         </div>
     </div>
-
     <main id="scroll-container">
         <div class="spacer-top"></div>
-        
         <section id="view-dashboard" class="active-view">
             <h1 class="big-title">Vue d'ensemble</h1>
             <div class="segment-control">
@@ -68,7 +63,6 @@
             <h3 class="section-title">Activités Récentes</h3>
             <ul id="recent-activity-list" class="glass-list activity-list"></ul>
         </section>
-
         <section id="view-chickens">
             <div class="page-header-row">
                 <h1 class="big-title no-margin">Le Poulailler</h1>
@@ -80,25 +74,19 @@
             </div>
             <div id="chickens-grid" class="grid-container"></div>
         </section>
-
         <section id="view-finance">
             <div class="page-header-row">
                 <h1 class="big-title no-margin">Budget</h1>
                 <button class="glass-btn-round" onclick="openExpenseModal()"><i class="fas fa-plus"></i></button>
             </div>
-            
             <div class="glass-card">
                 <h3>Répartition</h3>
-                <div class="finance-bar-container">
-                    <div id="finance-progress-bar" class="progress-bar"></div>
-                </div>
+                <div class="finance-bar-container"><div id="finance-progress-bar" class="progress-bar"></div></div>
                 <div id="finance-legend" class="legend-container"></div>
             </div>
-            
             <h3 class="section-title">Historique</h3>
             <ul id="expenses-list" class="glass-list"></ul>
         </section>
-
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
             <div class="glass-card profile-card">
@@ -122,7 +110,6 @@
                 </ul>
             </div>
         </section>
-
         <section id="view-chicken-detail">
             <div class="page-header-row">
                 <button class="glass-btn-round" onclick="closeChickenDetails()"><i class="fas fa-arrow-left"></i></button>
@@ -145,57 +132,38 @@
             </div>
             <button id="btn-archive" class="glass-btn danger-btn" onclick="archiveCurrentChicken()">Archiver</button>
         </section>
-        
         <div style="height: 50px;"></div>
     </main>
-
     <div id="modal-chicken" class="modal">
         <div class="glass-card modal-content">
             <span class="close-modal">&times;</span>
             <h2 id="modal-chicken-title">Nouvelle Poule</h2>
             <form id="form-chicken">
                 <input type="hidden" id="chk-id">
-                <div class="photo-upload-wrapper" onclick="document.getElementById('chk-photo-file').click()">
-                    <img id="preview-photo" src="https://cdn-icons-png.flaticon.com/512/1826/1826224.png">
-                    <div class="upload-icon"><i class="fas fa-camera"></i></div>
-                </div>
+                <div class="photo-upload-wrapper" onclick="document.getElementById('chk-photo-file').click()"><img id="preview-photo" src="https://cdn-icons-png.flaticon.com/512/1826/1826224.png"><div class="upload-icon"><i class="fas fa-camera"></i></div></div>
                 <input type="file" id="chk-photo-file" accept="image/*" hidden>
-                <div class="form-row">
-                    <div style="flex:1"><label class="input-label">Nom</label><input type="text" id="chk-name" required></div>
-                    <div style="flex:1"><label class="input-label">Race</label><input type="text" id="chk-breed" required></div>
-                </div>
+                <div class="form-row"><div style="flex:1"><label class="input-label">Nom</label><input type="text" id="chk-name" required></div><div style="flex:1"><label class="input-label">Race</label><input type="text" id="chk-breed" required></div></div>
                 <label class="input-label">Date d'arrivée</label><input type="date" id="chk-date" required>
                 <label class="input-label">Prix d'achat (€)</label><input type="number" id="chk-price" step="0.01">
                 <button type="submit" class="glass-btn full-width primary-btn">Sauvegarder</button>
             </form>
         </div>
     </div>
-
     <div id="modal-expense" class="modal">
         <div class="glass-card modal-content">
             <span class="close-modal">&times;</span>
             <h2 id="modal-expense-title">Dépense</h2>
             <form id="form-expense">
-                <input type="hidden" id="exp-id"> <label class="input-label">Date</label><input type="date" id="exp-date" required>
+                <input type="hidden" id="exp-id">
+                <label class="input-label">Date</label><input type="date" id="exp-date" required>
                 <label class="input-label">Type</label>
-                <select id="exp-type">
-                    <option value="graines">Graines</option>
-                    <option value="paille">Paille</option>
-                    <option value="soins">Soins</option>
-                    <option value="materiel">Matériel</option>
-                    <option value="autre">Autre</option>
-                </select>
+                <select id="exp-type"><option value="graines">Graines</option><option value="paille">Paille</option><option value="soins">Soins</option><option value="materiel">Matériel</option><option value="autre">Autre</option></select>
                 <label class="input-label">Montant (€)</label><input type="number" id="exp-amount" step="0.01" required>
-                
                 <button type="submit" class="glass-btn full-width primary-btn">Sauvegarder</button>
-                
-                <button type="button" id="btn-delete-expense" class="glass-btn danger-btn" style="display:none; margin-top:10px;" onclick="deleteCurrentExpense()">
-                    <i class="fas fa-trash"></i> Supprimer
-                </button>
+                <button type="button" id="btn-delete-expense" class="glass-btn danger-btn" style="display:none; margin-top:10px;" onclick="deleteCurrentExpense()"><i class="fas fa-trash"></i> Supprimer</button>
             </form>
         </div>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
