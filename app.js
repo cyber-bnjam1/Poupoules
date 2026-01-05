@@ -76,7 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Fermeture modales
     document.querySelectorAll('.close-modal').forEach(x => {
         x.addEventListener('click', (e) => {
             e.target.closest('.modal').style.display = 'none';
@@ -90,14 +89,11 @@ window.toggleMenu = () => { document.getElementById('menu-overlay').classList.to
 window.navigate = (targetId) => {
     document.getElementById('menu-overlay').classList.remove('open');
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
-    
     const target = document.getElementById(targetId);
     if(target) target.classList.add('active-view');
-    
     document.querySelectorAll('.menu-link').forEach(l => l.classList.remove('active'));
     const link = Array.from(document.querySelectorAll('.menu-link')).find(l => l.getAttribute('onclick').includes(targetId));
     if(link) link.classList.add('active');
-    
     document.getElementById('scroll-container').scrollTop = 0;
 };
 
@@ -106,18 +102,15 @@ function renderAll() {
     renderChickensList();
     renderDashboard();
     renderFinance();
-    renderMaintenance(); // Nouvelle fonction
+    renderMaintenance();
 }
 
-// =======================
 // 1. DASHBOARD & WIDGETS
-// =======================
 function renderDashboard() {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Filtres
     let filteredEggs = [];
     if (currentStatsPeriod === 'month') {
         filteredEggs = localEggs.filter(e => { const d = new Date(e.date); return d.getMonth() === currentMonth && d.getFullYear() === currentYear; });
@@ -127,24 +120,20 @@ function renderDashboard() {
         document.getElementById('label-eggs-display').innerText = "Œufs (Année)";
     }
 
-    // Stats
     document.getElementById('total-eggs-display').innerText = filteredEggs.length;
     
-    // Coût par oeuf
     const yearTransactions = localTransactions.filter(e => new Date(e.date).getFullYear() === currentYear && e.category === 'expense');
     const totalExpenses = yearTransactions.reduce((acc, curr) => acc + curr.amount, 0);
     const yearEggs = localEggs.filter(e => new Date(e.date).getFullYear() === currentYear).length;
     const cost = yearEggs > 0 ? (totalExpenses / yearEggs).toFixed(2) : "0.00";
     document.getElementById('cost-per-egg-display').innerText = cost + ' €';
 
-    // Oeufs aujourd'hui
     const todayStr = now.toISOString().split('T')[0];
     const eggsToday = localEggs.filter(e => e.date.startsWith(todayStr)).length;
     document.getElementById('eggs-today-count').innerText = eggsToday > 0 ? `${eggsToday} œuf(s)` : 'Rien';
 
     updateEggsChart(filteredEggs);
 
-    // Activité Récente + Suppression Oeuf
     const list = document.getElementById('recent-activity-list');
     list.innerHTML = '';
     const recentEggs = [...localEggs].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
@@ -153,7 +142,6 @@ function renderDashboard() {
         const li = document.createElement('li');
         const d = new Date(egg.date);
         const dateStr = `${d.getDate()}/${d.getMonth()+1}`;
-        
         li.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px;">
                 <div style="background:var(--color-graines); width:8px; height:8px; border-radius:50%;"></div>
@@ -180,41 +168,26 @@ window.openAddEggModal = () => {
     const modal = document.getElementById('modal-add-egg');
     const grid = document.getElementById('egg-chickens-list');
     grid.innerHTML = '';
-    
     localChickens.filter(c => c.status === 'active').forEach(c => {
         const card = document.createElement('div');
         card.className = 'selection-card';
         card.innerHTML = `<img src="${c.photo || 'icon.png'}"><span>${c.name}</span>`;
-        card.onclick = () => {
-            addEgg(c);
-            modal.style.display = 'none';
-        };
+        card.onclick = () => { addEgg(c); modal.style.display = 'none'; };
         grid.appendChild(card);
     });
     modal.style.display = 'flex';
 };
 
 function addEgg(chicken) {
-    localEggs.push({
-        id: 'egg_' + Date.now(),
-        chickenId: chicken.id,
-        chickenName: chicken.name,
-        date: new Date().toISOString()
-    });
+    localEggs.push({ id: 'egg_' + Date.now(), chickenId: chicken.id, chickenName: chicken.name, date: new Date().toISOString() });
     saveData();
     renderDashboard();
-    // Animation simple
-    alert(`Bravo ${chicken.name} ! 🥚`);
 }
 
-// =======================
-// 2. ENTRETIEN (MAINTENANCE)
-// =======================
+// 2. ENTRETIEN
 function renderMaintenance() {
     const list = document.getElementById('tasks-list');
     list.innerHTML = '';
-    
-    // Trier: plus urgent en premier
     const sortedTasks = [...localTasks].sort((a,b) => {
         const ratioA = getDaysDiff(a.lastDone) / a.frequency;
         const ratioB = getDaysDiff(b.lastDone) / b.frequency;
@@ -222,7 +195,6 @@ function renderMaintenance() {
     });
 
     let urgentCount = 0;
-
     sortedTasks.forEach(task => {
         const diff = getDaysDiff(task.lastDone);
         const freq = task.frequency;
@@ -241,15 +213,10 @@ function renderMaintenance() {
 
         const li = document.createElement('li');
         li.className = 'task-item';
-        
-        // Clic gauche: marquer comme fait, Clic droit/modifier: éditer
         li.innerHTML = `
             <div class="task-left" onclick="openEditTaskModal('${task.id}')">
                 <div class="task-checkbox" style="${isUrgent ? '' : 'border-color:var(--success); color:transparent;'}">!</div>
-                <div>
-                    <h4 style="margin:0;">${task.title}</h4>
-                    <small style="color:var(--text-light)">Tous les ${freq}j</small>
-                </div>
+                <div><h4 style="margin:0;">${task.title}</h4><small style="color:var(--text-light)">Tous les ${freq}j</small></div>
             </div>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
                 ${statusHtml}
@@ -259,7 +226,6 @@ function renderMaintenance() {
         list.appendChild(li);
     });
 
-    // Mise à jour Widget Header
     const badge = document.getElementById('maintenance-badge');
     if (urgentCount > 0) {
         badge.className = 'header-badge maintenance-badge urgent';
@@ -272,21 +238,16 @@ function renderMaintenance() {
 
 window.completeTask = (id) => {
     const task = localTasks.find(t => t.id === id);
-    if(task) {
-        task.lastDone = new Date().toISOString();
-        saveData();
-        renderMaintenance();
-    }
+    if(task) { task.lastDone = new Date().toISOString(); saveData(); renderMaintenance(); }
 };
 
-// =======================
 // 3. POULES (Gestion)
-// =======================
 function renderChickensList() {
     const grid = document.getElementById('chickens-grid');
     grid.innerHTML = '';
     const filter = document.querySelector('#btn-filter-active').classList.contains('active') ? 'active' : 'archived';
 
+    // Sécurité anti-crash si status est undefined
     localChickens.filter(c => (c.status || 'active') === filter).forEach(c => {
         const div = document.createElement('div');
         div.className = 'chicken-card';
@@ -294,7 +255,7 @@ function renderChickensList() {
             <button class="edit-chicken-btn" onclick="openChickenModal('${c.id}')"><i class="fas fa-pen"></i></button>
             <img class="chicken-photo" src="${c.photo || 'icon.png'}">
             <div class="chicken-name">${c.name}</div>
-            <div class="chicken-breed">${c.breed}</div>
+            <div class="chicken-breed">${c.breed || 'Inconnue'}</div>
         `;
         grid.appendChild(div);
     });
@@ -309,29 +270,41 @@ window.filterChickens = (status, btn) => {
 window.openChickenModal = (chickenId = null) => {
     const modal = document.getElementById('modal-chicken');
     const form = document.getElementById('form-chicken');
+    const deleteBtn = document.getElementById('btn-delete-chicken');
     form.reset();
     document.getElementById('preview-photo').src = 'icon.png';
     tempPhotoBase64 = null;
 
     if (chickenId) {
-        // Mode Modification
         const c = localChickens.find(x => x.id === chickenId);
         if (c) {
             document.getElementById('modal-chicken-title').innerText = "Modifier Poule";
             document.getElementById('chicken-id').value = c.id;
             document.getElementById('chicken-name').value = c.name;
-            document.getElementById('chicken-breed').value = c.breed;
+            document.getElementById('chicken-breed').value = c.breed || '';
             document.getElementById('chicken-date').value = c.date;
-            document.getElementById('chicken-price').value = c.price;
+            document.getElementById('chicken-price').value = c.price || 0;
             if(c.photo) document.getElementById('preview-photo').src = c.photo;
+            deleteBtn.style.display = 'block'; // Afficher bouton supprimer
         }
     } else {
-        // Mode Création
         document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule";
         document.getElementById('chicken-id').value = "";
         document.getElementById('chicken-date').valueAsDate = new Date();
+        deleteBtn.style.display = 'none'; // Masquer bouton supprimer
     }
     modal.style.display = 'flex';
+};
+
+// --- NOUVEAU: Suppression de poule ---
+window.deleteChicken = () => {
+    const id = document.getElementById('chicken-id').value;
+    if(confirm("Êtes-vous sûr de vouloir supprimer cette poule ?")) {
+        localChickens = localChickens.filter(c => c.id !== id);
+        saveData();
+        document.getElementById('modal-chicken').style.display = 'none';
+        renderChickensList();
+    }
 };
 
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
@@ -344,30 +317,22 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
     const photo = tempPhotoBase64 || document.getElementById('preview-photo').getAttribute('src');
 
     if (id) {
-        // Update
         const idx = localChickens.findIndex(c => c.id === id);
         if (idx > -1) {
             localChickens[idx] = { ...localChickens[idx], name, breed, date, price, photo };
         }
     } else {
-        // Create
-        localChickens.push({
-            id: 'c' + Date.now(),
-            name, breed, date, price, photo, status: 'active'
-        });
+        localChickens.push({ id: 'c' + Date.now(), name, breed, date, price, photo, status: 'active' });
     }
     saveData();
     document.getElementById('modal-chicken').style.display = 'none';
     renderChickensList();
 });
 
-// =======================
 // 4. BUDGET
-// =======================
 function renderFinance() {
     const list = document.getElementById('finance-list');
     list.innerHTML = '';
-    
     const sorted = [...localTransactions].sort((a,b) => new Date(b.date) - new Date(a.date));
     
     sorted.forEach(t => {
@@ -375,12 +340,8 @@ function renderFinance() {
         li.onclick = () => openTransactionModal(t.id);
         const color = t.category === 'income' ? 'var(--success)' : 'var(--text-dark)';
         const sign = t.category === 'income' ? '+' : '-';
-        
         li.innerHTML = `
-            <div>
-                <span style="font-weight:600; display:block;">${formatType(t.type)}</span>
-                <small style="color:var(--text-light)">${t.date.split('T')[0]}</small>
-            </div>
+            <div><span style="font-weight:600; display:block;">${formatType(t.type)}</span><small style="color:var(--text-light)">${t.date.split('T')[0]}</small></div>
             <div style="font-weight:bold; color:${color};">${sign}${t.amount.toFixed(2)}€</div>
         `;
         list.appendChild(li);
@@ -456,9 +417,21 @@ function formatType(t) {
     return map[t] || 'Autre';
 }
 
-// =======================
-// 5. MODALS & UTILS
-// =======================
+// 5. UTILS & SANITIZATION
+// Fonction pour nettoyer les vieilles données et éviter les bugs
+function sanitizeChickens(list) {
+    if(!Array.isArray(list)) return [];
+    return list.map(c => ({
+        id: c.id || 'c_' + Math.random().toString(36).substr(2, 9),
+        name: c.name || 'Sans nom',
+        breed: c.breed || '',
+        date: c.date || new Date().toISOString().split('T')[0],
+        price: c.price || 0,
+        status: c.status || 'active', // Important pour l'affichage
+        photo: c.photo || c.photoUrl || 'icon.png' // Rétro-compatibilité
+    }));
+}
+
 window.openEditTaskModal = (taskId = null) => {
     const modal = document.getElementById('modal-edit-task');
     const deleteBtn = document.getElementById('btn-delete-task');
@@ -485,17 +458,9 @@ document.getElementById('form-task').addEventListener('submit', (e) => {
 
     if(id) {
         const idx = localTasks.findIndex(t => t.id === id);
-        if(idx > -1) {
-            localTasks[idx].title = title;
-            localTasks[idx].frequency = freq;
-        }
+        if(idx > -1) { localTasks[idx].title = title; localTasks[idx].frequency = freq; }
     } else {
-        localTasks.push({
-            id: 'task_'+Date.now(),
-            title: title,
-            frequency: freq,
-            lastDone: new Date(Date.now() - (freq * 86400000 * 2)).toISOString()
-        });
+        localTasks.push({ id: 'task_'+Date.now(), title: title, frequency: freq, lastDone: new Date(Date.now() - (freq * 86400000 * 2)).toISOString() });
     }
     saveData();
     document.getElementById('modal-edit-task').style.display = 'none';
@@ -512,7 +477,6 @@ window.deleteCurrentTask = () => {
     }
 };
 
-// Utils
 function getDaysDiff(dateStr) {
     if(!dateStr) return 999;
     const past = new Date(dateStr);
@@ -553,9 +517,7 @@ function fetchWeather() {
     }
 }
 
-// =======================
 // 6. DATA & CHART
-// =======================
 function initEggsChart() {
     const ctx = document.getElementById('eggsChart').getContext('2d');
     eggsChartInstance = new Chart(ctx, {
@@ -572,28 +534,19 @@ function initEggsChart() {
 function updateEggsChart(data) {
     const labels = [];
     const values = [];
-    
-    // Groupement simple par jour (si mois) ou mois (si année)
     if(currentStatsPeriod === 'month') {
         const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate();
         for(let i=1; i<=daysInMonth; i++) labels.push(i);
         const counts = new Array(daysInMonth).fill(0);
-        data.forEach(e => {
-            const d = new Date(e.date).getDate();
-            counts[d-1]++;
-        });
+        data.forEach(e => { const d = new Date(e.date).getDate(); counts[d-1]++; });
         values.push(...counts);
     } else {
         const months = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
         labels.push(...months);
         const counts = new Array(12).fill(0);
-        data.forEach(e => {
-            const m = new Date(e.date).getMonth();
-            counts[m]++;
-        });
+        data.forEach(e => { const m = new Date(e.date).getMonth(); counts[m]++; });
         values.push(...counts);
     }
-
     eggsChartInstance.data.labels = labels;
     eggsChartInstance.data.datasets[0].data = values;
     eggsChartInstance.update();
@@ -628,7 +581,7 @@ function loadLocalData() {
     const data = localStorage.getItem('poupoules_data');
     if(data) {
         const parsed = JSON.parse(data);
-        localChickens = parsed.chickens || [];
+        localChickens = sanitizeChickens(parsed.chickens);
         localEggs = parsed.eggs || [];
         localTransactions = parsed.transactions || [];
         localTasks = parsed.tasks || [];
@@ -639,7 +592,7 @@ function loadFirebaseData() {
     db.collection('users').doc(currentUser.uid).get().then(doc => {
         if(doc.exists) {
             const data = doc.data();
-            localChickens = data.chickens || [];
+            localChickens = sanitizeChickens(data.chickens);
             localEggs = data.eggs || [];
             localTransactions = data.transactions || [];
             localTasks = data.tasks || [];
@@ -648,7 +601,6 @@ function loadFirebaseData() {
     });
 }
 
-// Auth Wrappers
 window.login = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider).catch(e => alert(e.message));
