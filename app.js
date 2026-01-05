@@ -1,4 +1,4 @@
-// FIREBASE CONFIG (A REMPLIR)
+// CONFIGURATION FIREBASE (REMETTRE VOS CLÉS)
 const firebaseConfig = {
     apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEtJ0SqA",
     authDomain: "poulettes-75fb5.firebaseapp.com",
@@ -11,7 +11,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DATA AVEC IDS UNIQUES
+// DATA
 const DEMO_DATA = {
     chickens: [
         { id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-05-10', price: 15, status: 'active', photo: 'https://cdn-icons-png.flaticon.com/512/1826/1826224.png' },
@@ -79,7 +79,6 @@ function renderAll() {
     renderFinance();
 }
 
-// ... (renderChickensList, filterChickens, switchStatsPeriod, renderDashboard, updateEggsChart restent identiques à V8) ...
 function renderChickensList() {
     const grid = document.getElementById('chickens-grid');
     grid.innerHTML = '';
@@ -126,17 +125,14 @@ function updateEggsChart(eggsData) {
     eggsChartInstance.data.labels = labels; eggsChartInstance.data.datasets[0].data = data; eggsChartInstance.update();
 }
 
-// --- LOGIQUE FINANCE MISE A JOUR ---
 function renderFinance() {
     const list = document.getElementById('expenses-list');
     list.innerHTML = '';
     localExpenses.sort((a, b) => new Date(b.date) - new Date(a.date));
     localExpenses.forEach(exp => {
         const li = document.createElement('li');
-        li.className = 'expenses-list-item'; // Ajout de la classe pour le curseur
-        // Ajout du OnClick pour modifier
+        li.className = 'expenses-list-item';
         li.onclick = () => openExpenseModal(exp.id);
-        
         const icon = exp.type === 'graines' ? '🌾' : (exp.type === 'paille' ? '🛏️' : '💊');
         li.innerHTML = `
             <div style="display:flex; flex-direction:column;">
@@ -148,7 +144,6 @@ function renderFinance() {
         list.appendChild(li);
     });
 
-    // Bar Chart Logic (idem V8)
     let map = { graines: 0, paille: 0, soins: 0, materiel: 0, autre: 0 }; let total = 0;
     localExpenses.forEach(e => { const t = map[e.type] !== undefined ? e.type : 'autre'; map[t] += e.amount; total += e.amount; });
     const progressBar = document.getElementById('finance-progress-bar'); progressBar.innerHTML = '';
@@ -158,81 +153,48 @@ function renderFinance() {
     for (const [type, amount] of Object.entries(map)) { if (amount > 0 || total === 0) { legend.innerHTML += `<div class="legend-item"><div class="legend-color bg-${type}"></div><span>${labels[type]} (${total > 0 ? Math.round((amount/total)*100) : 0}%)</span></div>`; } }
 }
 
-// --- ACTIONS MODALS MISE A JOUR (ADD / EDIT / DELETE) ---
 window.openExpenseModal = (expenseId = null) => {
     const modal = document.getElementById('modal-expense');
     const deleteBtn = document.getElementById('btn-delete-expense');
-    
     if (expenseId) {
-        // Mode Modification
-        const exp = localExpenses.find(e => e.id === expenseId);
-        if (!exp) return;
+        const exp = localExpenses.find(e => e.id === expenseId); if (!exp) return;
         document.getElementById('modal-expense-title').innerText = "Modifier Dépense";
-        document.getElementById('exp-id').value = exp.id;
-        document.getElementById('exp-date').value = exp.date.split('T')[0];
-        document.getElementById('exp-type').value = exp.type;
-        document.getElementById('exp-amount').value = exp.amount;
-        deleteBtn.style.display = 'flex'; // Afficher bouton supprimer
+        document.getElementById('exp-id').value = exp.id; document.getElementById('exp-date').value = exp.date.split('T')[0];
+        document.getElementById('exp-type').value = exp.type; document.getElementById('exp-amount').value = exp.amount;
+        deleteBtn.style.display = 'flex';
     } else {
-        // Mode Ajout
-        document.getElementById('form-expense').reset();
-        document.getElementById('modal-expense-title').innerText = "Nouvelle Dépense";
-        document.getElementById('exp-id').value = '';
-        document.getElementById('exp-date').valueAsDate = new Date();
-        deleteBtn.style.display = 'none'; // Cacher bouton supprimer
+        document.getElementById('form-expense').reset(); document.getElementById('modal-expense-title').innerText = "Nouvelle Dépense";
+        document.getElementById('exp-id').value = ''; document.getElementById('exp-date').valueAsDate = new Date();
+        deleteBtn.style.display = 'none';
     }
     modal.style.display = 'flex';
 };
-
 window.showAddExpenseModal = () => openExpenseModal(null);
 
-// SAVE EXPENSE
 document.getElementById('form-expense').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('exp-id').value;
-    const data = {
-        type: document.getElementById('exp-type').value,
-        amount: parseFloat(document.getElementById('exp-amount').value),
-        date: new Date(document.getElementById('exp-date').value).toISOString()
-    };
-    
+    const data = { type: document.getElementById('exp-type').value, amount: parseFloat(document.getElementById('exp-amount').value), date: new Date(document.getElementById('exp-date').value).toISOString() };
     if (isDemoMode) {
-        if (id) {
-            // Update
-            const idx = localExpenses.findIndex(e => e.id === id);
-            if (idx !== -1) localExpenses[idx] = { id, ...data };
-        } else {
-            // Create
-            localExpenses.push({ id: 'e' + Date.now(), ...data });
-        }
+        if (id) { const idx = localExpenses.findIndex(e => e.id === id); if (idx !== -1) localExpenses[idx] = { id, ...data }; }
+        else { localExpenses.push({ id: 'e' + Date.now(), ...data }); }
         renderAll();
     } else {
-        if (id) {
-            db.collection('users').doc(currentUser.uid).collection('expenses').doc(id).update(data);
-        } else {
-            db.collection('users').doc(currentUser.uid).collection('expenses').add(data);
-        }
+        if (id) { db.collection('users').doc(currentUser.uid).collection('expenses').doc(id).update(data); }
+        else { db.collection('users').doc(currentUser.uid).collection('expenses').add(data); }
     }
     document.getElementById('modal-expense').style.display = 'none';
 });
 
-// DELETE EXPENSE
 window.deleteCurrentExpense = () => {
-    const id = document.getElementById('exp-id').value;
-    if (!id) return;
-    
+    const id = document.getElementById('exp-id').value; if (!id) return;
     if (confirm("Supprimer cette dépense ?")) {
-        if (isDemoMode) {
-            localExpenses = localExpenses.filter(e => e.id !== id);
-            renderAll();
-        } else {
-            db.collection('users').doc(currentUser.uid).collection('expenses').doc(id).delete();
-        }
+        if (isDemoMode) { localExpenses = localExpenses.filter(e => e.id !== id); renderAll(); }
+        else { db.collection('users').doc(currentUser.uid).collection('expenses').doc(id).delete(); }
         document.getElementById('modal-expense').style.display = 'none';
     }
 };
 
-// ... (Autres fonctions: handleAddEgg, openChickenModal, editCurrentChicken, etc. restent identiques à V8) ...
 window.handleAddEgg = (id, name) => {
     const newEgg = { chickenId: id, chickenName: name, date: new Date().toISOString() };
     if (isDemoMode) { localEggs.push(newEgg); renderDashboard(); alert(`Top ${name} !`); }
@@ -288,7 +250,18 @@ function toggleArchiveStatus(id, status) {
     else { db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).update({status}); closeChickenDetails(); }
 }
 function calculateAge(d) { if(!d) return '?'; const m = (new Date().getFullYear()-new Date(d).getFullYear())*12 - new Date(d).getMonth() + new Date().getMonth(); return m<12 ? m+" mois" : Math.floor(m/12)+" ans"; }
-function updateAuthUI(isLoggedIn) { document.getElementById('auth-logged-out').style.display = isLoggedIn ? 'none' : 'block'; document.getElementById('auth-logged-in').style.display = isLoggedIn ? 'flex' : 'none'; if(isLoggedIn) { document.getElementById('user-name').innerText = currentUser.displayName; document.getElementById('user-email').innerText = currentUser.email; document.getElementById('user-photo').src = currentUser.photoURL; } }
+
+// UPDATE AUTH UI (AJUSTÉ)
+function updateAuthUI(isLoggedIn) {
+    document.getElementById('auth-logged-out').style.display = isLoggedIn ? 'none' : 'block';
+    // On met 'flex' ici, et c'est le CSS qui gère le flex-direction: column
+    document.getElementById('auth-logged-in').style.display = isLoggedIn ? 'flex' : 'none';
+    if(isLoggedIn) {
+        document.getElementById('user-name').innerText = currentUser.displayName;
+        document.getElementById('user-email').innerText = currentUser.email;
+        document.getElementById('user-photo').src = currentUser.photoURL;
+    }
+}
 document.getElementById('google-login-btn').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
 document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
 function loadFirebaseData() { const r = db.collection('users').doc(currentUser.uid); r.collection('chickens').onSnapshot(s => { localChickens = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); r.collection('eggs').orderBy('date').onSnapshot(s => { localEggs = s.docs.map(d=>d.data()); renderAll(); }); r.collection('expenses').orderBy('date').onSnapshot(s => { localExpenses = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); }
