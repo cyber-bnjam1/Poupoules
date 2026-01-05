@@ -55,7 +55,7 @@
                 <button class="menu-link" onclick="navigate('view-maintenance')"><i class="fas fa-broom"></i> Entretien</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
-            <p class="menu-footer">Poupoules v2.1 (Remastered)</p>
+            <p class="menu-footer">Poupoules v2.2 (Fix)</p>
         </div>
     </div>
 
@@ -104,8 +104,7 @@
             </div>
 
             <h3 class="section-title">Derniers Œufs</h3>
-            <ul id="recent-activity-list" class="glass-list activity-list">
-                </ul>
+            <ul id="recent-activity-list" class="glass-list activity-list"></ul>
         </section>
 
         <section id="view-chickens">
@@ -117,8 +116,7 @@
                 <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
                 <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
             </div>
-            <div id="chickens-grid" class="grid-container">
-                </div>
+            <div id="chickens-grid" class="grid-container"></div>
         </section>
 
         <section id="view-maintenance">
@@ -127,12 +125,7 @@
                 <button class="glass-btn-round" onclick="openEditTaskModal()"><i class="fas fa-plus"></i></button>
             </div>
             <p class="subtitle">Tâches récurrentes et nettoyage</p>
-            
-            <div id="maintenance-summary" class="glass-card summary-card" style="margin-bottom: 20px;">
-                </div>
-
-            <ul id="tasks-list" class="glass-list task-list-full">
-                </ul>
+            <ul id="tasks-list" class="glass-list task-list-full"></ul>
         </section>
 
         <section id="view-finance">
@@ -140,23 +133,20 @@
                 <h1 class="big-title no-margin">Budget</h1>
                 <button class="glass-btn-round" onclick="openTransactionModal()"><i class="fas fa-plus"></i></button>
             </div>
-            
             <div class="finance-bar-container">
                 <div class="progress-bar" id="finance-bar"></div>
             </div>
             <div class="legend-container" id="finance-legend"></div>
-
             <h3 class="section-title" style="margin-top:20px;">Historique</h3>
             <ul id="finance-list" class="glass-list"></ul>
         </section>
 
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
-            
             <div class="glass-card profile-card">
                 <div id="auth-logged-out">
                     <i class="fas fa-user-circle" style="font-size: 60px; color: var(--text-light); margin-bottom:15px;"></i>
-                    <p>Connectez-vous pour sauvegarder vos données dans le cloud.</p>
+                    <p>Connectez-vous pour sauvegarder vos données.</p>
                     <button class="primary-btn" onclick="login()"><i class="fab fa-google"></i> Connexion Google</button>
                 </div>
                 <div id="auth-logged-in">
@@ -168,7 +158,6 @@
                     <button class="secondary-btn" onclick="logout()">Déconnexion</button>
                 </div>
             </div>
-
             <div class="glass-card settings-list">
                 <div class="setting-row">
                     <span>Mode Sombre</span>
@@ -183,7 +172,6 @@
                 </div>
             </div>
         </section>
-
     </main>
 
     <div id="modal-chicken" class="modal">
@@ -215,6 +203,8 @@
                     <input type="number" id="chicken-price" step="0.5" placeholder="0.00">
                 </div>
                 <div class="modal-actions">
+                    <button type="button" class="delete-btn-text" id="btn-delete-chicken" style="display:none;" onclick="deleteChicken()">Supprimer</button>
+                    <div style="flex:1"></div>
                     <button type="button" class="close-modal secondary-btn">Annuler</button>
                     <button type="submit" class="primary-btn">Enregistrer</button>
                 </div>
@@ -231,7 +221,6 @@
                     <button type="button" class="segment-btn active" id="btn-expense" onclick="setTransactionType('expense')">Dépense</button>
                     <button type="button" class="segment-btn" id="btn-income" onclick="setTransactionType('income')">Revenu</button>
                 </div>
-
                 <div class="form-group" id="group-type">
                     <label>Type</label>
                     <select id="trans-type">
@@ -243,7 +232,6 @@
                         <option value="autre">Autre</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Montant (€)</label>
                     <input type="number" id="trans-amount" step="0.01" required placeholder="0.00">
@@ -252,7 +240,6 @@
                     <label>Date</label>
                     <input type="date" id="trans-date" required>
                 </div>
-
                 <div class="modal-actions">
                     <button type="button" class="delete-btn-text" id="btn-delete-trans" style="display:none;" onclick="deleteTransaction()">Supprimer</button>
                     <div style="flex:1"></div>
@@ -275,7 +262,6 @@
                 <div class="form-group">
                     <label>Fréquence (jours)</label>
                     <input type="number" id="task-freq" required min="1" placeholder="Ex: 2">
-                    <small style="color:var(--text-light); display:block; margin-top:5px;">Tous les combien de jours ?</small>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="delete-btn-text" id="btn-delete-task" style="display:none;" onclick="deleteCurrentTask()">Supprimer</button>
