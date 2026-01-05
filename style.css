@@ -15,7 +15,6 @@
     --color-autre: #8e8e93;
 }
 
-/* 1. RESET & STRUCTURE */
 html, body {
     margin: 0; padding: 0;
     width: 100%; height: 100%;
@@ -37,7 +36,7 @@ html, body {
 .blob-3 { background: #fad0c4; width: 200px; height: 200px; top: 40%; left: 40%; animation-delay: 4s; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
 
-/* 2. HEADER */
+/* HEADER */
 #app-header {
     position: absolute; top: 0; left: 0; right: 0;
     z-index: 100;
@@ -59,7 +58,7 @@ html, body {
 .status-badge.demo { background: rgba(255, 149, 0, 0.15); color: #e68600; }
 .status-badge.connected { background: rgba(52, 199, 89, 0.15); color: #248a3d; }
 
-/* 3. MENU OVERLAY */
+/* MENU */
 #menu-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(255, 255, 255, 0.95);
@@ -87,7 +86,7 @@ html, body {
 .menu-link:active { transform: scale(0.95); }
 .menu-footer { margin-top: 50px; color: #ccc; font-size: 12px; }
 
-/* 4. LAYOUT */
+/* LAYOUT */
 #scroll-container {
     width: 100%; height: 100%;
     overflow-y: auto; overflow-x: hidden;
@@ -117,7 +116,6 @@ html, body {
     box-shadow: 0 8px 30px rgba(0,0,0,0.04);
 }
 
-/* SETTINGS PROFILE FIX */
 .profile-card {
     text-align: center;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -185,10 +183,25 @@ html, body {
 .bg-materiel { background-color: var(--color-materiel); }
 .bg-autre { background-color: var(--color-autre); }
 
+/* FORM ELEMENTS FIXES */
 input, select { 
-    width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e5e5e5; 
-    background: #fff; margin-bottom: 15px; box-sizing: border-box; font-size: 16px; 
+    width: 100%; 
+    padding: 14px; 
+    border-radius: 12px; border: 1px solid #e5e5e5; 
+    background: #fff; margin-bottom: 15px; 
+    box-sizing: border-box; /* IMPORTANT POUR LA LARGEUR */
+    font-size: 16px; 
+    -webkit-appearance: none; /* Empeche le style iOS par défaut */
+    appearance: none;
+    max-width: 100%; /* Empêche le débordement */
 }
+/* SPECIFIC DATE FIX */
+input[type="date"] {
+    min-width: 0; /* Permet de rétrécir dans un flex */
+    width: 100%;
+    display: block;
+}
+
 .glass-btn { border: none; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 5px; }
 .primary-btn { background: var(--primary); color: white; }
 .danger-btn { background: rgba(255, 59, 48, 0.1); color: var(--danger); }
@@ -196,7 +209,7 @@ input, select {
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); z-index: 1000; align-items: center; justify-content: center; }
 .modal-content { width: 85%; max-width: 320px; background: #fff; padding: 25px; border-radius: 24px; position: relative; }
 .close-modal { position: absolute; top: 15px; right: 20px; font-size: 24px; color: #999; cursor: pointer; }
-.form-row { display: flex; gap: 10px; }
+.form-row { display: flex; gap: 10px; width: 100%; }
 .input-label { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px; margin-left: 4px; }
 
 .detail-photo-container { width: 120px; height: 120px; margin: 0 auto 15px auto; }
@@ -218,4 +231,3 @@ section.active-view { display: block; animation: fadeUp 0.4s cubic-bezier(0.16, 
 .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 input:checked + .slider { background-color: var(--primary); }
 input:checked + .slider:before { transform: translateX(20px); }
-
