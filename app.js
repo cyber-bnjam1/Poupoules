@@ -1,4 +1,4 @@
-// CONFIGURATION FIREBASE (REMETS TES CLES ICI)
+// CONFIGURATION FIREBASE
 const firebaseConfig = {
     apiKey: "API_KEY",
     authDomain: "PROJECT_ID.firebaseapp.com",
@@ -47,8 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
             isDemoMode = false;
             updateAuthUI(true);
             loadFirebaseData();
-            document.getElementById('app-status').classList.replace('demo', 'connected');
-            document.getElementById('app-status').innerHTML = '<i class="fas fa-cloud"></i> Connecté';
+            document.getElementById('header-status').classList.replace('demo', 'connected');
+            document.getElementById('header-status').innerText = 'Connecté';
         } else {
             currentUser = null;
             isDemoMode = true;
@@ -56,10 +56,34 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAll();
         }
     });
-    setupNavigation();
+    // On n'appelle plus setupNavigation car on utilise le menu burger
+    document.querySelectorAll('.close-modal').forEach(x => x.addEventListener('click', () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none')));
 });
 
-// LOGIQUE
+// MENU BURGER LOGIC
+window.toggleMenu = () => {
+    document.getElementById('menu-overlay').classList.toggle('open');
+};
+
+window.navigate = (targetId) => {
+    // 1. Fermer le menu
+    toggleMenu();
+    
+    // 2. Changer la vue
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
+    document.getElementById(targetId).classList.add('active-view');
+
+    // 3. Update Menu Active State
+    document.querySelectorAll('.menu-link').forEach(l => l.classList.remove('active'));
+    // Simple matching logic
+    const clickedLink = Array.from(document.querySelectorAll('.menu-link')).find(l => l.getAttribute('onclick').includes(targetId));
+    if(clickedLink) clickedLink.classList.add('active');
+
+    // 4. Scroll to top
+    document.getElementById('scroll-container').scrollTop = 0;
+};
+
+// LOGIQUE RENDER
 function renderAll() {
     renderChickensList();
     renderDashboard();
@@ -234,9 +258,9 @@ window.openChickenDetails = (id) => {
     const archiveBtn = document.getElementById('btn-archive');
     if(chk.status === 'archived') { archiveBtn.innerText = 'Désarchiver'; archiveBtn.className = 'glass-btn primary-btn'; archiveBtn.onclick = () => toggleArchiveStatus(id, 'active'); document.getElementById('detail-status').innerText='Archivée';}
     else { archiveBtn.innerText = 'Archiver'; archiveBtn.className = 'glass-btn danger-btn'; archiveBtn.onclick = () => toggleArchiveStatus(id, 'archived'); document.getElementById('detail-status').innerText='Active';}
-    document.getElementById('view-chickens').classList.remove('active-view'); document.getElementById('view-chicken-detail').classList.add('active-view'); document.getElementById('main-tabbar').style.display = 'none';
+    document.getElementById('view-chickens').classList.remove('active-view'); document.getElementById('view-chicken-detail').classList.add('active-view'); 
 };
-window.closeChickenDetails = () => { document.getElementById('view-chicken-detail').classList.remove('active-view'); document.getElementById('view-chickens').classList.add('active-view'); document.getElementById('main-tabbar').style.display = 'flex'; };
+window.closeChickenDetails = () => { document.getElementById('view-chicken-detail').classList.remove('active-view'); document.getElementById('view-chickens').classList.add('active-view'); };
 window.archiveCurrentChicken = () => toggleArchiveStatus(currentChickenId, 'archived');
 function toggleArchiveStatus(id, status) {
     if(isDemoMode) { const chk = localChickens.find(c => c.id === id); if(chk) chk.status = status; closeChickenDetails(); renderChickensList(); }
@@ -251,8 +275,4 @@ function loadFirebaseData() { const r = db.collection('users').doc(currentUser.u
 function initCharts() {
     eggsChartInstance = new Chart(document.getElementById('eggsChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [{ label: 'Œufs', data: [], backgroundColor: '#0071e3', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}}, scales:{y:{beginAtZero:true, display:false}, x:{grid:{display:false}}} } });
     financeChartInstance = new Chart(document.getElementById('financeChart').getContext('2d'), { type: 'doughnut', data: { labels: ['Graines', 'Paille', 'Soins', 'Matériel', 'Autre'], datasets: [{ data: [], backgroundColor: ['#ffcc00', '#ff9500', '#ff3b30', '#5856d6', '#8e8e93'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: {legend: {position:'right', labels:{boxWidth:10}}} } });
-}
-function setupNavigation() {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.querySelectorAll('section').forEach(s => s.classList.remove('active-view')); btn.classList.add('active'); document.getElementById(btn.dataset.target).classList.add('active-view'); }));
-    document.querySelectorAll('.close-modal').forEach(x => x.addEventListener('click', () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none')));
 }
