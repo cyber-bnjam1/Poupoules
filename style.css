@@ -9,7 +9,7 @@
     --bg-color: #f2f2f7;
 }
 
-/* 1. RESET COMPLET */
+/* 1. RESET & STRUCTURE */
 html, body {
     margin: 0; padding: 0;
     width: 100%; height: 100%;
@@ -17,10 +17,9 @@ html, body {
     background-color: var(--bg-color);
     color: var(--text-dark);
     -webkit-font-smoothing: antialiased;
-    overflow: hidden; /* On empêche le scroll global, seul l'intérieur scroll */
+    overflow: hidden; /* Empêche le scroll élastique du body */
 }
 
-/* 2. BACKGROUND FIXE */
 .background-blobs {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
     background: linear-gradient(180deg, #eef2f3 0%, #d9e4f5 100%);
@@ -32,72 +31,96 @@ html, body {
 .blob-3 { background: #fad0c4; width: 200px; height: 200px; top: 40%; left: 40%; animation-delay: 4s; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
 
-/* 3. LAYOUT PRINCIPAL (FLEXBOX) */
-#layout-wrapper {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh; /* Hauteur dynamique iOS */
-    width: 100%;
+/* 2. HEADER (BURGER + STATUS) */
+#app-header {
+    position: absolute; top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 20px;
+    /* Gère la safe-area du haut */
+    padding-top: calc(10px + env(safe-area-inset-top));
+    height: 50px;
 }
 
-/* Zone Fixe en Haut (Status) */
-#top-bar-area {
-    /* Padding pour l'encoche iPhone */
-    padding-top: env(safe-area-inset-top);
-    min-height: 20px;
-    z-index: 200;
+#burger-btn {
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(10px);
+    border: none;
+    width: 40px; height: 40px; border-radius: 50%;
+    font-size: 18px; color: var(--primary);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
 }
 
-/* Scroll Container (Le contenu) */
-#scroll-container {
-    flex: 1; /* Prend tout l'espace restant */
-    overflow-y: auto; /* Scroll vertical */
-    overflow-x: hidden;
-    padding: 20px;
-    /* On ajoute un padding en bas pour que le contenu ne soit pas caché par la TabBar */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
-    -webkit-overflow-scrolling: touch; /* Scroll fluide iOS */
+.status-badge {
+    padding: 6px 12px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    backdrop-filter: blur(10px);
 }
+.status-badge.demo { background: rgba(255, 149, 0, 0.15); color: #e68600; }
+.status-badge.connected { background: rgba(52, 199, 89, 0.15); color: #248a3d; }
 
-/* Status Banner */
-.status-banner {
-    display: flex; justify-content: center; align-items: center;
-    padding: 8px; font-size: 11px; font-weight: 600;
-    border-radius: 20px; width: fit-content; margin: 0 auto;
-    margin-top: 5px;
-}
-.status-banner.demo { background: rgba(255, 149, 0, 0.2); color: #e68600; }
-.status-banner.connected { background: rgba(52, 199, 89, 0.2); color: #248a3d; }
-
-/* 4. TAB BAR (FIXÉE AU BAS DE L'ÉCRAN) */
-.glass-tabbar {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    /* La barre respecte la zone de sécurité en bas (la barre blanche de swipe) */
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-top: 12px;
-    height: 60px; /* Hauteur visuelle de la barre */
-    
-    background: rgba(255,255,255,0.9);
+/* 3. MENU OVERLAY */
+#menu-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(0,0,0,0.1);
-    
-    display: flex; justify-content: space-around; align-items: flex-start;
-    z-index: 500;
+    z-index: 900;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+#menu-overlay.open { opacity: 1; pointer-events: auto; }
+
+.menu-content { text-align: center; width: 100%; max-width: 300px; position: relative; }
+.close-menu-btn {
+    position: absolute; top: -60px; right: 0;
+    background: #f2f2f7; border: none; width: 40px; height: 40px; border-radius: 50%;
+    font-size: 24px; color: #888; cursor: pointer;
+}
+.menu-title { font-size: 32px; font-weight: 800; margin-bottom: 40px; letter-spacing: -1px; }
+
+.menu-nav { display: flex; flex-direction: column; gap: 20px; }
+.menu-link {
+    background: none; border: none;
+    font-size: 22px; font-weight: 600; color: var(--text-light);
+    cursor: pointer; padding: 10px;
+    transition: transform 0.2s, color 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 15px;
+}
+.menu-link i { width: 30px; }
+.menu-link.active { color: var(--primary); transform: scale(1.05); }
+.menu-link:active { transform: scale(0.95); }
+.menu-footer { margin-top: 50px; color: #ccc; font-size: 12px; }
+
+/* 4. SCROLL CONTAINER */
+#scroll-container {
+    width: 100%; height: 100%;
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    /* Uniquement la marge de sécurité en bas */
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.spacer-top { height: calc(60px + env(safe-area-inset-top)); }
+
+/* 5. COMPONENTS */
+.big-title { font-size: 34px; font-weight: 800; margin: 0 20px 20px 20px; letter-spacing: -0.5px; }
+.page-header-row { display: flex; justify-content: space-between; align-items: center; margin: 0 20px 20px 20px; }
+
+.glass-btn-round {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    color: var(--primary); font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer;
 }
 
-.tab-btn { background: none; border: none; color: #999; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; cursor: pointer; }
-.tab-btn i { font-size: 22px; }
-.tab-btn.active { color: var(--primary); }
-
-/* --- RESTE DU DESIGN (CARTES, TEXTE, ETC.) --- */
-
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 10px; }
-.page-header h1 { font-size: 32px; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
-
+/* Glass Cards */
 .glass-card {
     background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-    border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px; margin-bottom: 20px;
+    border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px;
+    margin: 0 20px 20px 20px; /* Marges latérales */
     box-shadow: 0 8px 30px rgba(0,0,0,0.04);
 }
 
@@ -111,18 +134,20 @@ html, body {
 .stat-text small { font-size: 12px; color: var(--text-light); }
 .divider { width: 1px; height: 40px; background: rgba(0,0,0,0.1); }
 
+/* Listes */
 .glass-list { list-style: none; padding: 0; margin: 0; }
 .glass-list li { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
-.glass-list li:last-child { border-bottom: none; }
+.activity-list { padding: 0 20px; }
 
-.grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+/* Grid */
+.grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 0 20px 20px 20px; }
 .chicken-card {
     background: rgba(255,255,255,0.7); backdrop-filter: blur(10px);
     border-radius: 20px; padding: 15px; text-align: center;
     box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid rgba(255,255,255,0.5);
     position: relative;
 }
-.chicken-img { width: 65px; height: 65px; border-radius: 50%; object-fit: cover; margin-bottom: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); pointer-events: none; }
+.chicken-img { width: 65px; height: 65px; border-radius: 50%; object-fit: cover; margin-bottom: 8px; }
 .egg-btn {
     margin-top: 10px; background: #fff; border: none; width: 100%; padding: 10px;
     border-radius: 12px; color: var(--primary); font-weight: 600; font-size: 13px;
@@ -130,44 +155,45 @@ html, body {
 }
 .grayscale-card { filter: grayscale(100%); opacity: 0.6; }
 
-.segment-control { background: rgba(118, 118, 128, 0.12); border-radius: 9px; padding: 2px; display: flex; margin-bottom: 20px; }
+/* Segment Control */
+.segment-control {
+    background: rgba(118, 118, 128, 0.12); border-radius: 9px; padding: 2px;
+    display: flex; margin: 0 20px 20px 20px;
+}
 .segment-btn { flex: 1; background: none; border: none; padding: 6px 0; font-size: 13px; font-weight: 500; border-radius: 7px; cursor: pointer; }
 .segment-btn.active { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
 
+/* Form Elements */
 input, select { 
     width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e5e5e5; 
-    background: #fff; margin-bottom: 15px; box-sizing: border-box; 
-    font-size: 16px; outline: none; -webkit-appearance: none;
+    background: #fff; margin-bottom: 15px; box-sizing: border-box; font-size: 16px; 
 }
 .glass-btn { border: none; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 5px; }
 .primary-btn { background: var(--primary); color: white; }
 .danger-btn { background: rgba(255, 59, 48, 0.1); color: var(--danger); }
-.glass-btn-small { width: 34px; height: 34px; border-radius: 50%; background: #fff; color: var(--primary); display: flex; align-items: center; justify-content: center; border: none; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; }
 
-/* Modal & Detail Styles */
+/* Modal */
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); z-index: 1000; align-items: center; justify-content: center; }
-.modal-content { width: 85%; max-width: 320px; background: #fff; padding: 25px; border-radius: 24px; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+.modal-content { width: 85%; max-width: 320px; background: #fff; padding: 25px; border-radius: 24px; position: relative; }
 .close-modal { position: absolute; top: 15px; right: 20px; font-size: 24px; color: #999; cursor: pointer; }
-.form-row { display: flex; gap: 10px; }
-.input-label { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px; margin-left: 4px; }
-.detail-photo-container { width: 110px; height: 110px; margin: 0 auto 15px auto; }
+
+/* Details */
+.detail-photo-container { width: 120px; height: 120px; margin: 0 auto 15px auto; }
 #detail-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
 .tags-row { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
 .tag-badge { background: #f2f2f7; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
-.tag-badge.money { background: rgba(52, 199, 89, 0.1); color: var(--success); }
 .photo-upload-wrapper { width: 80px; height: 80px; margin: 0 auto 20px auto; position: relative; }
 #preview-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px dashed #ccc; }
 .upload-icon { position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
-/* Switch */
+/* Animations & Transitions */
+section { display: none; }
+section.active-view { display: block; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
 .switch { position: relative; display: inline-block; width: 50px; height: 30px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e5e5; transition: .4s; border-radius: 34px; }
 .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 input:checked + .slider { background-color: var(--primary); }
 input:checked + .slider:before { transform: translateX(20px); }
-
-/* Animation des Vues */
-section { display: none; }
-section.active-view { display: block; animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
