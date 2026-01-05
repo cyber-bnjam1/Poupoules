@@ -7,6 +7,7 @@
     --glass-bg: rgba(255, 255, 255, 0.85);
     --glass-border: rgba(255, 255, 255, 0.5);
     --bg-color: #f2f2f7;
+    /* Couleurs du graphique budget */
     --color-graines: #ffcc00;
     --color-paille: #ff9500;
     --color-soins: #ff3b30;
@@ -14,6 +15,7 @@
     --color-autre: #8e8e93;
 }
 
+/* 1. RESET & STRUCTURE */
 html, body {
     margin: 0; padding: 0;
     width: 100%; height: 100%;
@@ -35,7 +37,7 @@ html, body {
 .blob-3 { background: #fad0c4; width: 200px; height: 200px; top: 40%; left: 40%; animation-delay: 4s; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
 
-/* HEADER */
+/* 2. HEADER */
 #app-header {
     position: absolute; top: 0; left: 0; right: 0;
     z-index: 100;
@@ -57,7 +59,7 @@ html, body {
 .status-badge.demo { background: rgba(255, 149, 0, 0.15); color: #e68600; }
 .status-badge.connected { background: rgba(52, 199, 89, 0.15); color: #248a3d; }
 
-/* MENU */
+/* 3. MENU OVERLAY */
 #menu-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(255, 255, 255, 0.95);
@@ -85,7 +87,7 @@ html, body {
 .menu-link:active { transform: scale(0.95); }
 .menu-footer { margin-top: 50px; color: #ccc; font-size: 12px; }
 
-/* LAYOUT */
+/* 4. LAYOUT */
 #scroll-container {
     width: 100%; height: 100%;
     overflow-y: auto; overflow-x: hidden;
@@ -115,46 +117,23 @@ html, body {
     box-shadow: 0 8px 30px rgba(0,0,0,0.04);
 }
 
-/* PROFILE & SETTINGS */
+/* SETTINGS PROFILE FIX */
 .profile-card {
     text-align: center;
-    display: flex;
-    flex-direction: column; 
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    min-height: 200px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; min-height: 200px;
 }
 #auth-logged-in {
-    display: none; 
-    flex-direction: column; 
-    align-items: center;
-    width: 100%;
-    gap: 8px;
+    display: none; flex-direction: column; align-items: center; width: 100%; gap: 8px;
 }
 #user-photo {
-    width: 80px; height: 80px;
-    border-radius: 50%;
-    margin-bottom: 5px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    width: 80px; height: 80px; border-radius: 50%; margin-bottom: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-#user-name {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-}
-#user-email {
-    margin: 0;
-    color: var(--text-light);
-    font-size: 14px;
-    word-break: break-all;
-    max-width: 100%;
-    padding: 0 10px;
-}
+#user-name { margin: 0; font-size: 20px; font-weight: 700; }
+#user-email { margin: 0; color: var(--text-light); font-size: 14px; word-break: break-all; max-width: 100%; padding: 0 10px; }
 .badge-success {
     background: rgba(52, 199, 89, 0.15); color: var(--success);
-    padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: 600;
-    margin-top: 5px;
+    padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-top: 5px;
 }
 
 .summary-card { display: flex; align-items: center; justify-content: space-around; }
@@ -206,28 +185,10 @@ html, body {
 .bg-materiel { background-color: var(--color-materiel); }
 .bg-autre { background-color: var(--color-autre); }
 
-/* --- INPUT FIX (DATE OVERFLOW) --- */
 input, select { 
-    display: block; /* Force le comportement de bloc */
-    width: 100%; 
-    max-width: 100%; /* Empêche strictement le débordement */
-    padding: 14px; 
-    border-radius: 12px; 
-    border: 1px solid #e5e5e5; 
-    background: #fff; 
-    margin-bottom: 15px; 
-    box-sizing: border-box; /* Inclut le padding dans la largeur */
-    font-size: 16px; 
-    outline: none;
-    font-family: inherit;
-    -webkit-appearance: none; /* Reset style iOS par défaut */
-    appearance: none;
+    width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e5e5e5; 
+    background: #fff; margin-bottom: 15px; box-sizing: border-box; font-size: 16px; 
 }
-/* Ciblage spécifique pour date si nécessaire */
-input[type="date"] {
-    -webkit-min-logical-width: calc(100% - 30px);
-}
-
 .glass-btn { border: none; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 5px; }
 .primary-btn { background: var(--primary); color: white; }
 .danger-btn { background: rgba(255, 59, 48, 0.1); color: var(--danger); }
