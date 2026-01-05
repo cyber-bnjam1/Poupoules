@@ -281,13 +281,17 @@ window.filterChickens = (status, btn) => {
     btn.classList.add('active');
     renderChickensList();
 };
+
 window.openChickenModal = (chickenId = null) => {
     const modal = document.getElementById('modal-chicken');
     const form = document.getElementById('form-chicken');
     const deleteBtn = document.getElementById('btn-delete-chicken');
+    const archiveBtn = document.getElementById('btn-archive-chicken'); // Bouton Décédée
+
     form.reset();
     document.getElementById('preview-photo').src = 'icon.png';
     tempPhotoBase64 = null;
+    
     if (chickenId) {
         const c = localChickens.find(x => x.id === chickenId);
         if (c) {
@@ -298,25 +302,51 @@ window.openChickenModal = (chickenId = null) => {
             document.getElementById('chicken-date').value = c.date;
             document.getElementById('chicken-price').value = c.price || 0;
             if(c.photo) document.getElementById('preview-photo').src = c.photo;
+            
             deleteBtn.style.display = 'block';
+
+            // Afficher le bouton Décédée seulement si elle n'est pas déjà archivée
+            if (c.status !== 'archived') {
+                archiveBtn.style.display = 'block';
+            } else {
+                archiveBtn.style.display = 'none';
+            }
         }
     } else {
         document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule";
         document.getElementById('chicken-id').value = "";
         document.getElementById('chicken-date').valueAsDate = new Date();
+        
         deleteBtn.style.display = 'none';
+        archiveBtn.style.display = 'none'; // Pas de décès pour une nouvelle poule
     }
     modal.style.display = 'flex';
 };
+
 window.deleteChicken = () => {
     const id = document.getElementById('chicken-id').value;
-    if(confirm("Supprimer cette poule ?")) {
+    if(confirm("Supprimer DÉFINITIVEMENT cette poule ?")) {
         localChickens = localChickens.filter(c => c.id !== id);
         saveData();
         document.getElementById('modal-chicken').style.display = 'none';
         renderChickensList();
     }
 };
+
+// NOUVELLE FONCTION POUR ARCHIVER
+window.archiveChicken = () => {
+    const id = document.getElementById('chicken-id').value;
+    if(confirm("Triste nouvelle... Voulez-vous déplacer cette poule dans la catégorie 'Décédée' ?")) {
+        const idx = localChickens.findIndex(c => c.id === id);
+        if (idx > -1) {
+            localChickens[idx].status = 'archived'; // Changement de statut
+            saveData();
+            document.getElementById('modal-chicken').style.display = 'none';
+            renderChickensList();
+        }
+    }
+};
+
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('chicken-id').value;
@@ -325,9 +355,16 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
     const date = document.getElementById('chicken-date').value;
     const price = parseFloat(document.getElementById('chicken-price').value) || 0;
     const photo = tempPhotoBase64 || document.getElementById('preview-photo').getAttribute('src');
+    
+    // Si c'est une création, on force le status 'active'
+    // Si c'est une modif, on garde le status actuel (au cas où on modifie une poule décédée)
+    
     if (id) {
         const idx = localChickens.findIndex(c => c.id === id);
-        if (idx > -1) { localChickens[idx] = { ...localChickens[idx], name, breed, date, price, photo }; }
+        if (idx > -1) { 
+            // On garde les propriétés existantes (dont le status) et on écrase avec les nouvelles
+            localChickens[idx] = { ...localChickens[idx], name, breed, date, price, photo }; 
+        }
     } else {
         localChickens.push({ id: 'c' + Date.now(), name, breed, date, price, photo, status: 'active' });
     }
