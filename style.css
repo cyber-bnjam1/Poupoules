@@ -4,33 +4,27 @@
     --success: #34c759;
     --text-dark: #1c1c1e;
     --text-light: #8e8e93;
-    --glass-bg: rgba(255, 255, 255, 0.85); /* Plus opaque pour contraste */
+    --glass-bg: rgba(255, 255, 255, 0.85);
     --glass-border: rgba(255, 255, 255, 0.5);
     --bg-color: #f2f2f7;
 }
 
-/* RESET ET GLOBAL FIX */
+/* 1. RESET COMPLET */
 html, body {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, sans-serif;
-    background: var(--bg-color);
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background-color: var(--bg-color);
     color: var(--text-dark);
-    /* Fix pour empêcher tout le site de bouncer sur iPhone */
-    position: fixed; 
-    top: 0; left: 0; right: 0; bottom: 0;
-    height: 100dvh; /* Dynamic Height */
-    width: 100vw;
-    overflow: hidden;
     -webkit-font-smoothing: antialiased;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
+    overflow: hidden; /* On empêche le scroll global, seul l'intérieur scroll */
 }
 
-/* BACKGROUND */
+/* 2. BACKGROUND FIXE */
 .background-blobs {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
     background: linear-gradient(180deg, #eef2f3 0%, #d9e4f5 100%);
+    pointer-events: none;
 }
 .blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.5; animation: float 10s infinite ease-in-out; }
 .blob-1 { background: #8ec5fc; width: 300px; height: 300px; top: -10%; left: -10%; }
@@ -38,59 +32,67 @@ html, body {
 .blob-3 { background: #fad0c4; width: 200px; height: 200px; top: 40%; left: 40%; animation-delay: 4s; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
 
-/* LAYOUT PRINCIPAL */
-#app-container {
+/* 3. LAYOUT PRINCIPAL (FLEXBOX) */
+#layout-wrapper {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 100dvh; /* Hauteur dynamique iOS */
     width: 100%;
 }
 
-/* ZONE DE SCROLL */
-.content-scroll {
-    flex: 1;
-    overflow-y: auto; /* Seul cet élément scroll */
-    -webkit-overflow-scrolling: touch; /* Scroll natif fluide */
-    
-    /* GESTION DES MARGES IPHONE */
-    /* On ajoute de l'espace pour l'encoche (top) et la barre (bottom) + Tabbar */
-    padding-top: calc(50px + env(safe-area-inset-top)); 
-    padding-bottom: calc(100px + env(safe-area-inset-bottom));
-    padding-left: 20px;
-    padding-right: 20px;
-}
-
-/* BANDEAU STATUS */
-.status-banner {
-    position: fixed; top: 0; left: 0; width: 100%;
-    /* S'adapte à l'encoche */
-    height: calc(30px + env(safe-area-inset-top));
+/* Zone Fixe en Haut (Status) */
+#top-bar-area {
+    /* Padding pour l'encoche iPhone */
     padding-top: env(safe-area-inset-top);
-    display: flex; justify-content: center; align-items: center;
-    font-size: 11px; font-weight: 600; z-index: 200;
-    backdrop-filter: blur(10px);
+    min-height: 20px;
+    z-index: 200;
 }
-.status-banner.demo { background: rgba(255, 149, 0, 0.15); color: #e68600; }
-.status-banner.connected { background: rgba(52, 199, 89, 0.15); color: #248a3d; }
 
-/* TAB BAR FIXE EN BAS */
-.glass-tabbar {
-    position: fixed; bottom: 0; left: 0; width: 100%;
-    /* Hauteur qui prend en compte la barre home de l'iPhone */
-    height: calc(60px + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
-    background: rgba(255,255,255,0.9); 
-    backdrop-filter: blur(30px);
-    border-top: 1px solid rgba(0,0,0,0.1);
-    display: flex; justify-content: space-around; align-items: flex-start;
-    padding-top: 10px; z-index: 500;
+/* Scroll Container (Le contenu) */
+#scroll-container {
+    flex: 1; /* Prend tout l'espace restant */
+    overflow-y: auto; /* Scroll vertical */
+    overflow-x: hidden;
+    padding: 20px;
+    /* On ajoute un padding en bas pour que le contenu ne soit pas caché par la TabBar */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch; /* Scroll fluide iOS */
 }
-.tab-btn { background: none; border: none; color: #999; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; }
+
+/* Status Banner */
+.status-banner {
+    display: flex; justify-content: center; align-items: center;
+    padding: 8px; font-size: 11px; font-weight: 600;
+    border-radius: 20px; width: fit-content; margin: 0 auto;
+    margin-top: 5px;
+}
+.status-banner.demo { background: rgba(255, 149, 0, 0.2); color: #e68600; }
+.status-banner.connected { background: rgba(52, 199, 89, 0.2); color: #248a3d; }
+
+/* 4. TAB BAR (FIXÉE AU BAS DE L'ÉCRAN) */
+.glass-tabbar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    /* La barre respecte la zone de sécurité en bas (la barre blanche de swipe) */
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: 12px;
+    height: 60px; /* Hauteur visuelle de la barre */
+    
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(0,0,0,0.1);
+    
+    display: flex; justify-content: space-around; align-items: flex-start;
+    z-index: 500;
+}
+
+.tab-btn { background: none; border: none; color: #999; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; cursor: pointer; }
 .tab-btn i { font-size: 22px; }
 .tab-btn.active { color: var(--primary); }
 
-/* COMPOSANTS UI */
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+/* --- RESTE DU DESIGN (CARTES, TEXTE, ETC.) --- */
+
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 10px; }
 .page-header h1 { font-size: 32px; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
 
 .glass-card {
@@ -109,7 +111,6 @@ html, body {
 .stat-text small { font-size: 12px; color: var(--text-light); }
 .divider { width: 1px; height: 40px; background: rgba(0,0,0,0.1); }
 
-/* LISTES & GRID */
 .glass-list { list-style: none; padding: 0; margin: 0; }
 .glass-list li { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
 .glass-list li:last-child { border-bottom: none; }
@@ -129,48 +130,44 @@ html, body {
 }
 .grayscale-card { filter: grayscale(100%); opacity: 0.6; }
 
-/* SEGMENT CONTROL */
 .segment-control { background: rgba(118, 118, 128, 0.12); border-radius: 9px; padding: 2px; display: flex; margin-bottom: 20px; }
 .segment-btn { flex: 1; background: none; border: none; padding: 6px 0; font-size: 13px; font-weight: 500; border-radius: 7px; cursor: pointer; }
 .segment-btn.active { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
 
-/* FORMS & MODAL */
 input, select { 
     width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e5e5e5; 
     background: #fff; margin-bottom: 15px; box-sizing: border-box; 
-    /* Font size 16px empêche le zoom auto sur iPhone */
-    font-size: 16px; 
-    outline: none; -webkit-appearance: none;
+    font-size: 16px; outline: none; -webkit-appearance: none;
 }
 .glass-btn { border: none; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 5px; }
 .primary-btn { background: var(--primary); color: white; }
 .danger-btn { background: rgba(255, 59, 48, 0.1); color: var(--danger); }
 .glass-btn-small { width: 34px; height: 34px; border-radius: 50%; background: #fff; color: var(--primary); display: flex; align-items: center; justify-content: center; border: none; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; }
 
+/* Modal & Detail Styles */
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); z-index: 1000; align-items: center; justify-content: center; }
 .modal-content { width: 85%; max-width: 320px; background: #fff; padding: 25px; border-radius: 24px; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
-.close-modal { position: absolute; top: 15px; right: 20px; font-size: 24px; color: #999; }
+.close-modal { position: absolute; top: 15px; right: 20px; font-size: 24px; color: #999; cursor: pointer; }
 .form-row { display: flex; gap: 10px; }
 .input-label { display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px; margin-left: 4px; }
-
-/* DETAIL PAGE */
 .detail-photo-container { width: 110px; height: 110px; margin: 0 auto 15px auto; }
 #detail-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
 .tags-row { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
 .tag-badge { background: #f2f2f7; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+.tag-badge.money { background: rgba(52, 199, 89, 0.1); color: var(--success); }
 .photo-upload-wrapper { width: 80px; height: 80px; margin: 0 auto 20px auto; position: relative; }
 #preview-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px dashed #ccc; }
 .upload-icon { position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
-/* ANIMATION */
-section { display: none; }
-section.active-view { display: block; animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-/* SWITCH */
+/* Switch */
 .switch { position: relative; display: inline-block; width: 50px; height: 30px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e5e5; transition: .4s; border-radius: 34px; }
 .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 input:checked + .slider { background-color: var(--primary); }
 input:checked + .slider:before { transform: translateX(20px); }
+
+/* Animation des Vues */
+section { display: none; }
+section.active-view { display: block; animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
