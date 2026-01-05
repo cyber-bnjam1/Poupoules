@@ -20,7 +20,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 </head>
 <body>
 
@@ -56,6 +55,7 @@
                 <button class="menu-link" onclick="navigate('view-maintenance')"><i class="fas fa-broom"></i> Entretien</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
+            <p class="menu-footer">Poupoules v2.4 (Full Restore)</p>
         </div>
     </div>
 
@@ -64,6 +64,7 @@
         
         <section id="view-dashboard" class="active-view">
             <h1 class="big-title">Bonjour !</h1>
+            
             <div class="status-row">
                 <div class="glass-card mini-status-card highlight-card" onclick="openAddEggModal()">
                     <div class="icon-circle egg-color"><i class="fas fa-plus"></i></div>
@@ -80,20 +81,36 @@
                     </div>
                 </div>
             </div>
+
             <h3 class="section-title">Statistiques</h3>
             <div class="segment-control">
                 <button class="segment-btn active" onclick="switchStatsPeriod('month', this)">Ce Mois</button>
                 <button class="segment-btn" onclick="switchStatsPeriod('year', this)">Cette Année</button>
             </div>
+
+            <div class="glass-card summary-card">
+                <div class="stat-item">
+                    <div class="stat-text"><span id="total-eggs-display">0</span><small id="label-eggs-display">Œufs</small></div>
+                </div>
+                <div class="divider"></div>
+                <div class="stat-item">
+                    <div class="stat-text"><span id="cost-per-egg-display">0.00€</span><small>Coût / œuf</small></div>
+                </div>
+            </div>
+
             <div class="glass-card chart-card">
+                <h3 id="chart-title"><i class="fas fa-chart-bar"></i> Ponte</h3>
                 <div class="chart-container"><canvas id="eggsChart"></canvas></div>
             </div>
-            <h3 class="section-title">Dernière activité</h3>
+
+            <h3 class="section-title">Derniers Œufs</h3>
             <ul id="recent-activity-list" class="glass-list activity-list"></ul>
         </section>
 
         <section id="view-chickens">
-            <h1 class="big-title">Le Poulailler</h1>
+            <div class="page-header-row">
+                <h1 class="big-title no-margin">Le Poulailler</h1>
+            </div>
             <div class="segment-control">
                 <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
                 <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Décédée</button>
@@ -102,65 +119,95 @@
         </section>
 
         <section id="view-maintenance">
-            <h1 class="big-title">Entretien</h1>
+            <div class="page-header-row">
+                <h1 class="big-title no-margin">Entretien</h1>
+            </div>
+            <p class="subtitle">Tâches récurrentes et nettoyage</p>
             <ul id="tasks-list" class="glass-list task-list-full"></ul>
         </section>
 
         <section id="view-finance">
-            <h1 class="big-title">Budget</h1>
-            <div id="finance-summary" class="glass-card summary-card">
-                 <div class="stat-item"><div class="stat-text"><span id="total-balance">0.00€</span><small>Balance</small></div></div>
+            <div class="page-header-row">
+                <h1 class="big-title no-margin">Budget</h1>
             </div>
-            <h3 class="section-title">Historique</h3>
+            <div class="finance-bar-container">
+                <div class="progress-bar" id="finance-bar"></div>
+            </div>
+            <div class="legend-container" id="finance-legend"></div>
+            <h3 class="section-title" style="margin-top:20px;">Historique</h3>
             <ul id="finance-list" class="glass-list"></ul>
         </section>
 
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
+            
             <div class="glass-card settings-profile-card">
-                <div id="auth-logged-out">
+                <div id="auth-logged-out" class="auth-section">
+                    <div class="profile-avatar-placeholder">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h2>Invité</h2>
+                    <p>Sauvegardez vos données dans le cloud</p>
                     <button class="ios-btn-primary" onclick="login()">Connexion Google</button>
                 </div>
-                <div id="auth-logged-in" style="display:none;">
-                    <img id="user-photo" src="icon.png" class="profile-avatar-img">
-                    <h2 id="user-name">--</h2>
-                    <p id="user-email">--</p>
+
+                <div id="auth-logged-in" class="auth-section" style="display:none;">
+                    <img id="user-photo" src="icon.png" alt="Profil" class="profile-avatar-img">
+                    <h2 id="user-name">Utilisateur</h2>
+                    <p id="user-email">email@test.com</p>
                     <button class="ios-btn-secondary" onclick="logout()">Se déconnecter</button>
                 </div>
             </div>
-            <div class="glass-card settings-group" style="margin-top:20px;">
+
+            <h3 class="settings-group-title">Préférences</h3>
+            <div class="glass-card settings-group">
                 <div class="setting-row">
-                    <span>Mode Sombre</span>
-                    <label class="switch">
-                        <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
-                        <span class="slider"></span>
-                    </label>
+                    <div class="setting-icon color-dark"><i class="fas fa-moon"></i></div>
+                    <div class="setting-content">
+                        <span>Mode Sombre</span>
+                        <label class="switch">
+                            <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="setting-divider"></div>
+                <div class="setting-row clickable" onclick="exportData()">
+                    <div class="setting-icon color-blue"><i class="fas fa-file-export"></i></div>
+                    <div class="setting-content">
+                        <span>Exporter les données</span>
+                        <i class="fas fa-chevron-right arrow-icon"></i>
+                    </div>
                 </div>
             </div>
         </section>
+
         <div class="spacer-bottom"></div>
     </main>
 
     <div id="fab-container">
-        <button id="main-fab" class="fab-btn" onclick="handleFabClick()"><i class="fas fa-plus"></i></button>
+        <button id="main-fab" class="fab-btn" onclick="handleFabClick()">
+            <i class="fas fa-plus"></i>
+        </button>
     </div>
 
     <div id="modal-chicken" class="modal">
         <div class="modal-content glass-panel">
-            <h2 id="modal-chicken-title">Poule</h2>
+            <h2 id="modal-chicken-title">Nouvelle Poule</h2>
             <form id="form-chicken">
                 <input type="hidden" id="chicken-id">
                 <div class="photo-upload-wrapper" onclick="document.getElementById('chicken-photo-input').click()">
                     <img id="preview-photo" src="icon.png">
-                    <div id="upload-loader" class="loader-overlay" style="display:none;"><i class="fas fa-spinner fa-spin"></i></div>
+                    <div class="upload-icon"><i class="fas fa-camera"></i></div>
                 </div>
-                <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="uploadChickenPhoto(this)">
+                <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)">
                 <div class="form-group"><label>Nom</label><input type="text" id="chicken-name" required></div>
                 <div class="form-group"><label>Race</label><input type="text" id="chicken-breed"></div>
                 <div class="form-group"><label>Date d'arrivée</label><input type="date" id="chicken-date" required></div>
+                <div class="form-group"><label>Prix d'achat (€)</label><input type="number" id="chicken-price" step="0.5"></div>
                 <div class="modal-actions">
-                    <button type="button" class="delete-btn-text" id="btn-delete-chicken" onclick="deleteChicken()">Supprimer</button>
-                    <button type="button" class="delete-btn-text" id="btn-archive-chicken" onclick="archiveChicken()">Décédée</button>
+                    <button type="button" class="delete-btn-text" id="btn-delete-chicken" style="display:none;" onclick="deleteChicken()">Supprimer</button>
+                    <button type="button" class="delete-btn-text" id="btn-archive-chicken" style="display:none; color:var(--text-dark);" onclick="archiveChicken()">✝ Décédée</button>
                     <div style="flex:1"></div>
                     <button type="button" class="close-modal secondary-btn">Annuler</button>
                     <button type="submit" class="primary-btn">Enregistrer</button>
@@ -171,15 +218,47 @@
 
     <div id="modal-transaction" class="modal">
         <div class="modal-content glass-panel">
-            <h2>Transaction</h2>
+            <h2 id="modal-transaction-title">Nouvelle Transaction</h2>
             <form id="form-transaction">
                 <input type="hidden" id="trans-id">
-                <div class="form-group"><label>Montant (€)</label><input type="number" id="trans-amount" step="0.01" required></div>
-                <div class="form-group"><label>Type</label>
-                    <select id="trans-category"><option value="expense">Dépense</option><option value="income">Revenu</option></select>
+                <div class="segment-control" style="margin-bottom:15px;">
+                    <button type="button" class="segment-btn active" id="btn-expense" onclick="setTransactionType('expense')">Dépense</button>
+                    <button type="button" class="segment-btn" id="btn-income" onclick="setTransactionType('income')">Revenu</button>
                 </div>
+                <div class="form-group" id="group-type">
+                    <label>Type</label>
+                    <select id="trans-type">
+                        <option value="graines">Graines / Nourriture</option>
+                        <option value="paille">Paille / Litière</option>
+                        <option value="soins">Soins / Vétérinaire</option>
+                        <option value="materiel">Matériel</option>
+                        <option value="achat_poule">Achat Poule</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Montant (€)</label><input type="number" id="trans-amount" step="0.01" required></div>
+                <div class="form-group"><label>Date</label><input type="date" id="trans-date" required></div>
                 <div class="modal-actions">
-                    <button type="button" class="close-modal secondary-btn">Fermer</button>
+                    <button type="button" class="delete-btn-text" id="btn-delete-trans" style="display:none;" onclick="deleteTransaction()">Supprimer</button>
+                    <div style="flex:1"></div>
+                    <button type="button" class="close-modal secondary-btn">Annuler</button>
+                    <button type="submit" class="primary-btn">Sauver</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-edit-task" class="modal">
+        <div class="modal-content glass-panel">
+            <h2 id="modal-task-title">Tâche d'entretien</h2>
+            <form id="form-task">
+                <input type="hidden" id="task-id">
+                <div class="form-group"><label>Nom de la tâche</label><input type="text" id="task-title" required></div>
+                <div class="form-group"><label>Fréquence (jours)</label><input type="number" id="task-freq" required min="1"></div>
+                <div class="modal-actions">
+                    <button type="button" class="delete-btn-text" id="btn-delete-task" style="display:none;" onclick="deleteCurrentTask()">Supprimer</button>
+                    <div style="flex:1"></div>
+                    <button type="button" class="close-modal secondary-btn">Annuler</button>
                     <button type="submit" class="primary-btn">Sauver</button>
                 </div>
             </form>
@@ -190,7 +269,7 @@
         <div class="modal-content glass-panel">
             <h2>Qui a pondu ?</h2>
             <div id="egg-chickens-list" class="selection-grid"></div>
-            <button class="close-modal secondary-btn" style="width:100%; margin-top:15px;">Fermer</button>
+            <button class="close-modal secondary-btn" style="width:100%; margin-top:20px;">Fermer</button>
         </div>
     </div>
 
