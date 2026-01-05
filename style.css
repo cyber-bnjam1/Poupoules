@@ -115,19 +115,19 @@ html, body {
     box-shadow: 0 8px 30px rgba(0,0,0,0.04);
 }
 
-/* SETTINGS PROFILE FIX */
+/* PROFILE & SETTINGS */
 .profile-card {
     text-align: center;
     display: flex;
-    flex-direction: column; /* Force l'alignement vertical */
+    flex-direction: column; 
     align-items: center;
     justify-content: center;
     gap: 10px;
     min-height: 200px;
 }
 #auth-logged-in {
-    display: none; /* JS le passera en flex */
-    flex-direction: column; /* IMPORTANT : Empile les éléments */
+    display: none; 
+    flex-direction: column; 
     align-items: center;
     width: 100%;
     gap: 8px;
@@ -147,7 +147,7 @@ html, body {
     margin: 0;
     color: var(--text-light);
     font-size: 14px;
-    word-break: break-all; /* Coupe l'email s'il est trop long */
+    word-break: break-all;
     max-width: 100%;
     padding: 0 10px;
 }
@@ -206,10 +206,28 @@ html, body {
 .bg-materiel { background-color: var(--color-materiel); }
 .bg-autre { background-color: var(--color-autre); }
 
+/* --- INPUT FIX (DATE OVERFLOW) --- */
 input, select { 
-    width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e5e5e5; 
-    background: #fff; margin-bottom: 15px; box-sizing: border-box; font-size: 16px; 
+    display: block; /* Force le comportement de bloc */
+    width: 100%; 
+    max-width: 100%; /* Empêche strictement le débordement */
+    padding: 14px; 
+    border-radius: 12px; 
+    border: 1px solid #e5e5e5; 
+    background: #fff; 
+    margin-bottom: 15px; 
+    box-sizing: border-box; /* Inclut le padding dans la largeur */
+    font-size: 16px; 
+    outline: none;
+    font-family: inherit;
+    -webkit-appearance: none; /* Reset style iOS par défaut */
+    appearance: none;
 }
+/* Ciblage spécifique pour date si nécessaire */
+input[type="date"] {
+    -webkit-min-logical-width: calc(100% - 30px);
+}
+
 .glass-btn { border: none; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 5px; }
 .primary-btn { background: var(--primary); color: white; }
 .danger-btn { background: rgba(255, 59, 48, 0.1); color: var(--danger); }
