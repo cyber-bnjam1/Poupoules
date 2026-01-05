@@ -4,87 +4,210 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Poupoules</title>
+    
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Poupoules">
+    
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
+
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="background-blobs"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div></div>
+
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
     <header id="app-header">
         <button id="burger-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
-        <div id="header-status" class="status-badge demo">Mode Démo</div>
+        <div id="header-right" style="display:flex; gap:10px; align-items:center;">
+            <div id="weather-widget" class="weather-badge" style="display:none;">
+                <i class="fas fa-cloud-sun"></i> <span>--°C</span>
+            </div>
+            <div id="header-status" class="status-badge demo">Mode Démo</div>
+        </div>
     </header>
+
     <div id="menu-overlay">
         <div class="menu-content">
             <button class="close-menu-btn" onclick="toggleMenu()">&times;</button>
-            <div class="menu-title">Menu</div>
+            <div class="menu-title">Poupoules</div>
             <nav class="menu-nav">
                 <button class="menu-link active" onclick="navigate('view-dashboard')"><i class="fas fa-home"></i> Accueil</button>
                 <button class="menu-link" onclick="navigate('view-chickens')"><i class="fas fa-crow"></i> Poules</button>
                 <button class="menu-link" onclick="navigate('view-finance')"><i class="fas fa-coins"></i> Budget</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
-            <p class="menu-footer">Poupoules v13.0</p>
+            <p class="menu-footer">Poupoules v14.0 Ultimate</p>
         </div>
     </div>
+
     <main id="scroll-container">
         <div class="spacer-top"></div>
+        
         <section id="view-dashboard" class="active-view">
-            <h1 class="big-title">Vue d'ensemble</h1>
+            <h1 class="big-title">Bonjour !</h1>
+            
+            <div class="glass-card tasks-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3 style="margin:0;">À faire</h3>
+                    <button class="small-icon-btn" onclick="resetTasks()"><i class="fas fa-sync"></i></button>
+                </div>
+                <ul id="tasks-list" class="tasks-list">
+                    </ul>
+            </div>
+
+            <h3 class="section-title">Performances</h3>
             <div class="segment-control">
                 <button class="segment-btn active" onclick="switchStatsPeriod('month', this)">Ce Mois</button>
                 <button class="segment-btn" onclick="switchStatsPeriod('year', this)">Cette Année</button>
             </div>
+
             <div class="glass-card summary-card">
-                <div class="stat-item"><div class="icon-box egg-color"><i class="fas fa-egg"></i></div><div class="stat-text"><span id="total-eggs-display">0</span><small id="label-eggs-display">Œufs</small></div></div>
+                <div class="stat-item">
+                    <div class="icon-box egg-color"><i class="fas fa-egg"></i></div>
+                    <div class="stat-text"><span id="total-eggs-display">0</span><small id="label-eggs-display">Œufs</small></div>
+                </div>
                 <div class="divider"></div>
-                <div class="stat-item"><div class="icon-box money-color"><i class="fas fa-euro-sign"></i></div><div class="stat-text"><span id="total-spent-display">0</span><small>Dépenses</small></div></div>
+                <div class="stat-item">
+                    <div class="icon-box money-color"><i class="fas fa-chart-line"></i></div>
+                    <div class="stat-text"><span id="cost-per-egg-display">0.00€</span><small>Coût / œuf</small></div>
+                </div>
             </div>
-            <div class="glass-card chart-card"><h3 id="chart-title"><i class="fas fa-chart-bar"></i> Ponte</h3><div class="chart-container"><canvas id="eggsChart"></canvas></div></div>
+
+            <div class="glass-card chart-card">
+                <h3 id="chart-title"><i class="fas fa-chart-bar"></i> Ponte</h3>
+                <div class="chart-container"><canvas id="eggsChart"></canvas></div>
+            </div>
+
             <h3 class="section-title">Activités Récentes</h3>
             <ul id="recent-activity-list" class="glass-list activity-list"></ul>
         </section>
+
         <section id="view-chickens">
-            <div class="page-header-row"><h1 class="big-title no-margin">Le Poulailler</h1><button class="glass-btn-round" onclick="openChickenModal()"><i class="fas fa-plus"></i></button></div>
-            <div class="segment-control"><button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Actives</button><button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button></div>
+            <div class="page-header-row">
+                <h1 class="big-title no-margin">Le Poulailler</h1>
+                <button class="glass-btn-round" onclick="openChickenModal()"><i class="fas fa-plus"></i></button>
+            </div>
+            <div class="segment-control">
+                <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Actives</button>
+                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
+            </div>
             <div id="chickens-grid" class="grid-container"></div>
         </section>
+
         <section id="view-finance">
-            <div class="page-header-row"><h1 class="big-title no-margin">Budget</h1><button class="glass-btn-round" onclick="openExpenseModal()"><i class="fas fa-plus"></i></button></div>
-            <div class="glass-card"><h3>Répartition</h3><div class="finance-bar-container"><div id="finance-progress-bar" class="progress-bar"></div></div><div id="finance-legend" class="legend-container"></div></div>
-            <h3 class="section-title">Historique</h3><ul id="expenses-list" class="glass-list"></ul>
+            <div class="page-header-row">
+                <h1 class="big-title no-margin">Finance</h1>
+                <button class="glass-btn-round" onclick="openTransactionModal()"><i class="fas fa-plus"></i></button>
+            </div>
+            
+            <div class="glass-card summary-card" style="margin-bottom:15px;">
+                <div class="stat-item">
+                    <div class="stat-text" style="color:var(--success);"><span id="finance-income">0€</span><small>Ventes</small></div>
+                </div>
+                <div class="divider"></div>
+                <div class="stat-item">
+                    <div class="stat-text" style="color:var(--danger);"><span id="finance-expense">0€</span><small>Dépenses</small></div>
+                </div>
+                <div class="divider"></div>
+                <div class="stat-item">
+                    <div class="stat-text"><span id="finance-balance">0€</span><small>Bilan</small></div>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h3>Répartition Dépenses</h3>
+                <div class="finance-bar-container"><div id="finance-progress-bar" class="progress-bar"></div></div>
+                <div id="finance-legend" class="legend-container"></div>
+            </div>
+            
+            <h3 class="section-title">Historique</h3>
+            <ul id="expenses-list" class="glass-list"></ul>
         </section>
+
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
             <div class="glass-card profile-card">
-                <div id="auth-logged-out"><div class="profile-placeholder"><i class="fas fa-user"></i></div><h3>Sauvegarde Cloud</h3><button id="google-login-btn" class="glass-btn primary-btn"><i class="fab fa-google"></i> Connexion Google</button></div>
-                <div id="auth-logged-in" style="display:none;"><img id="user-photo" src="" alt="User"><h3 id="user-name">Utilisateur</h3><p id="user-email">...</p><div class="badge-success">Connecté</div><button id="logout-btn" class="glass-btn danger-btn">Déconnexion</button></div>
+                <div id="auth-logged-out">
+                    <div class="profile-placeholder"><i class="fas fa-user"></i></div>
+                    <h3>Sauvegarde Cloud</h3>
+                    <button id="google-login-btn" class="glass-btn primary-btn"><i class="fab fa-google"></i> Connexion Google</button>
+                </div>
+                <div id="auth-logged-in" style="display:none;">
+                    <img id="user-photo" src="" alt="User">
+                    <h3 id="user-name">User</h3>
+                    <p id="user-email">...</p>
+                    <div class="badge-success">Connecté</div>
+                    <button id="logout-btn" class="glass-btn danger-btn">Déconnexion</button>
+                </div>
             </div>
-            <div class="glass-list-container"><h3>Général</h3><ul class="glass-list settings-list"><li><span><i class="fas fa-bell"></i> Notifications</span> <label class="switch"><input type="checkbox" checked><span class="slider round"></span></label></li></ul></div>
+            <div class="glass-list-container">
+                <h3>Apparence</h3>
+                <ul class="glass-list settings-list">
+                    <li><span><i class="fas fa-moon"></i> Mode Sombre</span> <label class="switch"><input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()"><span class="slider round"></span></label></li>
+                </ul>
+            </div>
         </section>
+
         <section id="view-chicken-detail">
-            <div class="page-header-row"><button class="glass-btn-round" onclick="closeChickenDetails()"><i class="fas fa-arrow-left"></i></button><h2 style="margin:0;">Fiche Poule</h2><button class="glass-btn-round" onclick="editCurrentChicken()"><i class="fas fa-pen"></i></button></div>
-            <div class="glass-card profile-card" style="margin-top:20px;"><div class="detail-photo-container"><img id="detail-photo" src="" alt="Poule"></div><h2 id="detail-name">Nom</h2><p id="detail-breed" style="color:var(--text-light)">Race</p><div class="tags-row"><span id="detail-age" class="tag-badge">Age</span><span id="detail-price" class="tag-badge money">Prix</span></div></div>
-            <div class="glass-card"><h3>Statistiques</h3><ul class="glass-list"><li><span>🥚 Total Œufs</span> <span id="detail-total-eggs">0</span></li><li><span>📅 Arrivée</span> <span id="detail-date">--/--/----</span></li><li><span>🩺 Statut</span> <span id="detail-status" class="badge-success">Active</span></li></ul></div>
+            <div class="page-header-row">
+                <button class="glass-btn-round" onclick="closeChickenDetails()"><i class="fas fa-arrow-left"></i></button>
+                <h2 style="margin:0;">Fiche Poule</h2>
+                <button class="glass-btn-round" onclick="editCurrentChicken()"><i class="fas fa-pen"></i></button>
+            </div>
+            <div class="glass-card profile-card" style="margin-top:20px;">
+                <div class="detail-photo-container"><img id="detail-photo" src="" alt="Poule"></div>
+                <h2 id="detail-name">Nom</h2>
+                <p id="detail-breed" style="color:var(--text-light)">Race</p>
+                <div class="tags-row"><span id="detail-age" class="tag-badge">Age</span><span id="detail-price" class="tag-badge money">Prix</span></div>
+            </div>
+            <div class="glass-card">
+                <h3>Statistiques</h3>
+                <ul class="glass-list">
+                    <li><span>🥚 Total Œufs</span> <span id="detail-total-eggs">0</span></li>
+                    <li><span>📅 Arrivée</span> <span id="detail-date">--/--/----</span></li>
+                </ul>
+            </div>
+
+            <div class="glass-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3><i class="fas fa-notes-medical" style="color:var(--danger)"></i> Santé</h3>
+                    <button class="small-icon-btn" onclick="openTreatmentModal()"><i class="fas fa-plus"></i></button>
+                </div>
+                <ul id="health-list" class="glass-list small-list">
+                    </ul>
+            </div>
+
             <button id="btn-archive" class="glass-btn danger-btn" onclick="archiveCurrentChicken()">Archiver</button>
         </section>
-        <div style="height: 50px;"></div>
+        
+        <div style="height: 60px;"></div>
     </main>
+
     <div id="modal-chicken" class="modal">
         <div class="glass-card modal-content">
-            <span class="close-modal">&times;</span><h2 id="modal-chicken-title">Nouvelle Poule</h2>
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-chicken-title">Nouvelle Poule</h2>
             <form id="form-chicken">
                 <input type="hidden" id="chk-id">
-                <div class="photo-upload-wrapper" onclick="document.getElementById('chk-photo-file').click()"><img id="preview-photo" src="icon.png"><div class="upload-icon"><i class="fas fa-camera"></i></div></div>
+                <div class="photo-upload-wrapper" onclick="document.getElementById('chk-photo-file').click()">
+                    <img id="preview-photo" src="icon.png">
+                    <div class="upload-icon"><i class="fas fa-camera"></i></div>
+                </div>
                 <canvas id="compression-canvas" style="display:none;"></canvas>
                 <input type="file" id="chk-photo-file" accept="image/*" hidden>
-                <div class="form-row"><div style="flex:1; min-width:0;"><label class="input-label">Nom</label><input type="text" id="chk-name" required></div><div style="flex:1; min-width:0;"><label class="input-label">Race</label><input type="text" id="chk-breed" required></div></div>
+                <div class="form-row">
+                    <div style="flex:1; min-width:0;"><label class="input-label">Nom</label><input type="text" id="chk-name" required></div>
+                    <div style="flex:1; min-width:0;"><label class="input-label">Race</label><input type="text" id="chk-breed" required></div>
+                </div>
                 <label class="input-label">Date d'arrivée</label><input type="date" id="chk-date" required>
                 <label class="input-label">Prix d'achat (€)</label><input type="number" id="chk-price" step="0.01">
                 <button type="submit" class="glass-btn full-width primary-btn">Sauvegarder</button>
@@ -92,19 +215,62 @@
             </form>
         </div>
     </div>
-    <div id="modal-expense" class="modal">
+
+    <div id="modal-transaction" class="modal">
         <div class="glass-card modal-content">
-            <span class="close-modal">&times;</span><h2 id="modal-expense-title">Dépense</h2>
-            <form id="form-expense">
-                <input type="hidden" id="exp-id">
-                <label class="input-label">Date</label><input type="date" id="exp-date" required>
-                <label class="input-label">Type</label><select id="exp-type"><option value="graines">Graines</option><option value="paille">Paille</option><option value="soins">Soins</option><option value="materiel">Matériel</option><option value="autre">Autre</option></select>
-                <label class="input-label">Montant (€)</label><input type="number" id="exp-amount" step="0.01" required>
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-transaction-title">Transaction</h2>
+            <form id="form-transaction">
+                <input type="hidden" id="trans-id">
+                
+                <div class="segment-control" style="margin-bottom:15px;">
+                    <button type="button" id="btn-type-expense" class="segment-btn active" onclick="setTransactionType('expense')">Dépense</button>
+                    <button type="button" id="btn-type-income" class="segment-btn" onclick="setTransactionType('income')">Vente</button>
+                </div>
+                <input type="hidden" id="trans-category" value="expense">
+
+                <label class="input-label">Date</label><input type="date" id="trans-date" required>
+                
+                <div id="field-expense-type">
+                    <label class="input-label">Catégorie</label>
+                    <select id="trans-type">
+                        <option value="graines">Graines</option>
+                        <option value="paille">Paille</option>
+                        <option value="soins">Soins</option>
+                        <option value="materiel">Matériel</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+
+                <label class="input-label">Montant (€)</label><input type="number" id="trans-amount" step="0.01" required>
+                
                 <button type="submit" class="glass-btn full-width primary-btn">Sauvegarder</button>
-                <button type="button" id="btn-delete-expense" class="glass-btn danger-btn" style="display:none; margin-top:10px;" onclick="deleteCurrentExpense()"><i class="fas fa-trash"></i> Supprimer</button>
+                <button type="button" id="btn-delete-trans" class="glass-btn danger-btn" style="display:none; margin-top:10px;" onclick="deleteCurrentTransaction()"><i class="fas fa-trash"></i> Supprimer</button>
             </form>
         </div>
     </div>
+
+    <div id="modal-treatment" class="modal">
+        <div class="glass-card modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Soins / Santé</h2>
+            <form id="form-treatment">
+                <label class="input-label">Date</label><input type="date" id="treat-date" required>
+                <label class="input-label">Type</label>
+                <select id="treat-type">
+                    <option value="vermifuge">Vermifuge</option>
+                    <option value="antipoux">Anti-poux</option>
+                    <option value="vaccin">Vaccin</option>
+                    <option value="blessure">Blessure</option>
+                    <option value="autre">Autre</option>
+                </select>
+                <label class="input-label">Note (Optionnel)</label>
+                <input type="text" id="treat-note" placeholder="Ex: Patte gauche...">
+                <button type="submit" class="glass-btn full-width primary-btn">Ajouter</button>
+            </form>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
