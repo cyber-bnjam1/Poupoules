@@ -18,12 +18,11 @@ const DEMO_DATA = {
         { id: 'c2', name: 'Gertrude', breed: 'Sussex', date: '2022-08-15', price: 18, status: 'active', photo: 'icon.png' }
     ],
     eggs: [
-        { chickenId: 'c1', chickenName: 'Huguette', date: new Date().toISOString() },
-        { chickenId: 'c2', chickenName: 'Gertrude', date: new Date().toISOString() }
+        { id: 'egg1', chickenId: 'c1', chickenName: 'Huguette', date: new Date().toISOString() },
+        { id: 'egg2', chickenId: 'c2', chickenName: 'Gertrude', date: new Date().toISOString() }
     ],
     expenses: [
-        { id: 'e1', type: 'graines', amount: 25.50, date: new Date().toISOString() },
-        { id: 'e2', type: 'paille', amount: 12.00, date: new Date().toISOString() }
+        { id: 'e1', type: 'graines', amount: 25.50, date: new Date().toISOString() }
     ]
 };
 
@@ -107,17 +106,43 @@ function renderDashboard() {
         filteredExpenses = localExpenses.filter(e => new Date(e.date).getFullYear() === currentYear);
         document.getElementById('label-eggs-display').innerText = "Œufs (Année)"; document.getElementById('chart-title').innerHTML = '<i class="fas fa-chart-bar"></i> Mois de l\'année';
     }
+    
+    // Stats
     document.getElementById('total-eggs-display').innerText = filteredEggs.length;
     const totalSpent = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
     document.getElementById('total-spent-display').innerText = totalSpent.toFixed(2) + ' €';
+    
+    // Chart
     updateEggsChart(filteredEggs);
-    const list = document.getElementById('recent-activity-list'); list.innerHTML = '';
-    localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 5).forEach(egg => {
-        const li = document.createElement('li'); const d = new Date(egg.date);
-        li.innerHTML = `<span>🥚 ${egg.chickenName}</span><span>${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${d.getMinutes()<10?'0':''}${d.getMinutes()}</span>`;
+    
+    // Recent Activity (AVEC BOUTON SUPPRIMER)
+    const list = document.getElementById('recent-activity-list'); 
+    list.innerHTML = '';
+    
+    // On trie par date décroissante et on prend les 10 derniers
+    const recentEggs = [...localEggs].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+    
+    recentEggs.forEach(egg => {
+        const li = document.createElement('li'); 
+        const d = new Date(egg.date);
+        const dateStr = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${d.getMinutes()<10?'0':''}${d.getMinutes()}`;
+        
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span>🥚</span>
+                <span style="font-weight:500;">${egg.chickenName}</span>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <span style="font-size:12px; color:#999; margin-right:5px;">${dateStr}</span>
+                <button class="delete-icon-btn" onclick="deleteEgg('${egg.id}')">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        `;
         list.appendChild(li);
     });
 }
+
 function updateEggsChart(eggsData) {
     let labels = [], data = [];
     if (currentStatsPeriod === 'month') { labels = Array.from({length: 31}, (_, i) => i + 1); data = new Array(31).fill(0); eggsData.forEach(e => { data[new Date(e.date).getDate() - 1]++; }); } 
@@ -152,6 +177,42 @@ function renderFinance() {
     const legend = document.getElementById('finance-legend'); legend.innerHTML = ''; const labels = { graines: 'Graines', paille: 'Paille', soins: 'Soins', materiel: 'Matériel', autre: 'Autre' };
     for (const [type, amount] of Object.entries(map)) { if (amount > 0 || total === 0) { legend.innerHTML += `<div class="legend-item"><div class="legend-color bg-${type}"></div><span>${labels[type]} (${total > 0 ? Math.round((amount/total)*100) : 0}%)</span></div>`; } }
 }
+
+// --- AJOUT OEUF ET SUPPRESSION (UPDATED v13) ---
+window.handleAddEgg = (id, name) => {
+    // Génération d'un ID unique obligatoire pour pouvoir le supprimer ensuite
+    const newEgg = { 
+        id: 'egg_' + Date.now() + Math.random().toString(36).substr(2, 9),
+        chickenId: id, 
+        chickenName: name, 
+        date: new Date().toISOString() 
+    };
+    
+    if (isDemoMode) { 
+        localEggs.push(newEgg); 
+        renderDashboard(); 
+        alert(`Top ${name} ! (Ajouté en mode démo)`); 
+    } else { 
+        db.collection('users').doc(currentUser.uid).collection('eggs').add(newEgg)
+        .then(() => alert(`Top ${name} !`));
+    }
+};
+
+// NOUVELLE FONCTION DE SUPPRESSION
+window.deleteEgg = (eggId) => {
+    if(!eggId) return; // Sécurité pour les vieux œufs sans ID
+    
+    if(confirm("Oups ? Supprimer cet œuf de l'historique ?")) {
+        if(isDemoMode) {
+            localEggs = localEggs.filter(e => e.id !== eggId);
+            renderDashboard();
+        } else {
+            // Recherche de l'œuf dans la base pour le supprimer (si on a l'ID du doc)
+            // Note: Dans loadFirebaseData, on mappe l'id du doc Firestore sur .id
+            db.collection('users').doc(currentUser.uid).collection('eggs').doc(eggId).delete();
+        }
+    }
+};
 
 // --- MODALS EXPENSE ---
 window.openExpenseModal = (expenseId = null) => {
@@ -196,70 +257,38 @@ window.deleteCurrentExpense = () => {
     }
 };
 
-window.handleAddEgg = (id, name) => {
-    const newEgg = { chickenId: id, chickenName: name, date: new Date().toISOString() };
-    if (isDemoMode) { localEggs.push(newEgg); renderDashboard(); alert(`Top ${name} !`); }
-    else { db.collection('users').doc(currentUser.uid).collection('eggs').add(newEgg); }
-};
-
 // --- GESTION POULES AVEC COMPRESSION IMAGE ---
-
-// Utilitaire pour compresser l'image
 function compressImage(file, callback) {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
+    const reader = new FileReader(); reader.readAsDataURL(file);
     reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
+        const img = new Image(); img.src = event.target.result;
         img.onload = () => {
-            const canvas = document.getElementById('compression-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // On limite la taille à 800px max de large
-            const maxWidth = 800;
-            const scaleSize = maxWidth / img.width;
-            canvas.width = maxWidth;
-            canvas.height = img.height * scaleSize;
-
+            const canvas = document.getElementById('compression-canvas'); const ctx = canvas.getContext('2d');
+            const maxWidth = 800; const scaleSize = maxWidth / img.width;
+            canvas.width = maxWidth; canvas.height = img.height * scaleSize;
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
-            // Compression JPEG à 70% de qualité
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-            callback(dataUrl);
+            callback(canvas.toDataURL('image/jpeg', 0.7));
         };
     };
 }
-
 document.getElementById('chk-photo-file').addEventListener('change', (e) => {
-    if (e.target.files[0]) {
-        // On compresse dès la sélection
-        compressImage(e.target.files[0], (compressedSrc) => {
-            document.getElementById('preview-photo').src = compressedSrc;
-        });
-    }
+    if (e.target.files[0]) { compressImage(e.target.files[0], (compressedSrc) => { document.getElementById('preview-photo').src = compressedSrc; }); }
 });
 
 window.openChickenModal = (isEdit = false) => {
     const modal = document.getElementById('modal-chicken');
     const deleteBtn = document.getElementById('btn-delete-chicken');
-    
-    // Reset form avant ouverture pour éviter que les IDs restent
     document.getElementById('form-chicken').reset();
-
     if (!isEdit) {
         document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule";
-        document.getElementById('chk-id').value = ''; 
-        document.getElementById('preview-photo').src = 'icon.png';
+        document.getElementById('chk-id').value = ''; document.getElementById('preview-photo').src = 'icon.png';
         deleteBtn.style.display = 'none';
     } else if (isEdit && currentChickenId) {
         const chk = localChickens.find(c => c.id === currentChickenId);
         document.getElementById('modal-chicken-title').innerText = "Modifier";
-        document.getElementById('chk-id').value = chk.id; 
-        document.getElementById('chk-name').value = chk.name; 
-        document.getElementById('chk-breed').value = chk.breed;
-        document.getElementById('chk-date').value = chk.date || ''; 
-        document.getElementById('chk-price').value = chk.price || '';
-        document.getElementById('preview-photo').src = chk.photo || 'icon.png';
+        document.getElementById('chk-id').value = chk.id; document.getElementById('chk-name').value = chk.name; 
+        document.getElementById('chk-breed').value = chk.breed; document.getElementById('chk-date').value = chk.date || ''; 
+        document.getElementById('chk-price').value = chk.price || ''; document.getElementById('preview-photo').src = chk.photo || 'icon.png';
         deleteBtn.style.display = 'flex';
     }
     modal.style.display = 'flex';
@@ -269,52 +298,23 @@ window.editCurrentChicken = () => openChickenModal(true);
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('chk-id').value;
-    const data = { 
-        name: document.getElementById('chk-name').value, 
-        breed: document.getElementById('chk-breed').value, 
-        date: document.getElementById('chk-date').value, 
-        price: parseFloat(document.getElementById('chk-price').value), 
-        photo: document.getElementById('preview-photo').src, // C'est déjà l'image compressée
-        status: 'active' 
-    };
-    
+    const data = { name: document.getElementById('chk-name').value, breed: document.getElementById('chk-breed').value, date: document.getElementById('chk-date').value, price: parseFloat(document.getElementById('chk-price').value), photo: document.getElementById('preview-photo').src, status: 'active' };
     if (isDemoMode) {
-        if(id) { 
-            const idx = localChickens.findIndex(c => c.id === id); 
-            localChickens[idx] = { ...localChickens[idx], ...data }; 
-            if(currentChickenId === id) openChickenDetails(id); 
-        } else { 
-            localChickens.push({ id: 'demo'+Date.now(), ...data }); 
-            filterChickens('active', document.getElementById('btn-filter-active'));
-        }
+        if(id) { const idx = localChickens.findIndex(c => c.id === id); localChickens[idx] = { ...localChickens[idx], ...data }; if(currentChickenId === id) openChickenDetails(id); }
+        else { localChickens.push({ id: 'demo'+Date.now(), ...data }); filterChickens('active', document.getElementById('btn-filter-active')); }
         renderChickensList();
     } else {
-        if(id) { 
-            db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).update(data); 
-            if(currentChickenId === id) openChickenDetails(id); 
-        } else { 
-            db.collection('users').doc(currentUser.uid).collection('chickens').add(data);
-            filterChickens('active', document.getElementById('btn-filter-active'));
-        }
+        if(id) { db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).update(data); if(currentChickenId === id) openChickenDetails(id); }
+        else { db.collection('users').doc(currentUser.uid).collection('chickens').add(data); filterChickens('active', document.getElementById('btn-filter-active')); }
     }
     document.getElementById('modal-chicken').style.display = 'none';
 });
 
 window.deleteCurrentChicken = () => {
-    const id = document.getElementById('chk-id').value;
-    if (!id) return;
-    
-    if (confirm("Voulez-vous vraiment supprimer cette poule définitivement ? (L'archivage est conseillé)")) {
-        if (isDemoMode) {
-            localChickens = localChickens.filter(c => c.id !== id);
-            closeChickenDetails();
-            renderChickensList();
-        } else {
-            db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).delete()
-            .then(() => {
-                closeChickenDetails();
-            });
-        }
+    const id = document.getElementById('chk-id').value; if (!id) return;
+    if (confirm("Voulez-vous vraiment supprimer cette poule ?")) {
+        if (isDemoMode) { localChickens = localChickens.filter(c => c.id !== id); closeChickenDetails(); renderChickensList(); }
+        else { db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).delete().then(() => closeChickenDetails()); }
         document.getElementById('modal-chicken').style.display = 'none';
     }
 };
@@ -348,7 +348,18 @@ function updateAuthUI(isLoggedIn) {
 }
 document.getElementById('google-login-btn').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
 document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
-function loadFirebaseData() { const r = db.collection('users').doc(currentUser.uid); r.collection('chickens').onSnapshot(s => { localChickens = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); r.collection('eggs').orderBy('date').onSnapshot(s => { localEggs = s.docs.map(d=>d.data()); renderAll(); }); r.collection('expenses').orderBy('date').onSnapshot(s => { localExpenses = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); }
+
+// DATA LOAD (CORRIGÉ POUR INCLURE LES IDs)
+function loadFirebaseData() { 
+    const r = db.collection('users').doc(currentUser.uid); 
+    r.collection('chickens').onSnapshot(s => { localChickens = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); 
+    r.collection('eggs').orderBy('date').onSnapshot(s => { 
+        // IMPORTANT: On inclut l'ID du doc (d.id) pour pouvoir le supprimer
+        localEggs = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+        renderAll(); 
+    }); 
+    r.collection('expenses').orderBy('date').onSnapshot(s => { localExpenses = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); 
+}
 function initEggsChart() {
     eggsChartInstance = new Chart(document.getElementById('eggsChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [{ label: 'Œufs', data: [], backgroundColor: '#0071e3', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}}, scales:{y:{beginAtZero:true, display:false}, x:{grid:{display:false}}} } });
 }
