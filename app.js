@@ -1,4 +1,4 @@
-// CONFIGURATION FIREBASE
+// FIREBASE CONFIG (A REMPLIR)
 const firebaseConfig = {
     apiKey: "API_KEY",
     authDomain: "PROJECT_ID.firebaseapp.com",
@@ -11,7 +11,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DATA
+// DATA AVEC IDS UNIQUES
 const DEMO_DATA = {
     chickens: [
         { id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-05-10', price: 15, status: 'active', photo: 'https://cdn-icons-png.flaticon.com/512/1826/1826224.png' },
@@ -22,7 +22,9 @@ const DEMO_DATA = {
         { chickenId: 'c2', chickenName: 'Gertrude', date: new Date().toISOString() }
     ],
     expenses: [
-        { type: 'graines', amount: 14.90, date: new Date().toISOString() }
+        { id: 'e1', type: 'graines', amount: 25.50, date: new Date().toISOString() },
+        { id: 'e2', type: 'paille', amount: 12.00, date: new Date().toISOString() },
+        { id: 'e3', type: 'soins', amount: 8.50, date: new Date().toISOString() }
     ]
 };
 
@@ -36,11 +38,10 @@ let currentChickenId = null;
 let currentFilter = 'active'; 
 let currentStatsPeriod = 'month';
 let eggsChartInstance = null;
-let financeChartInstance = null;
 
 // INIT
 document.addEventListener('DOMContentLoaded', () => {
-    initCharts();
+    initEggsChart();
     auth.onAuthStateChanged(user => {
         if (user) {
             currentUser = user;
@@ -56,133 +57,86 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAll();
         }
     });
-    // On n'appelle plus setupNavigation car on utilise le menu burger
     document.querySelectorAll('.close-modal').forEach(x => x.addEventListener('click', () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none')));
 });
 
-// MENU BURGER LOGIC
-window.toggleMenu = () => {
-    document.getElementById('menu-overlay').classList.toggle('open');
-};
-
+// NAVIGATION
+window.toggleMenu = () => { document.getElementById('menu-overlay').classList.toggle('open'); };
 window.navigate = (targetId) => {
-    // 1. Fermer le menu
     toggleMenu();
-    
-    // 2. Changer la vue
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
     document.getElementById(targetId).classList.add('active-view');
-
-    // 3. Update Menu Active State
     document.querySelectorAll('.menu-link').forEach(l => l.classList.remove('active'));
-    // Simple matching logic
     const clickedLink = Array.from(document.querySelectorAll('.menu-link')).find(l => l.getAttribute('onclick').includes(targetId));
     if(clickedLink) clickedLink.classList.add('active');
-
-    // 4. Scroll to top
     document.getElementById('scroll-container').scrollTop = 0;
 };
 
-// LOGIQUE RENDER
+// RENDER
 function renderAll() {
     renderChickensList();
     renderDashboard();
     renderFinance();
 }
 
+// ... (renderChickensList, filterChickens, switchStatsPeriod, renderDashboard, updateEggsChart restent identiques à V8) ...
 function renderChickensList() {
     const grid = document.getElementById('chickens-grid');
     grid.innerHTML = '';
     const list = localChickens.filter(c => (c.status || 'active') === currentFilter);
-
-    if (list.length === 0) {
-        grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#999; margin-top:30px;">Vide 🐣</p>';
-        return;
-    }
+    if (list.length === 0) { grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#999; margin-top:30px;">Vide 🐣</p>'; return; }
     list.forEach(chk => {
         const img = chk.photo || 'https://cdn-icons-png.flaticon.com/512/1826/1826224.png';
         const card = document.createElement('div');
         card.className = `chicken-card ${chk.status === 'archived' ? 'grayscale-card' : ''}`;
         card.onclick = (e) => { if (!e.target.closest('.egg-btn')) openChickenDetails(chk.id); };
-        card.innerHTML = `
-            <img src="${img}" class="chicken-img">
-            <h3 style="margin:5px 0;">${chk.name}</h3>
-            <small style="color:#888">${chk.breed}</small>
-            ${chk.status === 'active' ? `<button class="egg-btn" onclick="handleAddEgg('${chk.id}', '${chk.name}')">🥚 A pondu !</button>` : `<small style="display:block;margin-top:10px">Archivée</small>`}
-        `;
+        card.innerHTML = `<img src="${img}" class="chicken-img"><h3 style="margin:5px 0;">${chk.name}</h3><small style="color:#888">${chk.breed}</small>${chk.status === 'active' ? `<button class="egg-btn" onclick="handleAddEgg('${chk.id}', '${chk.name}')">🥚 A pondu !</button>` : `<small style="display:block;margin-top:10px">Archivée</small>`}`;
         grid.appendChild(card);
     });
 }
-
-function filterChickens(status, btn) {
-    currentFilter = status;
-    document.querySelectorAll('#view-chickens .segment-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderChickensList();
-}
-
-function switchStatsPeriod(period, btn) {
-    currentStatsPeriod = period;
-    document.querySelectorAll('#view-dashboard .segment-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderDashboard();
-}
-
+function filterChickens(status, btn) { currentFilter = status; document.querySelectorAll('#view-chickens .segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderChickensList(); }
+function switchStatsPeriod(period, btn) { currentStatsPeriod = period; document.querySelectorAll('#view-dashboard .segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderDashboard(); }
 function renderDashboard() {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const now = new Date(); const currentMonth = now.getMonth(); const currentYear = now.getFullYear();
     let filteredEggs = [], filteredExpenses = [];
-
     if (currentStatsPeriod === 'month') {
         filteredEggs = localEggs.filter(e => { const d = new Date(e.date); return d.getMonth() === currentMonth && d.getFullYear() === currentYear; });
         filteredExpenses = localExpenses.filter(e => { const d = new Date(e.date); return d.getMonth() === currentMonth && d.getFullYear() === currentYear; });
-        document.getElementById('label-eggs-display').innerText = "Œufs (Mois)";
-        document.getElementById('chart-title').innerHTML = '<i class="fas fa-chart-bar"></i> Jours du mois';
+        document.getElementById('label-eggs-display').innerText = "Œufs (Mois)"; document.getElementById('chart-title').innerHTML = '<i class="fas fa-chart-bar"></i> Jours du mois';
     } else {
         filteredEggs = localEggs.filter(e => new Date(e.date).getFullYear() === currentYear);
         filteredExpenses = localExpenses.filter(e => new Date(e.date).getFullYear() === currentYear);
-        document.getElementById('label-eggs-display').innerText = "Œufs (Année)";
-        document.getElementById('chart-title').innerHTML = '<i class="fas fa-chart-bar"></i> Mois de l\'année';
+        document.getElementById('label-eggs-display').innerText = "Œufs (Année)"; document.getElementById('chart-title').innerHTML = '<i class="fas fa-chart-bar"></i> Mois de l\'année';
     }
-
     document.getElementById('total-eggs-display').innerText = filteredEggs.length;
     const totalSpent = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
     document.getElementById('total-spent-display').innerText = totalSpent.toFixed(2) + ' €';
-    updateStatsChart(filteredEggs);
-
-    const list = document.getElementById('recent-activity-list');
-    list.innerHTML = '';
+    updateEggsChart(filteredEggs);
+    const list = document.getElementById('recent-activity-list'); list.innerHTML = '';
     localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 5).forEach(egg => {
-        const li = document.createElement('li');
-        const d = new Date(egg.date);
+        const li = document.createElement('li'); const d = new Date(egg.date);
         li.innerHTML = `<span>🥚 ${egg.chickenName}</span><span>${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${d.getMinutes()<10?'0':''}${d.getMinutes()}</span>`;
         list.appendChild(li);
     });
 }
-
-function updateStatsChart(eggsData) {
+function updateEggsChart(eggsData) {
     let labels = [], data = [];
-    if (currentStatsPeriod === 'month') {
-        labels = Array.from({length: 31}, (_, i) => i + 1);
-        data = new Array(31).fill(0);
-        eggsData.forEach(e => { data[new Date(e.date).getDate() - 1]++; });
-    } else {
-        labels = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-        data = new Array(12).fill(0);
-        eggsData.forEach(e => { data[new Date(e.date).getMonth()]++; });
-    }
-    eggsChartInstance.data.labels = labels;
-    eggsChartInstance.data.datasets[0].data = data;
-    eggsChartInstance.update();
+    if (currentStatsPeriod === 'month') { labels = Array.from({length: 31}, (_, i) => i + 1); data = new Array(31).fill(0); eggsData.forEach(e => { data[new Date(e.date).getDate() - 1]++; }); } 
+    else { labels = ['J','F','M','A','M','J','J','A','S','O','N','D']; data = new Array(12).fill(0); eggsData.forEach(e => { data[new Date(e.date).getMonth()]++; }); }
+    eggsChartInstance.data.labels = labels; eggsChartInstance.data.datasets[0].data = data; eggsChartInstance.update();
 }
 
+// --- LOGIQUE FINANCE MISE A JOUR ---
 function renderFinance() {
     const list = document.getElementById('expenses-list');
     list.innerHTML = '';
     localExpenses.sort((a, b) => new Date(b.date) - new Date(a.date));
     localExpenses.forEach(exp => {
         const li = document.createElement('li');
+        li.className = 'expenses-list-item'; // Ajout de la classe pour le curseur
+        // Ajout du OnClick pour modifier
+        li.onclick = () => openExpenseModal(exp.id);
+        
         const icon = exp.type === 'graines' ? '🌾' : (exp.type === 'paille' ? '🛏️' : '💊');
         li.innerHTML = `
             <div style="display:flex; flex-direction:column;">
@@ -193,27 +147,97 @@ function renderFinance() {
         `;
         list.appendChild(li);
     });
-    let map = { graines: 0, paille: 0, soins: 0, materiel: 0, autre: 0 };
-    localExpenses.forEach(e => { const t = map[e.type] !== undefined ? e.type : 'autre'; map[t] += e.amount; });
-    financeChartInstance.data.datasets[0].data = Object.values(map);
-    financeChartInstance.update();
+
+    // Bar Chart Logic (idem V8)
+    let map = { graines: 0, paille: 0, soins: 0, materiel: 0, autre: 0 }; let total = 0;
+    localExpenses.forEach(e => { const t = map[e.type] !== undefined ? e.type : 'autre'; map[t] += e.amount; total += e.amount; });
+    const progressBar = document.getElementById('finance-progress-bar'); progressBar.innerHTML = '';
+    if (total === 0) { progressBar.innerHTML = '<div class="progress-segment" style="width:100%; background-color:#e5e5e5;"></div>'; } 
+    else { for (const [type, amount] of Object.entries(map)) { if (amount > 0) { const percentage = (amount / total) * 100; progressBar.innerHTML += `<div class="progress-segment bg-${type}" style="width:${percentage}%"></div>`; } } }
+    const legend = document.getElementById('finance-legend'); legend.innerHTML = ''; const labels = { graines: 'Graines', paille: 'Paille', soins: 'Soins', materiel: 'Matériel', autre: 'Autre' };
+    for (const [type, amount] of Object.entries(map)) { if (amount > 0 || total === 0) { legend.innerHTML += `<div class="legend-item"><div class="legend-color bg-${type}"></div><span>${labels[type]} (${total > 0 ? Math.round((amount/total)*100) : 0}%)</span></div>`; } }
 }
 
-// ACTIONS
+// --- ACTIONS MODALS MISE A JOUR (ADD / EDIT / DELETE) ---
+window.openExpenseModal = (expenseId = null) => {
+    const modal = document.getElementById('modal-expense');
+    const deleteBtn = document.getElementById('btn-delete-expense');
+    
+    if (expenseId) {
+        // Mode Modification
+        const exp = localExpenses.find(e => e.id === expenseId);
+        if (!exp) return;
+        document.getElementById('modal-expense-title').innerText = "Modifier Dépense";
+        document.getElementById('exp-id').value = exp.id;
+        document.getElementById('exp-date').value = exp.date.split('T')[0];
+        document.getElementById('exp-type').value = exp.type;
+        document.getElementById('exp-amount').value = exp.amount;
+        deleteBtn.style.display = 'flex'; // Afficher bouton supprimer
+    } else {
+        // Mode Ajout
+        document.getElementById('form-expense').reset();
+        document.getElementById('modal-expense-title').innerText = "Nouvelle Dépense";
+        document.getElementById('exp-id').value = '';
+        document.getElementById('exp-date').valueAsDate = new Date();
+        deleteBtn.style.display = 'none'; // Cacher bouton supprimer
+    }
+    modal.style.display = 'flex';
+};
+
+window.showAddExpenseModal = () => openExpenseModal(null);
+
+// SAVE EXPENSE
+document.getElementById('form-expense').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('exp-id').value;
+    const data = {
+        type: document.getElementById('exp-type').value,
+        amount: parseFloat(document.getElementById('exp-amount').value),
+        date: new Date(document.getElementById('exp-date').value).toISOString()
+    };
+    
+    if (isDemoMode) {
+        if (id) {
+            // Update
+            const idx = localExpenses.findIndex(e => e.id === id);
+            if (idx !== -1) localExpenses[idx] = { id, ...data };
+        } else {
+            // Create
+            localExpenses.push({ id: 'e' + Date.now(), ...data });
+        }
+        renderAll();
+    } else {
+        if (id) {
+            db.collection('users').doc(currentUser.uid).collection('expenses').doc(id).update(data);
+        } else {
+            db.collection('users').doc(currentUser.uid).collection('expenses').add(data);
+        }
+    }
+    document.getElementById('modal-expense').style.display = 'none';
+});
+
+// DELETE EXPENSE
+window.deleteCurrentExpense = () => {
+    const id = document.getElementById('exp-id').value;
+    if (!id) return;
+    
+    if (confirm("Supprimer cette dépense ?")) {
+        if (isDemoMode) {
+            localExpenses = localExpenses.filter(e => e.id !== id);
+            renderAll();
+        } else {
+            db.collection('users').doc(currentUser.uid).collection('expenses').doc(id).delete();
+        }
+        document.getElementById('modal-expense').style.display = 'none';
+    }
+};
+
+// ... (Autres fonctions: handleAddEgg, openChickenModal, editCurrentChicken, etc. restent identiques à V8) ...
 window.handleAddEgg = (id, name) => {
     const newEgg = { chickenId: id, chickenName: name, date: new Date().toISOString() };
     if (isDemoMode) { localEggs.push(newEgg); renderDashboard(); alert(`Top ${name} !`); }
     else { db.collection('users').doc(currentUser.uid).collection('eggs').add(newEgg); }
 };
-
-window.showAddExpenseModal = () => { document.getElementById('form-expense').reset(); document.getElementById('exp-date').valueAsDate = new Date(); document.getElementById('modal-expense').style.display = 'flex'; };
-document.getElementById('form-expense').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const data = { type: document.getElementById('exp-type').value, amount: parseFloat(document.getElementById('exp-amount').value), date: new Date(document.getElementById('exp-date').value).toISOString() };
-    if(isDemoMode) { localExpenses.push(data); renderAll(); } else { db.collection('users').doc(currentUser.uid).collection('expenses').add(data); }
-    document.getElementById('modal-expense').style.display = 'none';
-});
-
 window.openChickenModal = (isEdit = false) => {
     const modal = document.getElementById('modal-chicken');
     if (isEdit && currentChickenId) {
@@ -229,11 +253,9 @@ window.openChickenModal = (isEdit = false) => {
     modal.style.display = 'flex';
 };
 window.editCurrentChicken = () => openChickenModal(true);
-
 document.getElementById('chk-photo-file').addEventListener('change', (e) => {
     if (e.target.files[0]) { const reader = new FileReader(); reader.onload = (e) => document.getElementById('preview-photo').src = e.target.result; reader.readAsDataURL(e.target.files[0]); }
 });
-
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('chk-id').value;
@@ -248,7 +270,6 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
     }
     document.getElementById('modal-chicken').style.display = 'none';
 });
-
 window.openChickenDetails = (id) => {
     currentChickenId = id; const chk = localChickens.find(c => c.id === id); if(!chk) return;
     document.getElementById('detail-name').innerText = chk.name; document.getElementById('detail-breed').innerText = chk.breed;
@@ -266,13 +287,11 @@ function toggleArchiveStatus(id, status) {
     if(isDemoMode) { const chk = localChickens.find(c => c.id === id); if(chk) chk.status = status; closeChickenDetails(); renderChickensList(); }
     else { db.collection('users').doc(currentUser.uid).collection('chickens').doc(id).update({status}); closeChickenDetails(); }
 }
-
 function calculateAge(d) { if(!d) return '?'; const m = (new Date().getFullYear()-new Date(d).getFullYear())*12 - new Date(d).getMonth() + new Date().getMonth(); return m<12 ? m+" mois" : Math.floor(m/12)+" ans"; }
 function updateAuthUI(isLoggedIn) { document.getElementById('auth-logged-out').style.display = isLoggedIn ? 'none' : 'block'; document.getElementById('auth-logged-in').style.display = isLoggedIn ? 'flex' : 'none'; if(isLoggedIn) { document.getElementById('user-name').innerText = currentUser.displayName; document.getElementById('user-email').innerText = currentUser.email; document.getElementById('user-photo').src = currentUser.photoURL; } }
 document.getElementById('google-login-btn').addEventListener('click', () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
 document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
-function loadFirebaseData() { const r = db.collection('users').doc(currentUser.uid); r.collection('chickens').onSnapshot(s => { localChickens = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); r.collection('eggs').orderBy('date').onSnapshot(s => { localEggs = s.docs.map(d=>d.data()); renderAll(); }); r.collection('expenses').orderBy('date').onSnapshot(s => { localExpenses = s.docs.map(d=>d.data()); renderAll(); }); }
-function initCharts() {
+function loadFirebaseData() { const r = db.collection('users').doc(currentUser.uid); r.collection('chickens').onSnapshot(s => { localChickens = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); r.collection('eggs').orderBy('date').onSnapshot(s => { localEggs = s.docs.map(d=>d.data()); renderAll(); }); r.collection('expenses').orderBy('date').onSnapshot(s => { localExpenses = s.docs.map(d=>({id:d.id, ...d.data()})); renderAll(); }); }
+function initEggsChart() {
     eggsChartInstance = new Chart(document.getElementById('eggsChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [{ label: 'Œufs', data: [], backgroundColor: '#0071e3', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}}, scales:{y:{beginAtZero:true, display:false}, x:{grid:{display:false}}} } });
-    financeChartInstance = new Chart(document.getElementById('financeChart').getContext('2d'), { type: 'doughnut', data: { labels: ['Graines', 'Paille', 'Soins', 'Matériel', 'Autre'], datasets: [{ data: [], backgroundColor: ['#ffcc00', '#ff9500', '#ff3b30', '#5856d6', '#8e8e93'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: {legend: {position:'right', labels:{boxWidth:10}}} } });
 }
