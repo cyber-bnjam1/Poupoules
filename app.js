@@ -1,12 +1,12 @@
 // FIREBASE CONFIG (A REMPLIR)
 const firebaseConfig = {
-    apiKey: "API_KEY",
-    authDomain: "PROJECT_ID.firebaseapp.com",
-    projectId: "PROJECT_ID",
-    storageBucket: "PROJECT_ID.appspot.com",
-    messagingSenderId: "SENDER_ID",
-    appId: "APP_ID"
-};
+    apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEtJ0SqA",
+    authDomain: "poulettes-75fb5.firebaseapp.com",
+    projectId: "poulettes-75fb5",
+    storageBucket: "poulettes-75fb5.firebasestorage.app",
+    messagingSenderId: "479553710488",
+    appId: "1:479553710488:web:8cb5ec0285f330c51e23ed"
+  };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
