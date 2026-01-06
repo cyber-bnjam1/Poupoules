@@ -91,9 +91,13 @@ function renderChickensList() {
     const list = localChickens
         .filter(c => (c.status || 'active') === filter)
         .sort((a,b) => (b.isFavorite === true) - (a.isFavorite === true));
+    
+    // Affichage d'un compteur dans le titre pour déboguer
+    const title = document.querySelector('#view-chickens .big-title');
+    if(title) title.innerText = `Mon Cheptel (${list.length})`;
 
     if(list.length === 0) {
-        grid.innerHTML = '<p style="text-align:center; width:100%; color:grey; margin-top:20px; grid-column:1/-1;">Aucune poule ici.</p>';
+        grid.innerHTML = '<p style="text-align:center; width:100%; color:grey; margin-top:20px;">Aucune poule ici.</p>';
         return;
     }
 
@@ -173,7 +177,9 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
         const idx = localChickens.findIndex(c => c.id === id);
         if(idx>-1) localChickens[idx] = { ...localChickens[idx], ...data };
     } else {
-        localChickens.push({ id: 'c'+Date.now()+Math.random(), ...data, status: 'active', isFavorite: false });
+        // ID plus propre et unique
+        const newId = 'c' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        localChickens.push({ id: newId, ...data, status: 'active', isFavorite: false });
     }
     saveData(); document.getElementById('modal-chicken').style.display = 'none'; renderChickensList();
 });
@@ -193,8 +199,6 @@ function renderDashboard() {
         li.innerHTML = `<div style="display:flex; align-items:center; gap:10px;"><div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div><strong>${e.chickenName}</strong></div><span>${new Date(e.date).toLocaleDateString()}</span><button class="btn-text-danger" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>`;
         list.appendChild(li);
     });
-
-    // APPEL AUX EXTENSIONS (SI EXISTANTES)
     if(window.renderExtensions) window.renderExtensions();
 }
 window.openAddEggModal = () => {
@@ -293,7 +297,7 @@ document.getElementById('form-task').addEventListener('submit', (e) => {
 window.deleteCurrentTask = () => { if(confirm("Supprimer ?")) { localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value); saveData(); document.getElementById('modal-edit-task').style.display = 'none'; renderMaintenance(); }};
 
 // UTILS
-window.handlePhotoUpload = (input) => { if (input.files && input.files[0]) compressImage(input.files[0], 600, 0.7).then(b => { document.getElementById('preview-photo').src = b; tempPhotoBase64 = b; }); };
+window.handlePhotoUpload = (input) => { if (input.files && input.files[0]) compressImage(input.files[0], 500, 0.6).then(b => { document.getElementById('preview-photo').src = b; tempPhotoBase64 = b; }); };
 function compressImage(file, maxWidth, quality) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader(); reader.readAsDataURL(file);
@@ -309,8 +313,14 @@ function getDaysDiff(d) { return Math.floor((new Date()-new Date(d))/(1000*60*60
 function initEggsChart() { const ctx = document.getElementById('eggsChart').getContext('2d'); eggsChartInstance = new Chart(ctx, { type: 'bar', data: { labels: ['J','F','M','A','M','J','J','A','S','O','N','D'], datasets: [{ label:'Œufs', data:[], backgroundColor:'#007aff' }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}, y:{beginAtZero:true}} } }); }
 function updateChart(eggs) { const c = new Array(12).fill(0); const y = new Date().getFullYear(); eggs.filter(e => new Date(e.date).getFullYear() === y).forEach(e => c[new Date(e.date).getMonth()]++); eggsChartInstance.data.datasets[0].data = c; eggsChartInstance.update(); }
 
-// DATA
-function saveData() { const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }; if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(d)); else if(currentUser) db.collection('users').doc(currentUser.uid).set(d); }
+// DATA (AVEC SÉCURITÉ SILENCIEUSE)
+function saveData() { 
+    const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }; 
+    try {
+        if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(d)); 
+        else if(currentUser) db.collection('users').doc(currentUser.uid).set(d);
+    } catch(e) { console.error("Sauvegarde impossible (Quota ?)", e); }
+}
 function loadLocalData() { const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[]}'); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }
 function loadFirebaseData() { db.collection('users').doc(currentUser.uid).get().then(doc => { if(doc.exists) { const d = doc.data(); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }}); }
 window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
