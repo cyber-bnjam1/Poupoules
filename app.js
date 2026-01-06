@@ -1,4 +1,4 @@
-// CONFIGURATION
+// CONFIG & INIT
 const firebaseConfig = {
     apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEtJ0SqA",
     authDomain: "poulettes-75fb5.firebaseapp.com",
@@ -11,548 +11,524 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DONNÉES PAR DÉFAUT
+// DONNEES INITIALES
 const DEMO_DATA = {
-    chickens: [{ id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-01-01', health: 'healthy', status: 'active', photo: 'icon.png' }],
-    eggs: [],
-    transactions: [],
-    tasks: []
+    chickens: [
+        { id: 'c1', name: 'Huguette', breed: 'Rousse', date: '2023-01-01', health: 'healthy', photo: 'icon.png', isFavorite: true },
+        { id: 'c2', name: 'Paulette', breed: 'Sussex', date: '2023-05-15', health: 'healthy', photo: 'icon.png', isFavorite: false }
+    ],
+    eggs: [], transactions: [], tasks: []
 };
 
-let currentUser = null;
-let isDemoMode = true;
-let data = { chickens: [], eggs: [], transactions: [], tasks: [] };
-let currentView = 'view-dashboard';
+// VARIABLES GLOBALES
+let localChickens = [], localEggs = [], localTransactions = [], localTasks = [];
+let currentUser = null, isDemoMode = true;
+let currentViewId = 'view-dashboard';
 let tempPhotoBase64 = null;
-let currentStatsPeriod = 'month';
-let chartInstance = null;
+let eggsChartInstance = null;
 
-// INIT
+// CHARGEMENT
 document.addEventListener('DOMContentLoaded', () => {
     if(localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');
         document.getElementById('dark-mode-toggle').checked = true;
     }
-    initChart();
     
+    initEggsChart();
+    updateFabVisibility('view-dashboard');
+
+    // AUTH
     auth.onAuthStateChanged(user => {
-        currentUser = user;
-        isDemoMode = !user;
-        renderSettings();
-        if(user) loadFirebase(); else loadLocal();
+        if (user) {
+            currentUser = user;
+            isDemoMode = false;
+            loadFirebaseData();
+            document.getElementById('header-status').classList.remove('demo');
+            document.getElementById('auth-container').innerHTML = `
+                <h3>${user.displayName || 'Utilisateur'}</h3>
+                <p>${user.email}</p>
+                <button class="btn-text-danger" onclick="auth.signOut()">Déconnexion</button>`;
+        } else {
+            currentUser = null;
+            isDemoMode = true;
+            loadLocalData();
+            document.getElementById('header-status').classList.add('demo');
+            document.getElementById('auth-container').innerHTML = `
+                <p>Mode hors ligne</p>
+                <button class="btn-primary" onclick="login()">Connexion Google</button>`;
+        }
     });
 
-    document.querySelectorAll('.close-modal').forEach(b => b.onclick = (e) => e.target.closest('.modal').style.display = 'none');
-    updateFab('view-dashboard');
+    // Close Modals
+    document.querySelectorAll('.close-modal').forEach(b => {
+        b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
+    });
 });
 
-// NAVIGATION
+// --- NAVIGATION ---
 window.toggleMenu = () => document.getElementById('menu-overlay').classList.toggle('open');
-window.navigate = (id) => {
+window.navigate = (targetId) => {
     document.getElementById('menu-overlay').classList.remove('open');
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
-    document.getElementById(id).classList.add('active-view');
+    document.getElementById(targetId).classList.add('active-view');
     document.querySelectorAll('.menu-link').forEach(l => l.classList.remove('active'));
-    // Sélecteur corrigé pour trouver le bon lien
-    const link = [...document.querySelectorAll('.menu-link')].find(l => l.getAttribute('onclick').includes(id));
+    const link = Array.from(document.querySelectorAll('.menu-link')).find(l => l.getAttribute('onclick').includes(targetId));
     if(link) link.classList.add('active');
     
-    currentView = id;
-    updateFab(id);
-    document.getElementById('scroll-container').scrollTop = 0;
+    currentViewId = targetId;
+    updateFabVisibility(targetId);
+    window.scrollTo(0,0);
 };
 
-function updateFab(id) {
+// --- FAB ---
+function updateFabVisibility(viewId) {
     const fab = document.getElementById('main-fab');
-    if(id === 'view-dashboard') fab.classList.add('hidden');
-    else {
-        fab.classList.remove('hidden');
-        fab.onclick = () => {
-            if(id === 'view-chickens') openChickenModal();
-            if(id === 'view-finance') openTransactionModal();
-            if(id === 'view-maintenance') openEditTaskModal();
-        };
-    }
+    if(viewId === 'view-dashboard') fab.classList.add('hidden');
+    else if(['view-chickens','view-finance','view-maintenance'].includes(viewId)) fab.classList.remove('hidden');
+    else fab.classList.add('hidden');
 }
-
-// RENDU GLOBAL
-function renderAll() {
-    renderDashboard();
-    renderChickens();
-    renderFinance();
-    renderTasks();
-}
+window.handleFabClick = () => {
+    if(currentViewId === 'view-chickens') openChickenModal();
+    if(currentViewId === 'view-finance') openTransactionModal();
+    if(currentViewId === 'view-maintenance') openEditTaskModal();
+};
 
 // --- POULES ---
-function renderChickens() {
+function renderChickensList() {
     const grid = document.getElementById('chickens-grid');
     grid.innerHTML = '';
     const filter = document.querySelector('#btn-filter-active').classList.contains('active') ? 'active' : 'archived';
     
-    const list = data.chickens.filter(c => (c.status || 'active') === filter);
-    
-    if(list.length === 0) grid.innerHTML = '<p style="opacity:0.5; text-align:center; width:100%;">Aucune poule ici.</p>';
+    // Trier : Favoris en premier, puis par nom
+    const list = localChickens
+        .filter(c => (c.status || 'active') === filter)
+        .sort((a,b) => (b.isFavorite === true) - (a.isFavorite === true));
+
+    if(list.length === 0) grid.innerHTML = '<p style="text-align:center; width:100%; grid-column:1/-1;">Aucune poule.</p>';
 
     list.forEach(c => {
         const div = document.createElement('div');
         div.className = 'chicken-card';
+        // Coeur : rouge si favori, gris sinon
+        const heartClass = c.isFavorite ? 'fas fa-heart active' : 'far fa-heart';
+        
         div.innerHTML = `
-            <div class="health-badge">${getHealthIcon(c.health)}</div>
-            <div class="edit-icon" onclick="openChickenModal('${c.id}')"><i class="fas fa-ellipsis-h"></i></div>
+            <button class="fav-btn ${c.isFavorite ? 'active' : ''}" onclick="toggleFavorite('${c.id}')">
+                <i class="${heartClass}"></i>
+            </button>
+            <button class="edit-btn" onclick="openChickenModal('${c.id}')"><i class="fas fa-pen"></i></button>
             <img class="chicken-photo" src="${c.photo || 'icon.png'}">
             <div class="chicken-name">${c.name}</div>
-            <div class="chicken-breed">${c.breed || 'Poule'}</div>
+            <div class="chicken-breed">${c.breed || ''}</div>
+            <div class="chicken-age">${getAge(c.date)}</div>
         `;
         grid.appendChild(div);
     });
 }
 
-function getHealthIcon(h) {
-    const icons = { healthy: '❤️', sick: '💊', molting: '🪶', broody: '🥚' };
-    return icons[h] || '❤️';
-}
+// LOGIQUE FAVORIS
+window.toggleFavorite = (id) => {
+    const idx = localChickens.findIndex(c => c.id === id);
+    if (idx > -1) {
+        localChickens[idx].isFavorite = !localChickens[idx].isFavorite;
+        saveData();
+        renderChickensList();
+    }
+};
+
+// LOGIQUE ARCHIVER (Au lieu de supprimer)
+window.archiveChicken = () => {
+    const id = document.getElementById('chicken-id').value;
+    if (!id) return;
+    
+    const idx = localChickens.findIndex(c => c.id === id);
+    if (idx > -1) {
+        // Si elle est déjà archivée, on propose de supprimer ou désarchiver ?
+        // Ici simple : on archive ou on supprime si déjà archivé
+        if(localChickens[idx].status === 'archived') {
+            if(confirm("Supprimer définitivement cette archive ?")) {
+                localChickens.splice(idx, 1);
+            }
+        } else {
+            if(confirm("Archiver cette poule ? Elle ne sera plus visible dans le poulailler actif.")) {
+                localChickens[idx].status = 'archived';
+            }
+        }
+        saveData();
+        document.getElementById('modal-chicken').style.display = 'none';
+        renderChickensList();
+    }
+};
 
 window.filterChickens = (type, btn) => {
     document.querySelectorAll('#view-chickens .segment-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    renderChickens();
+    renderChickensList();
+    // Changer le texte du bouton d'action selon l'onglet
+    const btnArchive = document.getElementById('btn-archive-chicken');
+    btnArchive.innerText = type === 'archived' ? 'Supprimer' : 'Archiver';
 };
 
 window.openChickenModal = (id = null) => {
-    const form = document.getElementById('form-chicken');
-    form.reset();
-    tempPhotoBase64 = null;
+    const modal = document.getElementById('modal-chicken');
+    document.getElementById('form-chicken').reset();
     document.getElementById('preview-photo').src = 'icon.png';
-    const delBtn = document.getElementById('btn-delete-chicken');
-    const archBtn = document.getElementById('btn-archive-chicken');
-
+    tempPhotoBase64 = null;
+    
     if(id) {
-        const c = data.chickens.find(x => x.id === id);
+        const c = localChickens.find(x => x.id === id);
+        document.getElementById('modal-chicken-title').innerText = "Modifier";
         document.getElementById('chicken-id').value = c.id;
         document.getElementById('chicken-name').value = c.name;
         document.getElementById('chicken-breed').value = c.breed;
         document.getElementById('chicken-date').value = c.date;
         document.getElementById('chicken-health').value = c.health;
-        document.getElementById('chicken-status').value = c.status || 'active';
         if(c.photo) document.getElementById('preview-photo').src = c.photo;
         
-        document.getElementById('modal-chicken-title').innerText = "Modifier Poule";
-        delBtn.style.display = 'block';
-        archBtn.style.display = 'block';
-        // Texte dynamique pour le bouton Archiver
-        archBtn.innerText = c.status === 'archived' ? 'Désarchiver' : 'Archiver';
+        // Bouton archiver visible
+        document.getElementById('btn-archive-chicken').style.display = 'block';
     } else {
-        document.getElementById('chicken-id').value = "";
-        document.getElementById('chicken-status').value = "active";
-        document.getElementById('chicken-date').valueAsDate = new Date();
         document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule";
-        delBtn.style.display = 'none';
-        archBtn.style.display = 'none';
+        document.getElementById('chicken-id').value = "";
+        document.getElementById('chicken-date').valueAsDate = new Date();
+        document.getElementById('btn-archive-chicken').style.display = 'none';
     }
-    document.getElementById('modal-chicken').style.display = 'flex';
-};
-
-// COMPRESSION D'IMAGE (Indispensable pour LocalStorage)
-window.handlePhotoUpload = (input) => {
-    if (input.files && input.files[0]) {
-        const file = input.files[0];
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (e) => {
-            // On crée une image pour la redimensionner via Canvas
-            const img = new Image();
-            img.src = e.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                // On limite la taille à 300px pour que ça prenne peu de place
-                const scale = 300 / img.width;
-                canvas.width = 300;
-                canvas.height = img.height * scale;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                // Compression JPEG 0.7
-                const compressed = canvas.toDataURL('image/jpeg', 0.7);
-                document.getElementById('preview-photo').src = compressed;
-                tempPhotoBase64 = compressed;
-            };
-        };
-    }
+    modal.style.display = 'flex';
 };
 
 document.getElementById('form-chicken').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('chicken-id').value;
-    const vals = {
+    const data = {
         name: document.getElementById('chicken-name').value,
         breed: document.getElementById('chicken-breed').value,
         date: document.getElementById('chicken-date').value,
         health: document.getElementById('chicken-health').value,
-        status: document.getElementById('chicken-status').value, // Garde le statut actuel
-        photo: tempPhotoBase64 || document.getElementById('preview-photo').getAttribute('src')
+        photo: tempPhotoBase64 || document.getElementById('preview-photo').src
     };
 
     if(id) {
-        const idx = data.chickens.findIndex(x => x.id === id);
-        if(idx > -1) data.chickens[idx] = { ...data.chickens[idx], ...vals };
+        const idx = localChickens.findIndex(c => c.id === id);
+        if(idx>-1) localChickens[idx] = { ...localChickens[idx], ...data };
     } else {
-        data.chickens.push({ id: 'c'+Date.now(), ...vals, status: 'active' });
+        localChickens.push({ id: 'c'+Date.now(), ...data, status: 'active', isFavorite: false });
     }
     saveData();
     document.getElementById('modal-chicken').style.display = 'none';
-    renderChickens();
-    // Rafraîchir dashboard pour les oeufs si nom change
-    renderDashboard(); 
+    renderChickensList();
 });
 
-window.deleteChicken = () => {
-    if(confirm("Supprimer définitivement ?")) {
-        data.chickens = data.chickens.filter(c => c.id !== document.getElementById('chicken-id').value);
-        saveData();
-        document.getElementById('modal-chicken').style.display = 'none';
-        renderChickens();
-    }
-};
-
-// NOUVELLE FONCTION ARCHIVER
-window.toggleArchiveChicken = () => {
-    const id = document.getElementById('chicken-id').value;
-    const idx = data.chickens.findIndex(c => c.id === id);
-    if(idx > -1) {
-        const newStatus = data.chickens[idx].status === 'active' ? 'archived' : 'active';
-        data.chickens[idx].status = newStatus;
-        saveData();
-        document.getElementById('modal-chicken').style.display = 'none';
-        renderChickens();
-    }
-};
-
-// --- OEUFS / DASHBOARD ---
-window.openAddEggModal = () => {
-    const grid = document.getElementById('egg-chickens-list');
-    grid.innerHTML = '';
-    const active = data.chickens.filter(c => c.status === 'active');
-    
-    if(active.length === 0) {
-        grid.innerHTML = '<p style="grid-column:span 3; text-align:center;">Aucune poule active.</p>';
-    } else {
-        active.forEach(c => {
-            const div = document.createElement('div');
-            div.className = 'selection-card';
-            div.innerHTML = `<img src="${c.photo || 'icon.png'}"><span>${c.name}</span>`;
-            div.onclick = () => {
-                data.eggs.push({ id: 'e'+Date.now(), chickenId: c.id, chickenName: c.name, date: new Date().toISOString() });
-                saveData();
-                renderDashboard();
-                document.getElementById('modal-add-egg').style.display = 'none';
-            };
-            grid.appendChild(div);
-        });
-    }
-    document.getElementById('modal-add-egg').style.display = 'flex';
-};
-
+// --- DASHBOARD ---
 function renderDashboard() {
     const now = new Date();
-    // Filtre période
-    const filtered = currentStatsPeriod === 'month' 
-        ? data.eggs.filter(e => new Date(e.date).getMonth() === now.getMonth() && new Date(e.date).getFullYear() === now.getFullYear())
-        : data.eggs.filter(e => new Date(e.date).getFullYear() === now.getFullYear());
-
-    document.getElementById('total-eggs-display').innerText = filtered.length;
+    // Stats ce mois
+    const thisMonth = localEggs.filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    document.getElementById('total-eggs-display').innerText = thisMonth.length;
     
-    // Aujourd'hui
-    const today = now.toISOString().split('T')[0];
-    document.getElementById('eggs-today-count').innerText = data.eggs.filter(e => e.date.startsWith(today)).length;
-
-    // Coût
-    const expenses = data.transactions.filter(t => t.category === 'expense' && new Date(t.date).getFullYear() === now.getFullYear())
-        .reduce((sum, t) => sum + t.amount, 0);
-    const yearEggs = data.eggs.filter(e => new Date(e.date).getFullYear() === now.getFullYear()).length;
-    document.getElementById('cost-per-egg-display').innerText = yearEggs ? (expenses / yearEggs).toFixed(2) + '€' : '0.00€';
-
-    // Chart
-    updateChart(filtered);
-
-    // Activité
+    const today = localEggs.filter(e => e.date.startsWith(now.toISOString().split('T')[0]));
+    document.getElementById('eggs-today-count').innerText = today.length;
+    
+    updateChart(localEggs);
+    
     const list = document.getElementById('recent-activity-list');
     list.innerHTML = '';
-    [...data.eggs].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(e => {
+    localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(e => {
         const li = document.createElement('li');
-        const d = new Date(e.date);
         li.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px;">
-                <div style="width:10px; height:10px; background:#ff9500; border-radius:50%"></div>
-                <b>${e.chickenName}</b>
+                <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
+                <strong>${e.chickenName}</strong>
             </div>
-            <div style="font-size:12px; opacity:0.6;">${d.getDate()}/${d.getMonth()+1}</div>
+            <span>${new Date(e.date).toLocaleDateString()}</span>
+            <button class="btn-text-danger" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
         `;
         list.appendChild(li);
     });
 }
 
-// --- FINANCE ---
+window.openAddEggModal = () => {
+    const modal = document.getElementById('modal-add-egg');
+    const grid = document.getElementById('egg-chickens-list');
+    grid.innerHTML = '';
+    
+    const actives = localChickens.filter(c => c.status === 'active');
+    if(!actives.length) grid.innerHTML = '<p>Ajoutez des poules d\'abord !</p>';
+    
+    actives.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'selection-card';
+        div.innerHTML = `<img src="${c.photo || 'icon.png'}"><span>${c.name}</span>`;
+        div.onclick = () => {
+            localEggs.push({ id: 'e'+Date.now(), chickenId: c.id, chickenName: c.name, date: new Date().toISOString() });
+            saveData();
+            renderDashboard();
+            modal.style.display = 'none';
+        };
+        grid.appendChild(div);
+    });
+    modal.style.display = 'flex';
+};
+
+window.deleteEgg = (id) => {
+    if(confirm("Supprimer ?")) {
+        localEggs = localEggs.filter(e => e.id !== id);
+        saveData();
+        renderDashboard();
+    }
+};
+
+// --- FINANCE (CORRIGÉ) ---
 function renderFinance() {
     const list = document.getElementById('finance-list');
     list.innerHTML = '';
-    const sorted = [...data.transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
-
-    let inc = 0, exp = 0;
+    const sorted = [...localTransactions].sort((a,b) => new Date(b.date) - new Date(a.date));
     
+    let total = 0;
     sorted.forEach(t => {
-        // CORRECTION DU CALCUL: On s'assure que category est bien lue
-        if(t.category === 'income') inc += t.amount;
-        else exp += t.amount;
-
+        total += (t.category === 'income' ? t.amount : -t.amount);
         const li = document.createElement('li');
         li.onclick = () => openTransactionModal(t.id);
-        const isInc = t.category === 'income';
+        const color = t.category === 'income' ? 'var(--success)' : 'var(--text-dark)';
         li.innerHTML = `
-            <div>
-                <b>${t.type}</b><br><small style="opacity:0.6">${t.date}</small>
-            </div>
-            <div style="color:${isInc ? 'var(--success)' : 'var(--text-color)'}">
-                ${isInc ? '+' : '-'}${t.amount.toFixed(2)}€
-            </div>
+            <div><strong>${formatTransType(t.type)}</strong><br><small>${t.date}</small></div>
+            <div style="color:${color}; font-weight:bold;">${t.category === 'income' ? '+' : '-'}${t.amount}€</div>
         `;
         list.appendChild(li);
     });
-
-    document.getElementById('total-income').innerText = inc.toFixed(2);
-    document.getElementById('total-expense').innerText = exp.toFixed(2);
-    document.getElementById('balance-total').innerText = (inc - exp).toFixed(2) + ' €';
     
-    // Bar
-    const total = inc + exp;
-    const pct = total ? (inc / total) * 100 : 50;
-    document.getElementById('finance-bar').style.width = pct + '%';
+    document.getElementById('balance-total').innerText = total.toFixed(2) + ' €';
+    document.getElementById('balance-total').style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
 }
 
+// CORRECTION BUG CATEGORIE
+window.setTransactionType = (type) => {
+    document.getElementById('btn-expense').classList.remove('active');
+    document.getElementById('btn-income').classList.remove('active');
+    
+    if(type === 'expense') document.getElementById('btn-expense').classList.add('active');
+    else document.getElementById('btn-income').classList.add('active');
+    
+    // IMPORTANT : On met à jour l'input caché
+    document.getElementById('trans-category').value = type;
+};
+
 window.openTransactionModal = (id = null) => {
+    const modal = document.getElementById('modal-transaction');
     document.getElementById('form-transaction').reset();
+    
     if(id) {
-        const t = data.transactions.find(x => x.id === id);
+        const t = localTransactions.find(x => x.id === id);
         document.getElementById('trans-id').value = t.id;
         document.getElementById('trans-amount').value = t.amount;
         document.getElementById('trans-date').value = t.date;
         document.getElementById('trans-type').value = t.type;
-        setTransactionType(t.category);
+        setTransactionType(t.category); // Utilise la catégorie sauvegardée
         document.getElementById('btn-delete-trans').style.display = 'block';
     } else {
         document.getElementById('trans-id').value = "";
         document.getElementById('trans-date').valueAsDate = new Date();
-        setTransactionType('expense');
+        setTransactionType('expense'); // Par défaut
         document.getElementById('btn-delete-trans').style.display = 'none';
     }
-    document.getElementById('modal-transaction').style.display = 'flex';
-};
-
-window.setTransactionType = (type) => {
-    document.querySelectorAll('#modal-transaction .segment-btn').forEach(b => b.classList.remove('active'));
-    if(type === 'expense') document.getElementById('btn-expense').classList.add('active');
-    else document.getElementById('btn-income').classList.add('active');
+    modal.style.display = 'flex';
 };
 
 document.getElementById('form-transaction').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('trans-id').value;
-    // Logique corrigée pour récupérer la catégorie active
-    const isExpense = document.getElementById('btn-expense').classList.contains('active');
+    const category = document.getElementById('trans-category').value; // On lit la valeur corrigée
     
-    const val = {
+    const data = {
         amount: parseFloat(document.getElementById('trans-amount').value),
         date: document.getElementById('trans-date').value,
         type: document.getElementById('trans-type').value,
-        category: isExpense ? 'expense' : 'income'
+        category: category
     };
 
     if(id) {
-        const idx = data.transactions.findIndex(x => x.id === id);
-        if(idx > -1) data.transactions[idx] = { id, ...val };
+        const idx = localTransactions.findIndex(t => t.id === id);
+        if(idx > -1) localTransactions[idx] = { id, ...data };
     } else {
-        data.transactions.push({ id: 't'+Date.now(), ...val });
+        localTransactions.push({ id: 't'+Date.now(), ...data });
     }
     saveData();
     document.getElementById('modal-transaction').style.display = 'none';
     renderFinance();
-    renderDashboard(); // Update coûts
 });
 
 window.deleteTransaction = () => {
+    const id = document.getElementById('trans-id').value;
     if(confirm("Supprimer ?")) {
-        data.transactions = data.transactions.filter(t => t.id !== document.getElementById('trans-id').value);
+        localTransactions = localTransactions.filter(t => t.id !== id);
         saveData();
         document.getElementById('modal-transaction').style.display = 'none';
         renderFinance();
     }
 };
 
-// --- TASKS ---
-function renderTasks() {
+function formatTransType(t) {
+    const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Œufs', 'soins': 'Véto', 'achat_poule': 'Achat Poule' };
+    return map[t] || t;
+}
+
+// --- ENTRETIEN ---
+function renderMaintenance() {
     const list = document.getElementById('tasks-list');
     list.innerHTML = '';
-    const sorted = [...data.tasks].sort((a,b) => {
-        const da = getDays(a.lastDone), db = getDays(b.lastDone);
-        return (da/a.freq) > (db/b.freq) ? -1 : 1;
-    });
-
-    sorted.forEach(t => {
-        const days = getDays(t.lastDone);
+    
+    localTasks.sort((a,b) => getDaysDiff(b.lastDone) - getDaysDiff(a.lastDone)).forEach(t => {
+        const diff = getDaysDiff(t.lastDone);
+        const urgent = diff >= t.frequency;
         const li = document.createElement('li');
-        li.className = 'task-item';
         li.innerHTML = `
-            <div style="display:flex;align-items:center" onclick="openEditTaskModal('${t.id}')">
-                <div class="task-check ${days < t.freq ? 'task-done' : ''}"></div>
-                <div><b>${t.title}</b><br><small>Tous les ${t.freq}j</small></div>
+            <div onclick="openEditTaskModal('${t.id}')">
+                <strong>${t.title}</strong><br>
+                <small>Tous les ${t.frequency}j • Fait il y a ${diff}j</small>
             </div>
-            <div style="text-align:right">
-                <span class="task-tag" style="color:${days >= t.freq ? 'var(--danger)' : 'var(--success)'}">
-                    ${days >= t.freq ? 'À faire' : 'OK'}
-                </span>
-                <br><small>${days}j</small>
-            </div>
+            <button class="btn-primary" style="padding:5px 10px; background:${urgent?'var(--danger)':'var(--success)'}" onclick="completeTask('${t.id}')">Fait</button>
         `;
-        // Action sur double tap ou bouton dédié, ici clic simple sur le bouton check invisible
-        li.querySelector('.task-check').onclick = (e) => {
-            e.stopPropagation();
-            t.lastDone = new Date().toISOString();
-            saveData();
-            renderTasks();
-        };
         list.appendChild(li);
     });
 }
-function getDays(d) { return Math.floor((new Date() - new Date(d))/(1000*60*60*24)); }
-
-window.openEditTaskModal = (id=null) => {
+window.completeTask = (id) => {
+    const t = localTasks.find(x => x.id === id);
+    if(t) { t.lastDone = new Date().toISOString(); saveData(); renderMaintenance(); }
+};
+window.openEditTaskModal = (id = null) => {
+    const modal = document.getElementById('modal-edit-task');
     document.getElementById('form-task').reset();
     if(id) {
-        const t = data.tasks.find(x => x.id === id);
+        const t = localTasks.find(x => x.id === id);
         document.getElementById('task-id').value = t.id;
         document.getElementById('task-title').value = t.title;
-        document.getElementById('task-freq').value = t.freq;
+        document.getElementById('task-freq').value = t.frequency;
         document.getElementById('btn-delete-task').style.display = 'block';
     } else {
-        document.getElementById('task-id').value = '';
+        document.getElementById('task-id').value = "";
         document.getElementById('btn-delete-task').style.display = 'none';
     }
-    document.getElementById('modal-edit-task').style.display = 'flex';
+    modal.style.display = 'flex';
 };
-
-document.getElementById('form-task').onsubmit = (e) => {
+document.getElementById('form-task').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = document.getElementById('task-id').value;
-    const val = {
+    const data = {
         title: document.getElementById('task-title').value,
-        freq: parseInt(document.getElementById('task-freq').value)
+        frequency: parseInt(document.getElementById('task-freq').value)
     };
     if(id) {
-        const idx = data.tasks.findIndex(t => t.id === id);
-        if(idx > -1) { data.tasks[idx].title = val.title; data.tasks[idx].freq = val.freq; }
+        const idx = localTasks.findIndex(t => t.id === id);
+        if(idx>-1) localTasks[idx] = { ...localTasks[idx], ...data };
     } else {
-        data.tasks.push({ id: 'tk'+Date.now(), ...val, lastDone: new Date().toISOString() });
+        localTasks.push({ id: 'task'+Date.now(), ...data, lastDone: new Date().toISOString() });
     }
     saveData();
     document.getElementById('modal-edit-task').style.display = 'none';
-    renderTasks();
+    renderMaintenance();
+});
+window.deleteCurrentTask = () => {
+    const id = document.getElementById('task-id').value;
+    localTasks = localTasks.filter(t => t.id !== id);
+    saveData();
+    document.getElementById('modal-edit-task').style.display = 'none';
+    renderMaintenance();
 };
 
-window.deleteCurrentTask = () => {
-    if(confirm("Supprimer ?")) {
-        data.tasks = data.tasks.filter(t => t.id !== document.getElementById('task-id').value);
-        saveData();
-        document.getElementById('modal-edit-task').style.display = 'none';
-        renderTasks();
+// --- UTILS ---
+// COMPRESSION IMAGE (LA SOLUTION AUX PHOTOS QUI DISPARAISSENT)
+window.handlePhotoUpload = (input) => {
+    if (input.files && input.files[0]) {
+        compressImage(input.files[0], 600, 0.7).then(base64 => {
+            document.getElementById('preview-photo').src = base64;
+            tempPhotoBase64 = base64;
+        }).catch(err => alert("Erreur photo: " + err));
     }
 };
 
-// --- DATA & SYNC ---
-function saveData() {
-    if(isDemoMode) localStorage.setItem('poupoules_v2', JSON.stringify(data));
-    else if(currentUser) db.collection('users').doc(currentUser.uid).set(data);
-}
-function loadLocal() {
-    const local = localStorage.getItem('poupoules_v2');
-    if(local) data = JSON.parse(local);
-    else data = DEMO_DATA;
-    renderAll();
-}
-function loadFirebase() {
-    db.collection('users').doc(currentUser.uid).get().then(doc => {
-        if(doc.exists) { data = doc.data(); renderAll(); }
+function compressImage(file, maxWidth, quality) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = event => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const elem = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+                elem.width = width;
+                elem.height = height;
+                const ctx = elem.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(elem.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = error => reject(error);
+        };
+        reader.onerror = error => reject(error);
     });
 }
 
-// --- UTILS ---
-function initChart() {
+function getAge(dateStr) {
+    if(!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30));
+    if(months < 1) return 'Poussin';
+    if(months < 12) return months + ' mois';
+    return Math.floor(months/12) + ' ans';
+}
+function getDaysDiff(d) {
+    return Math.floor((new Date() - new Date(d)) / (1000*60*60*24));
+}
+function initEggsChart() {
     const ctx = document.getElementById('eggsChart').getContext('2d');
-    chartInstance = new Chart(ctx, {
+    eggsChartInstance = new Chart(ctx, {
         type: 'bar',
-        data: { labels: [], datasets: [{ data: [], backgroundColor: '#ff9500', borderRadius: 4 }] },
-        options: { plugins: { legend: { display:false } }, scales: { x: { grid: { display:false } }, y: { display:false } }, maintainAspectRatio: false }
+        data: { labels: ['J','F','M','A','M','J','J','A','S','O','N','D'], datasets: [{ label:'Œufs', data:[], backgroundColor:'#007aff' }] },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}, y:{beginAtZero:true}} }
     });
 }
 function updateChart(eggs) {
-    const labels = currentStatsPeriod === 'month' 
-        ? Array.from({length:31}, (_,i) => i+1) 
-        : ['J','F','M','A','M','J','J','A','S','O','N','D'];
-    
-    const counts = new Array(labels.length).fill(0);
-    eggs.forEach(e => {
-        const d = new Date(e.date);
-        const idx = currentStatsPeriod === 'month' ? d.getDate()-1 : d.getMonth();
-        counts[idx]++;
-    });
-    
-    chartInstance.data.labels = labels;
-    chartInstance.data.datasets[0].data = counts;
-    chartInstance.update();
+    const counts = new Array(12).fill(0);
+    const now = new Date();
+    eggs.filter(e => new Date(e.date).getFullYear() === now.getFullYear())
+        .forEach(e => counts[new Date(e.date).getMonth()]++);
+    eggsChartInstance.data.datasets[0].data = counts;
+    eggsChartInstance.update();
 }
-window.switchStatsPeriod = (p, btn) => {
-    currentStatsPeriod = p;
-    document.querySelectorAll('.mini-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderDashboard();
-};
 
-window.toggleDarkMode = () => {
-    document.body.classList.toggle('dark-mode');
-    localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-};
-
-function renderSettings() {
-    const div = document.getElementById('auth-section');
-    if(currentUser) {
-        div.innerHTML = `
-            <div style="text-align:center">
-                <img src="${currentUser.photoURL || 'icon.png'}" style="width:60px;border-radius:50%">
-                <h3>${currentUser.displayName}</h3>
-                <button class="btn-text-danger" onclick="auth.signOut()">Déconnexion</button>
-            </div>
-        `;
-    } else {
-        div.innerHTML = `
-            <div style="text-align:center">
-                <p>Mode Hors Ligne</p>
-                <button class="btn-primary" onclick="login()">Sync Google</button>
-            </div>
-        `;
-    }
+// DATA
+function saveData() {
+    const data = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks };
+    if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(data));
+    else if(currentUser) db.collection('users').doc(currentUser.uid).set(data);
+}
+function loadLocalData() {
+    const d = JSON.parse(localStorage.getItem('poupoules_data') || '{}');
+    localChickens = d.chickens || DEMO_DATA.chickens;
+    localEggs = d.eggs || [];
+    localTransactions = d.transactions || [];
+    localTasks = d.tasks || [];
+    renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
+}
+function loadFirebaseData() {
+    db.collection('users').doc(currentUser.uid).get().then(doc => {
+        if(doc.exists) {
+            const d = doc.data();
+            localChickens = d.chickens || []; localEggs = d.eggs||[]; localTransactions=d.transactions||[]; localTasks=d.tasks||[];
+            renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
+        }
+    });
 }
 window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 window.exportData = () => {
     const a = document.createElement('a');
-    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
-    a.download = "sauvegarde.json";
-    a.click();
-};
-window.handleImport = (input) => {
-    const fr = new FileReader();
-    fr.onload = (e) => {
-        if(confirm("Remplacer les données ?")) {
-            data = JSON.parse(e.target.result);
-            saveData();
-            renderAll();
-        }
-    };
-    if(input.files[0]) fr.readAsText(input.files[0]);
+    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }));
+    a.download = "sauvegarde.json"; a.click();
 };
