@@ -92,7 +92,7 @@ function renderChickensList() {
         .filter(c => (c.status || 'active') === filter)
         .sort((a,b) => (b.isFavorite === true) - (a.isFavorite === true));
     
-    // Affichage d'un compteur dans le titre pour déboguer
+    // Titre de debug
     const title = document.querySelector('#view-chickens .big-title');
     if(title) title.innerText = `Mon Cheptel (${list.length})`;
 
@@ -177,7 +177,6 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
         const idx = localChickens.findIndex(c => c.id === id);
         if(idx>-1) localChickens[idx] = { ...localChickens[idx], ...data };
     } else {
-        // ID plus propre et unique
         const newId = 'c' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         localChickens.push({ id: newId, ...data, status: 'active', isFavorite: false });
     }
@@ -296,16 +295,40 @@ document.getElementById('form-task').addEventListener('submit', (e) => {
 });
 window.deleteCurrentTask = () => { if(confirm("Supprimer ?")) { localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value); saveData(); document.getElementById('modal-edit-task').style.display = 'none'; renderMaintenance(); }};
 
-// UTILS
-window.handlePhotoUpload = (input) => { if (input.files && input.files[0]) compressImage(input.files[0], 500, 0.6).then(b => { document.getElementById('preview-photo').src = b; tempPhotoBase64 = b; }); };
+// UTILS - COMPRESSION EXTRÊME
+window.handlePhotoUpload = (input) => {
+    if (input.files && input.files[0]) {
+        // 150px de large max, qualité 0.5 (Moyenne) = Fichier minuscule
+        compressImage(input.files[0], 150, 0.5).then(b => {
+            document.getElementById('preview-photo').src = b;
+            tempPhotoBase64 = b;
+        });
+    }
+};
+
 function compressImage(file, maxWidth, quality) {
     return new Promise((resolve, reject) => {
-        const reader = new FileReader(); reader.readAsDataURL(file);
-        reader.onload = event => { const img = new Image(); img.src = event.target.result; img.onload = () => {
-            const elem = document.createElement('canvas'); let width = img.width; let height = img.height;
-            if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-            elem.width = width; elem.height = height; const ctx = elem.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); resolve(elem.toDataURL('image/jpeg', quality));
-        };};
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = event => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const elem = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+                elem.width = width;
+                elem.height = height;
+                const ctx = elem.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(elem.toDataURL('image/jpeg', quality));
+            };
+        };
+        reader.onerror = error => reject(error);
     });
 }
 function getAge(d) { if(!d) return ''; const m = Math.floor((Date.now()-new Date(d).getTime())/(1000*60*60*24*30)); return m<1?'Poussin':(m<12?m+' mois':Math.floor(m/12)+' ans'); }
@@ -313,7 +336,7 @@ function getDaysDiff(d) { return Math.floor((new Date()-new Date(d))/(1000*60*60
 function initEggsChart() { const ctx = document.getElementById('eggsChart').getContext('2d'); eggsChartInstance = new Chart(ctx, { type: 'bar', data: { labels: ['J','F','M','A','M','J','J','A','S','O','N','D'], datasets: [{ label:'Œufs', data:[], backgroundColor:'#007aff' }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}, y:{beginAtZero:true}} } }); }
 function updateChart(eggs) { const c = new Array(12).fill(0); const y = new Date().getFullYear(); eggs.filter(e => new Date(e.date).getFullYear() === y).forEach(e => c[new Date(e.date).getMonth()]++); eggsChartInstance.data.datasets[0].data = c; eggsChartInstance.update(); }
 
-// DATA (AVEC SÉCURITÉ SILENCIEUSE)
+// DATA
 function saveData() { 
     const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }; 
     try {
