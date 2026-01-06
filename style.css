@@ -8,6 +8,7 @@
     --bg-color: #f2f2f7;
     --glass-bg: rgba(255, 255, 255, 0.9);
     --glass-border: rgba(255, 255, 255, 0.5);
+    --item-bg: #ffffff;
 }
 
 body.dark-mode {
@@ -15,6 +16,7 @@ body.dark-mode {
     --text-dark: #ffffff;
     --glass-bg: rgba(28, 28, 30, 0.9);
     --glass-border: rgba(255, 255, 255, 0.1);
+    --item-bg: #1c1c1e;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -25,30 +27,24 @@ html, body {
     overflow: hidden;
 }
 
-/* Background */
 .background-blobs { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.5; }
 .blob-1 { background: #aacafc; width: 300px; height: 300px; top: -50px; left: -50px; }
 .blob-2 { background: #e0c3fc; width: 250px; height: 250px; bottom: 50px; right: -50px; }
 
-/* HEADER AVEC PROTECTION IPHONE */
+/* HEADER */
 #app-header {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    /* On ajoute une marge pour l'encoche de l'iPhone */
     padding-top: max(15px, env(safe-area-inset-top)); 
-    padding-bottom: 10px;
-    padding-left: 20px; padding-right: 20px;
-    height: auto; min-height: 60px;
+    padding-bottom: 10px; padding-left: 20px; padding-right: 20px;
     display: flex; justify-content: space-between; align-items: center;
     background: rgba(255,255,255,0.01); 
 }
-
 #burger-btn {
     width: 40px; height: 40px; border-radius: 50%; border: none;
     background: var(--glass-bg); backdrop-filter: blur(20px);
     box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: var(--primary); font-size: 18px;
 }
-
 #header-right { display: flex; gap: 10px; }
 .header-badge {
     padding: 8px 12px; border-radius: 20px; background: var(--glass-bg);
@@ -56,35 +52,15 @@ html, body {
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
-/* Main Container */
+/* CONTAINER */
 #scroll-container {
     height: 100%; overflow-y: auto; padding: 20px;
-    padding-bottom: 100px; /* Espace pour le FAB */
-    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0; -webkit-overflow-scrolling: touch;
 }
-.header-spacer { 
-    height: calc(60px + env(safe-area-inset-top)); 
-}
+.header-spacer { height: calc(60px + env(safe-area-inset-top)); }
+.bottom-spacer { height: 100px; width: 100%; }
 
-/* Menu */
-#menu-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(5px);
-    z-index: 900; opacity: 0; pointer-events: none; transition: opacity 0.3s;
-}
-#menu-overlay.open { opacity: 1; pointer-events: auto; }
-.menu-content {
-    position: absolute; top: 0; left: 0; bottom: 0; width: 280px;
-    background: var(--glass-bg); padding: 30px; 
-    transform: translateX(-100%); transition: transform 0.3s;
-    padding-top: max(30px, env(safe-area-inset-top));
-}
-#menu-overlay.open .menu-content { transform: translateX(0); }
-.close-menu-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 24px; }
-.menu-nav { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
-.menu-link { background: none; border: none; font-size: 18px; text-align: left; padding: 10px; display: flex; gap: 15px; color: var(--text-dark); }
-.menu-link.active { color: var(--primary); font-weight: bold; }
-
-/* Cards & UI */
+/* UI */
 .big-title { font-size: 30px; font-weight: 800; margin: 10px 0 20px 0; }
 .section-title { font-size: 18px; font-weight: 700; color: var(--text-grey); margin: 25px 0 10px 0; text-transform: uppercase; }
 
@@ -93,7 +69,6 @@ html, body {
     border: 1px solid var(--glass-border); border-radius: 20px;
     padding: 20px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.05);
 }
-
 .status-row { display: flex; gap: 15px; margin-bottom: 20px; }
 .mini-status-card { flex: 1; display: flex; align-items: center; gap: 10px; padding: 15px; }
 .mini-status-card.highlight-card { border: 1px solid var(--primary); cursor: pointer; }
@@ -104,8 +79,11 @@ html, body {
 .status-label { font-size: 11px; text-transform: uppercase; color: var(--text-grey); font-weight: bold; }
 .status-value { font-size: 18px; font-weight: bold; }
 
-/* Chickens */
-.grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+/* GRID POULES */
+.grid-container {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); 
+    gap: 15px; padding-bottom: 20px; height: auto; overflow: visible; 
+}
 .chicken-card {
     background: var(--glass-bg); border-radius: 20px; padding: 15px;
     display: flex; flex-direction: column; align-items: center; text-align: center;
@@ -115,78 +93,77 @@ html, body {
 .chicken-name { font-weight: 800; font-size: 16px; }
 .chicken-breed { font-size: 13px; color: var(--text-grey); margin-bottom: 5px; }
 .chicken-age { font-size: 12px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 8px; }
+.fav-btn { position: absolute; top: 10px; left: 10px; background: none; border: none; font-size: 16px; cursor: pointer; color: #ccc; }
+.fav-btn.active { color: #ff2d55; }
+.edit-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 16px; color: var(--text-grey); }
 
-/* BOUTON FAVORIS SUR LA CARTE */
-.fav-btn {
-    position: absolute; top: 10px; left: 10px; background: none; border: none; font-size: 16px; cursor: pointer; color: #ccc;
-}
-.fav-btn.active { color: #ff2d55; } /* Cœur rouge */
+/* REGLAGES iOS */
+.profile-header-card { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 30px; padding: 20px; }
+.settings-header { margin: 20px 0 8px 15px; font-size: 13px; text-transform: uppercase; color: var(--text-grey); }
+.ios-list { background: var(--item-bg); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+.ios-item { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.ios-item:last-child { border-bottom: none; }
+.ios-item.clickable:active { background: rgba(0,0,0,0.05); cursor: pointer; }
+.ios-icon { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; margin-right: 15px; font-size: 14px; }
+.ios-content { flex: 1; display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+.arrow { color: #c7c7cc; font-size: 14px; }
 
-.edit-btn {
-    position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 16px; color: var(--text-grey);
-}
+/* STYLES EXTENSIONS (Stock & Podium) */
+.stock-card { cursor: pointer; display: flex; flex-direction: column; gap: 10px; }
+.stock-header { display: flex; justify-content: space-between; align-items: center; }
+.stock-title { font-weight: 600; color: var(--text-grey); font-size: 14px; text-transform: uppercase; }
+.stock-value { font-weight: 800; font-size: 18px; color: var(--text-dark); }
+.stock-bar-bg { width: 100%; height: 8px; background: rgba(0,0,0,0.05); border-radius: 4px; overflow: hidden; }
+.stock-bar-fill { height: 100%; transition: width 0.5s ease; border-radius: 4px; }
+.stock-footer { display: flex; justify-content: space-between; color: var(--text-grey); font-size: 11px; }
 
-/* Modales & Forms */
-.modal {
-    display: none; position: fixed; inset: 0; z-index: 2000;
-    background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
-    justify-content: center; align-items: center; padding: 20px;
-}
-.modal-content {
-    background: var(--bg-color); width: 100%; max-width: 400px;
-    border-radius: 25px; padding: 25px; max-height: 85vh; overflow-y: auto;
-}
+.podium-container { display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin-bottom: 30px; margin-top: 10px; }
+.podium-item { display: flex; flex-direction: column; align-items: center; background: var(--glass-bg); padding: 10px; border-radius: 15px; width: 30%; box-shadow: 0 4px 10px rgba(0,0,0,0.05); position: relative; }
+.rank-1 { transform: scale(1.1); z-index: 2; border: 2px solid #ffd700; background: linear-gradient(to bottom, var(--glass-bg), rgba(255, 215, 0, 0.1)); }
+.rank-2 { transform: scale(0.95); border-bottom: 4px solid #c0c0c0; }
+.rank-3 { transform: scale(0.9); border-bottom: 4px solid #cd7f32; }
+.podium-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-bottom: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.podium-name { font-weight: 700; font-size: 12px; margin-bottom: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; width: 100%; white-space: nowrap; }
+.podium-score { font-size: 11px; color: var(--primary); font-weight: bold; }
+.medal { font-size: 20px; position: absolute; top: -10px; }
+
+/* MODALS */
+.modal { display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); justify-content: center; align-items: center; padding: 20px; }
+.modal-content { background: var(--bg-color); width: 100%; max-width: 400px; border-radius: 25px; padding: 25px; max-height: 85vh; overflow-y: auto; }
 .form-group { margin-bottom: 15px; }
 .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: var(--text-grey); }
-input, select {
-    width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ddd;
-    background: #fff; font-size: 16px; -webkit-appearance: none;
-}
+input, select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ddd; background: #fff; font-size: 16px; -webkit-appearance: none; }
 .photo-upload-wrapper { width: 90px; height: 90px; margin: 0 auto 20px; position: relative; }
 #preview-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid white; }
 .upload-icon { position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
-/* SELECTEUR OEUF CORRIGÉ (PETITES IMAGES) */
 .selection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.selection-card {
-    background: rgba(255,255,255,0.5); padding: 10px; border-radius: 12px;
-    text-align: center; cursor: pointer; border: 1px solid transparent;
-}
-.selection-card:active { background: var(--primary); color: white; }
-/* FORCE LA TAILLE DE L'IMAGE */
-.selection-card img {
-    width: 50px; height: 50px; border-radius: 50%; object-fit: cover;
-    margin-bottom: 5px; display: block; margin-left: auto; margin-right: auto;
-}
-.selection-card span { font-size: 12px; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.selection-card { background: rgba(255,255,255,0.5); padding: 10px; border-radius: 12px; text-align: center; cursor: pointer; border: 1px solid transparent; }
+.selection-card img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-bottom: 5px; display: block; margin: 0 auto 5px auto; }
+.selection-card span { font-size: 12px; font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Tabs */
+#fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 800; padding-bottom: env(safe-area-inset-bottom); }
+.fab-btn { width: 60px; height: 60px; border-radius: 50%; background: var(--primary); color: white; border: none; font-size: 24px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+.fab-btn.hidden { display: none; }
 .segment-control { background: #e0e0e0; padding: 4px; border-radius: 10px; display: flex; margin-bottom: 20px; }
 .segment-btn { flex: 1; border: none; background: none; padding: 8px; font-weight: 600; border-radius: 8px; }
 .segment-btn.active { background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-
-/* Listes */
 .glass-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.glass-list li {
-    background: var(--glass-bg); padding: 15px; border-radius: 15px;
-    display: flex; justify-content: space-between; align-items: center;
-}
+.glass-list li { background: var(--glass-bg); padding: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; }
 
-/* FAB */
-#fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 800; padding-bottom: env(safe-area-inset-bottom); }
-.fab-btn {
-    width: 60px; height: 60px; border-radius: 50%; background: var(--primary);
-    color: white; border: none; font-size: 24px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-.fab-btn.hidden { display: none; }
-
-/* Boutons */
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-primary { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; flex: 1; }
 .btn-secondary { background: #ddd; color: #000; border: none; padding: 12px; border-radius: 10px; font-weight: bold; }
 .btn-text-danger { background: none; border: none; color: var(--danger); font-weight: bold; }
-.full-width { width: 100%; }
-.margin-top { margin-top: 15px; }
-.margin-bottom { margin-bottom: 15px; }
-section { display: none; }
-section.active-view { display: block; }
+.full-width { width: 100%; } .margin-top { margin-top: 15px; } .margin-bottom { margin-bottom: 15px; }
+
+#menu-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); z-index: 900; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+#menu-overlay.open { opacity: 1; pointer-events: auto; }
+.menu-content { position: absolute; top: 0; left: 0; bottom: 0; width: 280px; background: var(--glass-bg); padding: 30px; transform: translateX(-100%); transition: transform 0.3s; padding-top: max(30px, env(safe-area-inset-top)); }
+#menu-overlay.open .menu-content { transform: translateX(0); }
+.close-menu-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 24px; }
+.menu-nav { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
+.menu-link { background: none; border: none; font-size: 18px; text-align: left; padding: 10px; display: flex; gap: 15px; color: var(--text-dark); }
+.menu-link.active { color: var(--primary); font-weight: bold; }
+
+section { display: none; } section.active-view { display: block; }
