@@ -1,6 +1,6 @@
-// extensions.js - VERSION "BIO-RECYCLEUR V2"
+// extensions.js - VERSION CORRIGÉE (Boutons Recycleur)
 // Comprend : Météo, Stock, Frigo, Journal, Succès, Véto, Santé, Ventes, Coût, Almanach, Hall of Fame
-// + BIO-RECYCLEUR AVEC GRAPHIQUE ET CORRECTION
+// + BIO-RECYCLEUR V2 (Fix Bug Boutons)
 
 // CONFIG
 const FEED_KG_PER_DAY = 0.12; // 120g par poule
@@ -128,12 +128,10 @@ function injectExtensionContainers() {
 }
 
 // ==========================================
-// 1. BIO-RECYCLEUR V2 (Graphique + Correction)
+// 1. BIO-RECYCLEUR V2 (Graphique + Correction + FIX BUG BOUTONS)
 // ==========================================
-// Stockage : [{date: '2023-10-25', qty: 1.5}, ...]
 let recyclingHistory = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
 
-// Si l'utilisateur avait l'ancienne version (juste un chiffre), on convertit
 if (localStorage.getItem('poupoules_recycled') && recyclingHistory.length === 0) {
     const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
     if (oldTotal > 0) {
@@ -160,32 +158,23 @@ function renderRecyclerWidget() {
         }
     });
 
-    // Génération du petit graphique (6 derniers mois)
+    // Génération du petit graphique
     let chartHtml = '<div style="display:flex; align-items:flex-end; gap:5px; height:40px; margin-top:10px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.05);">';
     const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
     
-    // On veut les 6 derniers mois
     for (let i = 5; i >= 0; i--) {
         const d = new Date();
         d.setMonth(now.getMonth() - i);
         const m = d.getMonth();
         const y = d.getFullYear();
-        
         let val = 0;
         recyclingHistory.forEach(item => {
             const itemD = new Date(item.date);
             if(itemD.getMonth() === m && itemD.getFullYear() === y) val += item.qty;
         });
-
-        // Hauteur relative (Max arbitraire de 20kg pour l'échelle visuelle)
         const h = Math.min((val / 20) * 100, 100); 
         const isCurrent = (i === 0);
-        
-        chartHtml += `
-            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;">
-                <div style="width:100%; height:${Math.max(h, 5)}%; background:${isCurrent ? 'var(--success)' : 'rgba(52, 199, 89, 0.3)'}; border-radius:2px;"></div>
-                <div style="font-size:9px; color:var(--text-grey); margin-top:2px;">${months[m]}</div>
-            </div>`;
+        chartHtml += `<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;"><div style="width:100%; height:${Math.max(h, 5)}%; background:${isCurrent ? 'var(--success)' : 'rgba(52, 199, 89, 0.3)'}; border-radius:2px;"></div><div style="font-size:9px; color:var(--text-grey); margin-top:2px;">${months[m]}</div></div>`;
     }
     chartHtml += '</div>';
 
@@ -203,24 +192,29 @@ function renderRecyclerWidget() {
                     <span style="font-size:24px; font-weight:800; color:var(--success); cursor:pointer;">${monthTotal.toFixed(2)} <span style="font-size:12px;">kg</span> <i class="fas fa-pen" style="font-size:10px; opacity:0.5;"></i></span>
                 </div>
             </div>
-            
             ${chartHtml}
-
             <div style="display:flex; gap:10px; margin-top:10px;">
-                <button onclick="addRecycling(0.75)" style="flex:1; background:rgba(255,255,255,0.5); border:1px solid var(--success); color:var(--success); border-radius:10px; padding:8px; font-size:12px; font-weight:bold;">+ 1/2 Boîte</button>
-                <button onclick="addRecycling(1.5)" style="flex:1; background:var(--success); color:white; border:none; border-radius:10px; padding:8px; font-size:12px; font-weight:bold;">+ Boîte Pleine</button>
+                <button type="button" onclick="addRecycling(event, 0.75)" style="flex:1; background:rgba(255,255,255,0.5); border:1px solid var(--success); color:var(--success); border-radius:10px; padding:8px; font-size:12px; font-weight:bold; cursor:pointer;">+ 1/2 Boîte</button>
+                <button type="button" onclick="addRecycling(event, 1.5)" style="flex:1; background:var(--success); color:white; border:none; border-radius:10px; padding:8px; font-size:12px; font-weight:bold; cursor:pointer;">+ Boîte Pleine</button>
             </div>
         </div>
     `;
 }
 
-window.addRecycling = (qty) => {
+// Fonction corrigée avec gestion de l'événement pour éviter le rechargement
+window.addRecycling = (e, qty) => {
+    if(e) {
+        e.preventDefault(); // Empêche le comportement par défaut (rechargement)
+        e.stopPropagation(); // Arrête la propagation
+    }
+    
     recyclingHistory.push({ date: new Date().toISOString(), qty: qty });
     localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory));
     renderRecyclerWidget();
-    // Petit feedback
-    const btn = document.activeElement;
-    if(btn) {
+    
+    // Feedback visuel sur le bouton cliqué
+    if(e && e.target) {
+        const btn = e.target;
         const originalText = btn.innerText;
         btn.innerText = "Ajouté !";
         setTimeout(() => btn.innerText = originalText, 1000);
@@ -230,8 +224,6 @@ window.addRecycling = (qty) => {
 window.editRecyclingTotal = () => {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    
-    // Calculer l'actuel
     let currentTotal = 0;
     recyclingHistory.forEach(item => {
         const d = new Date(item.date);
@@ -239,22 +231,14 @@ window.editRecyclingTotal = () => {
     });
 
     const newVal = prompt("Corriger le total de ce mois (kg) :", currentTotal.toFixed(2));
-    
     if (newVal !== null && !isNaN(parseFloat(newVal))) {
         const target = parseFloat(newVal);
         if (target < 0) return;
-
-        // On supprime toutes les entrées de ce mois pour les remplacer par une entrée "Correction"
         recyclingHistory = recyclingHistory.filter(item => {
             const d = new Date(item.date);
             return !(d.getMonth() === currentMonth && d.getFullYear() === currentYear);
         });
-        
-        // On ajoute la nouvelle valeur cible
-        if (target > 0) {
-            recyclingHistory.push({ date: new Date().toISOString(), qty: target });
-        }
-        
+        if (target > 0) { recyclingHistory.push({ date: new Date().toISOString(), qty: target }); }
         localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory));
         renderRecyclerWidget();
     }
@@ -490,7 +474,7 @@ window.renderExtensions = () => {
     renderAlmanac();
     renderFridgeWidget();
     renderStockWidget();
-    renderRecyclerWidget(); // VERSION V2 GRAPHIQUE
+    renderRecyclerWidget(); // CORRIGÉ
     renderJournalWidget();
     renderHallOfFame();
     renderCostPrice();
