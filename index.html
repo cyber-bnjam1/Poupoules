@@ -55,7 +55,6 @@
     </div>
 
     <main id="scroll-container">
-        <div class="header-spacer"></div>
         
         <section id="view-dashboard" class="active-view">
             <h1 class="big-title">Tableau de bord</h1>
@@ -63,11 +62,11 @@
             <div class="status-row">
                 <div class="glass-card mini-status-card highlight-card" onclick="openAddEggModal()">
                     <div class="icon-circle egg-color"><i class="fas fa-plus"></i></div>
-                    <div class="status-info"><span class="status-label">Ajouter</span><span class="status-value">Un œuf</span></div>
+                    <div class="status-info"><span class="status-label">Ramassage</span><span class="status-value">Ajouter</span></div>
                 </div>
                 <div class="glass-card mini-status-card">
                     <div class="icon-circle primary-color"><i class="fas fa-egg"></i></div>
-                    <div class="status-info"><span class="status-label">Aujourd'hui</span><span class="status-value" id="eggs-today-count">0</span></div>
+                    <div class="status-info"><span class="status-label">Ce mois-ci</span><span class="status-value" id="eggs-month-count">0</span></div>
                 </div>
             </div>
 
@@ -77,16 +76,14 @@
                 <h3><i class="fas fa-chart-line"></i> Ponte mensuelle</h3>
                 <div class="chart-container"><canvas id="eggsChart"></canvas></div>
                 <div class="stats-summary-row">
-                    <span class="stat-pill"><span id="total-eggs-display">0</span> Œufs</span>
-                    <span class="stat-pill"><span id="cost-per-egg-display">0.00</span>€ / œuf</span>
+                    <span class="stat-pill"><span id="total-eggs-display">0</span> Œufs (Total)</span>
                 </div>
             </div>
 
-            <div id="advanced-stats-container"></div>
+            <div id="journal-widget-container"></div>
 
-            <h3 class="section-title">Derniers Œufs</h3>
+            <h3 class="section-title">Activité récente</h3>
             <ul id="recent-activity-list" class="glass-list activity-list"></ul>
-            <div class="bottom-spacer"></div>
         </section>
 
         <section id="view-chickens">
@@ -96,7 +93,6 @@
                 <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
             </div>
             <div id="chickens-grid" class="grid-container"></div>
-            <div class="bottom-spacer"></div>
         </section>
 
         <section id="view-finance">
@@ -104,25 +100,22 @@
             <div class="glass-card balance-card">
                 <span class="balance-label">Bilan Global</span>
                 <h2 id="balance-total" class="balance-amount">0.00 €</h2>
-                <div class="finance-bar-container"><div class="progress-bar" id="finance-bar"></div></div>
             </div>
             <h3 class="section-title">Historique</h3>
             <ul id="finance-list" class="glass-list"></ul>
-            <div class="bottom-spacer"></div>
         </section>
 
         <section id="view-maintenance">
             <h1 class="big-title">Entretien</h1>
             <ul id="tasks-list" class="glass-list task-list-full"></ul>
-            <div class="bottom-spacer"></div>
         </section>
 
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
-            
             <div class="profile-header-card">
                 <div id="auth-container"></div>
             </div>
+            <div id="achievements-container"></div>
 
             <h3 class="settings-header">Préférences</h3>
             <div class="ios-list">
@@ -144,18 +137,6 @@
                     </div>
                 </div>
             </div>
-
-            <h3 class="settings-header">À propos</h3>
-            <div class="ios-list">
-                <div class="ios-item">
-                    <div class="ios-icon" style="background-color: #8e8e93;"><i class="fas fa-info"></i></div>
-                    <div class="ios-content">
-                        <span>Version</span>
-                        <span style="color:var(--text-grey);">3.2 (Pro)</span>
-                    </div>
-                </div>
-            </div>
-            <div class="bottom-spacer"></div>
         </section>
     </main>
 
@@ -246,26 +227,36 @@
 
     <div id="modal-add-egg" class="modal">
         <div class="modal-content glass-panel animate-pop">
-            <h2 style="text-align:center;">Qui a pondu ?</h2>
-            <div id="egg-chickens-list" class="selection-grid"></div>
-            <button class="btn-secondary full-width close-modal margin-top">Fermer</button>
+            <h2 style="text-align:center; margin-bottom:20px;">🥚 Ramassage</h2>
+            <form id="form-add-egg" style="display:flex; flex-direction:column; gap:20px;">
+                <div style="text-align:center;">
+                    <label style="display:block; margin-bottom:10px; color:var(--text-grey);">Combien d'œufs ?</label>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:20px;">
+                        <button type="button" onclick="adjustEggCount(-1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:rgba(0,0,0,0.05); border:none;">-</button>
+                        <input type="number" id="egg-count-input" value="1" min="1" max="50" style="width:80px; text-align:center; font-size:30px; border:none; background:transparent; font-weight:bold;">
+                        <button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:var(--primary); color:white; border:none;">+</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="egg-date-input" required>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button>
+                    <button type="submit" class="btn-primary" style="flex:1;">Valider</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <div id="modal-stock" class="modal">
         <div class="modal-content glass-panel animate-pop">
             <h2>📦 Stock Graines</h2>
-            <p style="color:var(--text-grey); font-size:14px; margin-bottom:20px;">Indiquez la quantité totale (en kg) que vous venez d'acheter ou qu'il vous reste.</p>
             <form onsubmit="saveStock(event)">
-                <div class="form-group">
-                    <label>Quantité (kg)</label>
-                    <input type="number" id="stock-qty" step="0.1" placeholder="Ex: 20" required>
-                </div>
-                <div class="modal-actions">
-                    <div style="flex:1"></div>
-                    <button type="button" class="btn-secondary close-modal">Annuler</button>
-                    <button type="submit" class="btn-primary">Mettre à jour</button>
-                </div>
+                <div class="form-group"><label>Quantité (kg)</label><input type="number" id="stock-qty" step="0.1" required></div>
+                <div class="modal-actions"><button type="button" class="btn-secondary close-modal">Fermer</button><button type="submit" class="btn-primary">OK</button></div>
             </form>
         </div>
     </div>
