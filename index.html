@@ -87,10 +87,10 @@
         </section>
 
         <section id="view-chickens">
-            <h1 class="big-title">Mon Cheptel</h1>
+            <h1 class="big-title">Mon Poulailler</h1>
             <div class="segment-control">
                 <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Poulailler</button>
-                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
+                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Cimetière</button>
             </div>
             <div id="chickens-grid" class="grid-container"></div>
         </section>
@@ -211,15 +211,15 @@
                 <div class="form-group">
                     <label>Santé</label>
                     <select id="chicken-health">
-                        <option value="healthy">En forme</option>
-                        <option value="sick">Malade</option>
-                        <option value="molting">En mue</option>
-                        <option value="broody">Couve</option>
+                        <option value="healthy">💪 En forme</option>
+                        <option value="sick">🤒 Malade</option>
+                        <option value="molting">🪶 En mue</option>
+                        <option value="broody">🐣 Couve</option>
                     </select>
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button>
+                    <button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Décédée</button>
                     <div style="flex:1"></div>
                     <button type="button" class="btn-secondary close-modal">Annuler</button>
                     <button type="submit" class="btn-primary">Sauver</button>
