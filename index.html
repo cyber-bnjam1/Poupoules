@@ -154,10 +154,62 @@
                     <div class="upload-icon"><i class="fas fa-camera"></i></div>
                 </div>
                 <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)">
-                <div class="form-group"><label>Nom</label><input type="text" id="chicken-name" required></div>
-                <div class="form-group"><label>Race</label><input type="text" id="chicken-breed"></div>
-                <div class="form-group"><label>Date Arrivée</label><input type="date" id="chicken-date" required></div>
-                <div class="form-group"><label>Santé</label>
+                
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" id="chicken-name" required placeholder="Ex: Huguette">
+                </div>
+                
+                <div class="form-group">
+                    <label>Race</label>
+                    <select id="chicken-breed">
+                        <option value="">-- Inconnue / Croisée --</option>
+                        <optgroup label="Les Stars du Jardin">
+                            <option value="Rousse (Isa Brown)">Rousse (Isa Brown)</option>
+                            <option value="Harco (Noire)">Harco (Noire)</option>
+                            <option value="Sussex">Sussex (Blanche herminée)</option>
+                            <option value="Cendrée (Limousine)">Cendrée (Limousine)</option>
+                            <option value="Marans">Marans (Œufs extra-roux)</option>
+                        </optgroup>
+                        <optgroup label="Races d'Ornement & Anciennes">
+                            <option value="Araucana">Araucana (Œufs verts)</option>
+                            <option value="Ameraucana">Ameraucana</option>
+                            <option value="Australorp">Australorp</option>
+                            <option value="Barnevelder">Barnevelder</option>
+                            <option value="Brahma">Brahma (Géante)</option>
+                            <option value="Chabo">Chabo (Nagasaki)</option>
+                            <option value="Cochin">Cochin</option>
+                            <option value="Cou Nu">Cou Nu</option>
+                            <option value="Cream Legbar">Cream Legbar (Œufs bleus)</option>
+                            <option value="Faverolles">Faverolles</option>
+                            <option value="Gâtinaise">Gâtinaise</option>
+                            <option value="Gauloise Dorée">Gauloise Dorée</option>
+                            <option value="Géante de Jersey">Géante de Jersey</option>
+                            <option value="Gournay">Gournay</option>
+                            <option value="Hollandaise Huppée">Hollandaise Huppée</option>
+                            <option value="Houdan">Houdan</option>
+                            <option value="Leghorn">Leghorn (Pondeuse blanche)</option>
+                            <option value="Orpington">Orpington</option>
+                            <option value="Padoue">Padoue</option>
+                            <option value="Pékin">Pékin</option>
+                            <option value="Plymouth Rock">Plymouth Rock</option>
+                            <option value="Rhode Island">Rhode Island</option>
+                            <option value="Sebright">Sebright</option>
+                            <option value="Soie (Nègre-Soie)">Soie (Nègre-Soie)</option>
+                            <option value="Vorwerk">Vorwerk</option>
+                            <option value="Wyandotte">Wyandotte</option>
+                        </optgroup>
+                        <option value="Autre">Autre race</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Date Arrivée / Naissance</label>
+                    <input type="date" id="chicken-date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Santé</label>
                     <select id="chicken-health">
                         <option value="healthy">En forme</option>
                         <option value="sick">Malade</option>
@@ -165,6 +217,7 @@
                         <option value="broody">Couve</option>
                     </select>
                 </div>
+
                 <div class="modal-actions">
                     <button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button>
                     <div style="flex:1"></div>
