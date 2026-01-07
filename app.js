@@ -92,7 +92,6 @@ function renderChickensList() {
         .filter(c => (c.status || 'active') === filter)
         .sort((a,b) => (b.isFavorite === true) - (a.isFavorite === true));
     
-    // Titre de debug
     const title = document.querySelector('#view-chickens .big-title');
     if(title) title.innerText = `Mon Cheptel (${list.length})`;
 
@@ -295,11 +294,11 @@ document.getElementById('form-task').addEventListener('submit', (e) => {
 });
 window.deleteCurrentTask = () => { if(confirm("Supprimer ?")) { localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value); saveData(); document.getElementById('modal-edit-task').style.display = 'none'; renderMaintenance(); }};
 
-// UTILS - COMPRESSION EXTRÊME
+// UTILS - COMPRESSION EXTRÊME (WebP + 150px)
 window.handlePhotoUpload = (input) => {
     if (input.files && input.files[0]) {
-        // 150px de large max, qualité 0.5 (Moyenne) = Fichier minuscule
-        compressImage(input.files[0], 150, 0.5).then(b => {
+        // Compression max : 150px largeur, qualité 0.4 (40%)
+        compressImage(input.files[0], 150, 0.4).then(b => {
             document.getElementById('preview-photo').src = b;
             tempPhotoBase64 = b;
         });
@@ -325,7 +324,8 @@ function compressImage(file, maxWidth, quality) {
                 elem.height = height;
                 const ctx = elem.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                resolve(elem.toDataURL('image/jpeg', quality));
+                // C'est ici la magie : conversion en WebP
+                resolve(elem.toDataURL('image/webp', quality));
             };
         };
         reader.onerror = error => reject(error);
@@ -342,7 +342,7 @@ function saveData() {
     try {
         if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(d)); 
         else if(currentUser) db.collection('users').doc(currentUser.uid).set(d);
-    } catch(e) { console.error("Sauvegarde impossible (Quota ?)", e); }
+    } catch(e) { console.error("Sauvegarde impossible", e); }
 }
 function loadLocalData() { const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[]}'); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }
 function loadFirebaseData() { db.collection('users').doc(currentUser.uid).get().then(doc => { if(doc.exists) { const d = doc.data(); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }}); }
