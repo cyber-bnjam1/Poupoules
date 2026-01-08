@@ -87,10 +87,10 @@
         </section>
 
         <section id="view-chickens">
-            <h1 class="big-title">Mon Poulailler</h1>
+            <h1 class="big-title">Mon Cheptel</h1>
             <div class="segment-control">
                 <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Poulailler</button>
-                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Cimetière</button>
+                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
             </div>
             <div id="chickens-grid" class="grid-container"></div>
         </section>
@@ -101,6 +101,9 @@
                 <span class="balance-label">Bilan Global</span>
                 <h2 id="balance-total" class="balance-amount">0.00 €</h2>
             </div>
+            
+            <div id="sales-register-container"></div>
+
             <h3 class="section-title">Historique</h3>
             <ul id="finance-list" class="glass-list"></ul>
         </section>
@@ -108,6 +111,8 @@
         <section id="view-maintenance">
             <h1 class="big-title">Entretien</h1>
             <ul id="tasks-list" class="glass-list task-list-full"></ul>
+            
+            <div id="health-widget-container" style="margin-top:30px;"></div>
         </section>
 
         <section id="view-settings">
@@ -211,15 +216,15 @@
                 <div class="form-group">
                     <label>Santé</label>
                     <select id="chicken-health">
-                        <option value="healthy">💪 En forme</option>
-                        <option value="sick">🤒 Malade</option>
-                        <option value="molting">🪶 En mue</option>
-                        <option value="broody">🐣 Couve</option>
+                        <option value="healthy">En forme</option>
+                        <option value="sick">Malade</option>
+                        <option value="molting">En mue</option>
+                        <option value="broody">Couve</option>
                     </select>
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Décédée</button>
+                    <button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button>
                     <div style="flex:1"></div>
                     <button type="button" class="btn-secondary close-modal">Annuler</button>
                     <button type="submit" class="btn-primary">Sauver</button>
@@ -278,6 +283,16 @@
         </div>
     </div>
 
+    <div id="modal-stock" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2>📦 Stock Graines</h2>
+            <form onsubmit="saveStock(event)">
+                <div class="form-group"><label>Quantité (kg)</label><input type="number" id="stock-qty" step="0.1" required></div>
+                <div class="modal-actions"><button type="button" class="btn-secondary close-modal">Fermer</button><button type="submit" class="btn-primary">OK</button></div>
+            </form>
+        </div>
+    </div>
+
     <div id="modal-add-egg" class="modal">
         <div class="modal-content glass-panel animate-pop">
             <h2 style="text-align:center; margin-bottom:20px;">🥚 Ramassage</h2>
@@ -290,26 +305,80 @@
                         <button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:var(--primary); color:white; border:none;">+</button>
                     </div>
                 </div>
-                
-                <div class="form-group">
-                    <label>Date</label>
-                    <input type="date" id="egg-date-input" required>
-                </div>
+                <div class="form-group"><label>Date</label><input type="date" id="egg-date-input" required></div>
+                <div class="modal-actions"><button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button><button type="submit" class="btn-primary" style="flex:1;">Valider</button></div>
+            </form>
+        </div>
+    </div>
 
+    <div id="modal-health-treatment" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2>💉 Nouveau Soin</h2>
+            <form onsubmit="saveHealthTreatment(event)">
+                <div class="form-group">
+                    <label>Type de soin</label>
+                    <select id="health-type" onchange="autoFillHealth()">
+                        <option value="Vermifuge">Vermifuge</option>
+                        <option value="Anti-Poux">Anti-Poux</option>
+                        <option value="Coccidiose">Anti-Coccidien</option>
+                        <option value="Vitamines">Cure Vitamines</option>
+                        <option value="Vaccin">Vaccin</option>
+                        <option value="Blessure">Soin Blessure</option>
+                        <option value="Autre">Autre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Produit utilisé</label>
+                    <input type="text" id="health-product" placeholder="Ex: Capizol, Terre de Diatomée...">
+                </div>
+                <div class="form-group">
+                    <label>Date du soin</label>
+                    <input type="date" id="health-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Prochain rappel (Optionnel)</label>
+                    <input type="date" id="health-next-date">
+                    <small style="color:gray;" id="health-tip"></small>
+                </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button>
-                    <button type="submit" class="btn-primary" style="flex:1;">Valider</button>
+                    <button type="button" class="btn-secondary close-modal">Annuler</button>
+                    <button type="submit" class="btn-primary">Enregistrer</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="modal-stock" class="modal">
+    <div id="modal-client-sale" class="modal">
         <div class="modal-content glass-panel animate-pop">
-            <h2>📦 Stock Graines</h2>
-            <form onsubmit="saveStock(event)">
-                <div class="form-group"><label>Quantité (kg)</label><input type="number" id="stock-qty" step="0.1" required></div>
-                <div class="modal-actions"><button type="button" class="btn-secondary close-modal">Fermer</button><button type="submit" class="btn-primary">OK</button></div>
+            <h2>🤝 Vente Client</h2>
+            <form onsubmit="saveClientSale(event)">
+                <div class="form-group">
+                    <label>Nom du Client</label>
+                    <input type="text" id="client-name" required placeholder="Ex: Michel (Voisin)">
+                </div>
+                <div class="form-group">
+                    <label>Quantité d'œufs</label>
+                    <input type="number" id="client-qty" required value="6" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Prix Total (€)</label>
+                    <input type="number" id="client-price" required step="0.10">
+                </div>
+                <div class="form-group">
+                    <label>Statut Paiement</label>
+                    <select id="client-status">
+                        <option value="paid">✅ Payé</option>
+                        <option value="pending">⏳ En attente (Dette)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="client-date" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal">Annuler</button>
+                    <button type="submit" class="btn-primary">Valider Vente</button>
+                </div>
             </form>
         </div>
     </div>
