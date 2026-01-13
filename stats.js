@@ -8,19 +8,25 @@ let currentStatsYear = new Date().getFullYear();
 window.renderStatsView = () => {
     initYearSelector();
     
-    // Récupération des données (localEggs vient de app.js, poupoules_recycling_history du localStorage)
+    // Récupération des données
     const eggsData = typeof localEggs !== 'undefined' ? localEggs : [];
     const wasteData = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
 
     const stats = calculateAnnualStats(currentStatsYear, eggsData, wasteData);
 
     // Mise à jour des widgets
-    document.getElementById('stat-total-eggs').innerText = stats.totalEggs;
-    document.getElementById('stat-total-waste').innerText = stats.totalWaste.toFixed(1) + ' kg';
+    const totalEggsEl = document.getElementById('stat-total-eggs');
+    if(totalEggsEl) totalEggsEl.innerText = stats.totalEggs;
+
+    const totalWasteEl = document.getElementById('stat-total-waste');
+    if(totalWasteEl) totalWasteEl.innerText = stats.totalWaste.toFixed(1) + ' kg';
     
-    // Autres stats utiles
-    document.getElementById('stat-best-month').innerText = stats.bestMonth;
-    document.getElementById('stat-avg-eggs').innerText = stats.avgPerDay.toFixed(1);
+    // Autres stats
+    const bestMonthEl = document.getElementById('stat-best-month');
+    if(bestMonthEl) bestMonthEl.innerText = stats.bestMonth;
+
+    const avgEggsEl = document.getElementById('stat-avg-eggs');
+    if(avgEggsEl) avgEggsEl.innerText = stats.avgPerDay.toFixed(1);
 
     // Graphiques
     renderAnnualEggsChart(stats.monthlyEggs);
@@ -74,7 +80,7 @@ function calculateAnnualStats(year, eggs, waste) {
     const maxEggs = Math.max(...monthlyEggs);
     const bestMonth = maxEggs > 0 ? months[monthlyEggs.indexOf(maxEggs)] + ` (${maxEggs})` : '-';
     
-    // Moyenne par jour (si année en cours, on divise par le nombre de jours écoulés)
+    // Moyenne par jour
     const isCurrentYear = year === new Date().getFullYear();
     const days = isCurrentYear ? Math.ceil((new Date() - new Date(year, 0, 1)) / (1000*60*60*24)) : 365;
     const avgPerDay = days > 0 ? totalEggs / days : 0;
