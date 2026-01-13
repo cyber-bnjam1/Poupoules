@@ -85,24 +85,19 @@ window.navigate = (targetId) => {
     currentViewId = targetId;
     updateFabVisibility(targetId);
     
-    // --- MODIFICATION POUR STATS.JS ---
-    // Si on navigue vers l'onglet stats, on force le rendu
-    if (targetId === 'view-stats' && window.renderStatsView) {
-        window.renderStatsView();
-    }
-    // ----------------------------------
-
+    // --- AJOUT : Trigger pour l'onglet stats ---
+    if(targetId === 'view-stats' && window.renderStatsView) window.renderStatsView();
+    // -------------------------------------------
+    
     window.scrollTo(0,0);
 };
 
 function updateFabVisibility(viewId) {
     const fab = document.getElementById('main-fab');
-    // Le bouton FAB est visible pour : Poules, Finances, Entretien
-    // Il est caché pour : Dashboard, Stats, Réglages
-    if(['view-chickens','view-finance','view-maintenance'].includes(viewId)) fab.classList.remove('hidden');
+    if(viewId === 'view-dashboard') fab.classList.add('hidden');
+    else if(['view-chickens','view-finance','view-maintenance'].includes(viewId)) fab.classList.remove('hidden');
     else fab.classList.add('hidden');
 }
-
 window.handleFabClick = () => {
     if(currentViewId === 'view-chickens') openChickenModal();
     if(currentViewId === 'view-finance') openTransactionModal();
@@ -132,107 +127,111 @@ function renderChickensList() {
             <button class="edit-btn" onclick="openChickenModal('${c.id}')"><i class="fas fa-pen"></i></button>
             <img class="chicken-photo" src="${c.photo || 'icon.png'}">
             <div class="chicken-name">${c.name}</div>
-            <div class="chicken-breed">${c.breed || 'Inconnue'}</div>
-            <div class="chicken-age">${getAge(c.dob)}</div>
+            <div class="chicken-breed">${c.breed || ''}</div>
+            <div class="chicken-age">${getAge(c.date)}</div>
         `;
         grid.appendChild(div);
     });
 }
-window.filterChickens = (type, btn) => {
-    document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderChickensList();
-};
-window.openChickenModal = (id=null) => {
-    document.getElementById('modal-chicken').style.display = 'flex';
-    const title = document.getElementById('modal-chicken-title');
-    const delBtn = document.getElementById('btn-delete-chicken');
-    
-    if(id) {
-        const c = localChickens.find(x => x.id === id);
-        title.innerText = "Modifier Poule";
-        document.getElementById('chicken-id').value = c.id;
-        document.getElementById('chicken-name').value = c.name;
-        document.getElementById('chicken-breed').value = c.breed || '';
-        document.getElementById('chicken-dob').value = c.dob || '';
-        document.getElementById('chicken-fav').checked = c.isFavorite || false;
-        document.getElementById('preview-photo').src = c.photo || 'icon.png';
-        tempPhotoBase64 = c.photo;
-        delBtn.style.display = 'block';
-    } else {
-        title.innerText = "Nouvelle Poule";
-        document.getElementById('chicken-id').value = '';
-        document.getElementById('chicken-name').value = '';
-        document.getElementById('chicken-breed').value = '';
-        document.getElementById('chicken-dob').value = '';
-        document.getElementById('chicken-fav').checked = false;
-        document.getElementById('preview-photo').src = 'icon.png';
-        tempPhotoBase64 = null;
-        delBtn.style.display = 'none';
-    }
-};
-window.saveChicken = () => {
+window.toggleFavorite = (id) => { const idx = localChickens.findIndex(c => c.id === id); if (idx > -1) { localChickens[idx].isFavorite = !localChickens[idx].isFavorite; saveData(); renderChickensList(); }};
+window.archiveChicken = () => {
     const id = document.getElementById('chicken-id').value;
-    const name = document.getElementById('chicken-name').value;
-    if(!name) return alert("Nom obligatoire");
-    
-    const data = {
-        name: name,
-        breed: document.getElementById('chicken-breed').value,
-        dob: document.getElementById('chicken-dob').value,
-        isFavorite: document.getElementById('chicken-fav').checked,
-        photo: tempPhotoBase64
-    };
-
+    const idx = localChickens.findIndex(c => c.id === id);
+    if (idx > -1) {
+        if(localChickens[idx].status === 'archived') { if(confirm("Supprimer ?")) localChickens.splice(idx, 1); } 
+        else { if(confirm("Archiver ?")) localChickens[idx].status = 'archived'; }
+        saveData(); document.getElementById('modal-chicken').style.display = 'none'; renderChickensList();
+    }
+};
+window.filterChickens = (type, btn) => { document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderChickensList(); document.getElementById('btn-archive-chicken').innerText = type === 'archived' ? 'Supprimer' : 'Archiver'; };
+window.openChickenModal = (id = null) => {
+    const modal = document.getElementById('modal-chicken'); document.getElementById('form-chicken').reset(); document.getElementById('preview-photo').src = 'icon.png'; tempPhotoBase64 = null;
     if(id) {
-        const idx = localChickens.findIndex(c => c.id === id);
-        if(idx >= 0) localChickens[idx] = { ...localChickens[idx], ...data };
-    } else {
-        localChickens.push({ id: 'c'+Date.now(), status: 'active', ...data });
-    }
-    saveData();
-    renderChickensList();
-    document.getElementById('modal-chicken').style.display = 'none';
+        const c = localChickens.find(x => x.id === id); document.getElementById('modal-chicken-title').innerText = "Modifier";
+        document.getElementById('chicken-id').value = c.id; document.getElementById('chicken-name').value = c.name; document.getElementById('chicken-breed').value = c.breed; document.getElementById('chicken-date').value = c.date; document.getElementById('chicken-health').value = c.health; if(c.photo) document.getElementById('preview-photo').src = c.photo; document.getElementById('btn-archive-chicken').style.display = 'block';
+    } else { document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule"; document.getElementById('chicken-id').value = ""; document.getElementById('chicken-date').valueAsDate = new Date(); document.getElementById('btn-archive-chicken').style.display = 'none'; }
+    modal.style.display = 'flex';
 };
-window.toggleFavorite = (id) => {
-    const c = localChickens.find(x => x.id === id);
-    if(c) { c.isFavorite = !c.isFavorite; saveData(); renderChickensList(); }
-};
-window.deleteCurrentChicken = () => {
-    if(confirm("Archiver cette poule ? (Elle ne sera pas supprimée définitivement)")) {
-        const id = document.getElementById('chicken-id').value;
-        const c = localChickens.find(x => x.id === id);
-        if(c) c.status = 'archived';
-        saveData();
-        renderChickensList();
-        document.getElementById('modal-chicken').style.display = 'none';
-    }
-};
+document.getElementById('form-chicken').addEventListener('submit', (e) => {
+    e.preventDefault(); const id = document.getElementById('chicken-id').value;
+    const data = { name: document.getElementById('chicken-name').value, breed: document.getElementById('chicken-breed').value, date: document.getElementById('chicken-date').value, health: document.getElementById('chicken-health').value, photo: tempPhotoBase64 || document.getElementById('preview-photo').src };
+    if(id) { const idx = localChickens.findIndex(c => c.id === id); if(idx>-1) localChickens[idx] = { ...localChickens[idx], ...data }; }
+    else { localChickens.push({ id: 'c' + Date.now(), ...data, status: 'active', isFavorite: false }); }
+    saveData(); document.getElementById('modal-chicken').style.display = 'none'; renderChickensList();
+});
 
 // DASHBOARD
 function renderDashboard() {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const monthEggs = localEggs.filter(e => new Date(e.date).getMonth() === currentMonth && new Date(e.date).getFullYear() === now.getFullYear());
-    const count = monthEggs.reduce((acc, curr) => acc + (curr.count||0), 0);
-    document.getElementById('eggs-month-count').innerText = count;
+    let monthCount = 0;
+    let totalCount = 0;
 
-    // Chart
-    const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-    const data = Array(12).fill(0);
     localEggs.forEach(e => {
+        const qty = e.count || 1;
+        totalCount += qty;
         const d = new Date(e.date);
-        if(d.getFullYear() === now.getFullYear()) data[d.getMonth()] += (e.count||0);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+            monthCount += qty;
+        }
     });
+
+    document.getElementById('total-eggs-display').innerText = totalCount;
+    document.getElementById('eggs-month-count').innerText = monthCount;
     
-    document.getElementById('total-eggs-display').innerText = data.reduce((a,b)=>a+b, 0);
+    updateChart(localEggs);
+    
+    const list = document.getElementById('recent-activity-list');
+    list.innerHTML = '';
+    localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(e => {
+        const qty = e.count || 1;
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
+                <strong>Ramassage</strong>
+            </div>
+            <div style="text-align:right;">
+                <span style="display:block; font-weight:bold;">${qty} œuf${qty>1?'s':''}</span>
+                <span style="font-size:11px; color:gray;">${new Date(e.date).toLocaleDateString()}</span>
+            </div>
+            <button class="btn-text-danger" style="margin-top:0; width:auto; margin-left:10px;" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
+        `;
+        list.appendChild(li);
+    });
+
+    if(window.injectExtensionContainers) injectExtensionContainers();
+}
+
+window.deleteEgg = (id) => {
+    if(confirm('Supprimer ce ramassage ?')) {
+        const idx = localEggs.findIndex(e => e.id === id);
+        if(idx > -1) {
+            localEggs.splice(idx, 1);
+            saveData();
+            if(window.updateFridge) window.updateFridge(-1); // Simplifié
+            renderDashboard();
+        }
+    }
+};
+
+function initEggsChart() {
+    // Sera appelé au premier render
+}
+function updateChart(eggs) {
+    const ctx = document.getElementById('eggsChart');
+    if(!ctx) return;
+    const now = new Date();
+    const data = Array(12).fill(0);
+    eggs.forEach(e => {
+        const d = new Date(e.date);
+        if(d.getFullYear() === now.getFullYear()) data[d.getMonth()] += (e.count || 1);
+    });
 
     if(eggsChartInstance) eggsChartInstance.destroy();
-    const ctx = document.getElementById('eggsChart').getContext('2d');
-    eggsChartInstance = new Chart(ctx, {
+    eggsChartInstance = new Chart(ctx.getContext('2d'), {
         type: 'line',
         data: {
-            labels: months,
+            labels: ['J','F','M','A','M','J','J','A','S','O','N','D'],
             datasets: [{
                 label: 'Œufs',
                 data: data,
@@ -248,261 +247,238 @@ function renderDashboard() {
             scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
         }
     });
-
-    renderActivity();
-    if(window.injectExtensionContainers) injectExtensionContainers();
-}
-
-function initEggsChart() {
-    // Placeholder loaded in renderDashboard
-}
-
-function renderActivity() {
-    const ul = document.getElementById('recent-activity-list');
-    ul.innerHTML = '';
-    const all = [
-        ...localEggs.map(e => ({ type: 'egg', date: e.date, val: e.count })),
-        ...localTransactions.map(t => ({ type: 'money', date: t.date, val: t.amount, desc: t.desc, cat: t.type })),
-        ...localTasks.map(t => ({ type: 'task', date: t.lastDone, val: t.name }))
-    ].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
-
-    all.forEach(item => {
-        const li = document.createElement('li');
-        const d = new Date(item.date).toLocaleDateString();
-        if(item.type === 'egg') li.innerHTML = `<i class="fas fa-egg" style="color:var(--warning)"></i> <span>${item.val} œuf(s) ramassé(s)</span> <small>${d}</small>`;
-        if(item.type === 'money') li.innerHTML = `<i class="fas fa-coins" style="color:${item.cat==='income'?'var(--success)':'var(--danger)'}"></i> <span>${item.desc} (${item.val}€)</span> <small>${d}</small>`;
-        if(item.type === 'task') li.innerHTML = `<i class="fas fa-check" style="color:var(--primary)"></i> <span>${item.val}</span> <small>${d}</small>`;
-        ul.appendChild(li);
-    });
 }
 
 // FINANCE
 function renderFinance() {
-    let balance = 0;
-    const ul = document.getElementById('transactions-list');
-    ul.innerHTML = '';
+    const list = document.getElementById('finance-list');
+    list.innerHTML = '';
+    let total = 0;
     
     localTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
         const val = parseFloat(t.amount);
-        if(t.type === 'income') balance += val; else balance -= val;
-        
+        const isExpense = t.type !== 'vente_oeufs' && t.type !== 'income'; 
+        if(isExpense) total -= val; else total += val;
+
         const li = document.createElement('li');
-        li.className = 'transaction-item';
+        li.onclick = () => openTransactionModal(t.id); // EDIT
         li.innerHTML = `
-            <div class="trans-icon" style="background:${t.type==='income'?'rgba(52, 199, 89, 0.2)':'rgba(255, 59, 48, 0.2)'}; color:${t.type==='income'?'var(--success)':'var(--danger)'}"><i class="fas ${t.type==='income'?'fa-arrow-down':'fa-arrow-up'}"></i></div>
-            <div class="trans-info"><div class="trans-desc">${t.desc}</div><div class="trans-date">${new Date(t.date).toLocaleDateString()}</div></div>
-            <div class="trans-amount" style="color:${t.type==='income'?'var(--success)':'var(--text-dark)'}">${t.type==='income'?'+':'-'}${val.toFixed(2)} €</div>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div style="width:40px; height:40px; border-radius:12px; background:${isExpense ? 'rgba(255,59,48,0.1)' : 'rgba(52,199,89,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isExpense ? 'var(--danger)' : 'var(--success)'}; font-size:18px;">
+                    <i class="fas ${isExpense ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
+                </div>
+                <div>
+                    <div style="font-weight:600;">${formatTransType(t.type)}</div>
+                    <div style="font-size:11px; color:gray;">${new Date(t.date).toLocaleDateString()}</div>
+                </div>
+            </div>
+            <div style="font-weight:bold; color:${isExpense ? 'var(--text-dark)' : 'var(--success)'};">${isExpense ? '-' : '+'}${val.toFixed(2)} €</div>
         `;
-        ul.appendChild(li);
+        list.appendChild(li);
     });
     
-    document.getElementById('finance-balance').innerText = balance.toFixed(2) + " €";
-    document.getElementById('finance-balance').style.color = balance >= 0 ? 'var(--success)' : 'var(--danger)';
+    const bal = document.getElementById('balance-total');
+    bal.innerText = total.toFixed(2) + " €";
+    bal.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
+
+    if(window.renderSalesRegister) window.renderSalesRegister();
 }
-window.openTransactionModal = (type) => {
+
+window.openTransactionModal = (id=null) => {
+    document.getElementById('trans-id').value = id || '';
+    if(id) {
+        const t = localTransactions.find(x => x.id === id);
+        document.getElementById('trans-amount').value = t.amount;
+        document.getElementById('trans-date').value = t.date;
+        document.getElementById('trans-type').value = t.type;
+        document.getElementById('btn-delete-trans').style.display = 'block';
+    } else {
+        document.getElementById('trans-amount').value = '';
+        document.getElementById('trans-date').valueAsDate = new Date();
+        document.getElementById('btn-delete-trans').style.display = 'none';
+    }
     document.getElementById('modal-transaction').style.display = 'flex';
-    document.getElementById('modal-transaction-title').innerText = type === 'income' ? 'Nouvelle Vente' : 'Nouvelle Dépense';
+};
+window.selectTransType = (type, el) => {
+    document.querySelectorAll('.selection-card').forEach(c => c.style.border = '1px solid transparent');
+    el.style.border = '1px solid var(--primary)';
     document.getElementById('trans-type').value = type;
-    document.getElementById('trans-amount').value = '';
-    document.getElementById('trans-desc').value = '';
-    document.getElementById('trans-date').valueAsDate = new Date();
 };
 window.saveTransaction = () => {
-    const amt = parseFloat(document.getElementById('trans-amount').value);
-    const desc = document.getElementById('trans-desc').value;
-    if(!amt || !desc) return;
+    const id = document.getElementById('trans-id').value;
+    const type = document.getElementById('trans-type').value || 'autre';
+    const amount = parseFloat(document.getElementById('trans-amount').value);
+    const date = document.getElementById('trans-date').value;
     
-    localTransactions.push({
-        id: 't'+Date.now(),
-        type: document.getElementById('trans-type').value,
-        amount: amt,
-        desc: desc,
-        date: document.getElementById('trans-date').value
-    });
+    if(!amount || !date) return alert('Montant et date requis');
+
+    if(id) {
+        const idx = localTransactions.findIndex(t => t.id === id);
+        if(idx > -1) localTransactions[idx] = { ...localTransactions[idx], type, amount, date };
+    } else {
+        localTransactions.push({ id: 't'+Date.now(), type, amount, date });
+    }
     saveData();
-    renderFinance();
-    renderDashboard(); // Update activity
     document.getElementById('modal-transaction').style.display = 'none';
+    renderFinance();
+};
+window.deleteTransaction = () => {
+    if(confirm('Supprimer ?')) {
+        localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value);
+        saveData();
+        document.getElementById('modal-transaction').style.display = 'none';
+        renderFinance();
+    }
 };
 
-// MAINTENANCE
-const DEFAULT_TASKS = [
-    {id: 'def1', name: 'Changer l\'eau', freq: 2, icon: 'fa-tint'},
-    {id: 'def2', name: 'Nettoyer le pondoir', freq: 7, icon: 'fa-brush'},
-    {id: 'def3', name: 'Grand nettoyage', freq: 30, icon: 'fa-soap'}
-];
-function renderMaintenance() {
-    const grid = document.getElementById('maintenance-grid');
-    grid.innerHTML = '';
+function formatTransType(t) {
+    const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Œufs', 'soins': 'Véto', 'achat_poule': 'Achat Poule' };
+    return map[t] || t;
+}
+
+// ENTRETIEN (TASKS)
+function renderTasks() {
+    const list = document.getElementById('tasks-list');
+    list.innerHTML = '';
     
-    // Merge defaults with local state or use local if overridden
-    let tasksToRender = localTasks.length > 0 ? localTasks : DEFAULT_TASKS.map(t => ({...t, lastDone: new Date(new Date().setDate(new Date().getDate() - t.freq - 1)).toISOString() }));
-    // If first load (empty local), init defaults
-    if(localTasks.length === 0) localTasks = tasksToRender;
+    const defaults = [
+        { name: "Changer l'eau", freq: 2 },
+        { name: "Nettoyer le pondoir", freq: 7 },
+        { name: "Grand nettoyage", freq: 30 }
+    ];
+
+    // Merge logic simplified for this view
+    if(localTasks.length === 0) {
+        localTasks = defaults.map(d => ({ id: 'def'+Date.now()+Math.random(), ...d, lastDone: new Date(new Date().setDate(new Date().getDate() - d.freq - 1)).toISOString() }));
+    }
 
     localTasks.forEach(t => {
-        const daysSince = getDaysDiff(t.lastDone);
+        const daysSince = Math.floor((new Date() - new Date(t.lastDone)) / (1000*60*60*24));
         const urgency = daysSince / t.freq;
-        let statusClass = 'good';
-        if(urgency >= 1) statusClass = 'critical';
-        else if(urgency > 0.7) statusClass = 'warning';
+        let color = 'var(--success)';
+        if(urgency > 0.8) color = 'var(--warning)';
+        if(urgency >= 1) color = 'var(--danger)';
 
-        const div = document.createElement('div');
-        div.className = `task-card ${statusClass}`;
-        div.innerHTML = `
-            <div class="task-icon"><i class="fas ${t.icon || 'fa-check'}"></i></div>
-            <div class="task-info">
-                <div class="task-name">${t.name}</div>
-                <div class="task-timer">Fait il y a ${daysSince}j (tous les ${t.freq}j)</div>
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:15px; flex:1;" onclick="openEditTaskModal('${t.id}')">
+                <div style="width:40px; height:40px; border-radius:50%; background:${color}; opacity:0.2; display:flex; align-items:center; justify-content:center;"></div>
+                <i class="fas fa-check" style="position:absolute; left:27px; color:${color};"></i>
+                <div>
+                    <div style="font-weight:600;">${t.name}</div>
+                    <div style="font-size:11px; color:gray;">Fait il y a ${daysSince}j (tous les ${t.freq}j)</div>
+                </div>
             </div>
-            <button class="task-check-btn" onclick="completeTask('${t.id}')"><i class="fas fa-check"></i></button>
-            <div style="position:absolute; top:10px; right:10px; opacity:0.3;" onclick="openEditTaskModal('${t.id}')"><i class="fas fa-ellipsis-v"></i></div>
+            <button class="btn-primary" style="width:auto; margin:0; padding:8px 15px;" onclick="completeTask('${t.id}')">Fait</button>
         `;
-        grid.appendChild(div);
+        list.appendChild(li);
     });
+
+    if(window.renderHealthWidget) window.renderHealthWidget();
+    if(window.renderVetWidget) window.renderVetWidget();
 }
 window.completeTask = (id) => {
     const idx = localTasks.findIndex(t => t.id === id);
-    if(idx >= 0) {
-        localTasks[idx].lastDone = new Date().toISOString();
-        saveData();
-        renderMaintenance();
-        renderDashboard();
-    }
+    if(idx > -1) { localTasks[idx].lastDone = new Date().toISOString(); saveData(); renderTasks(); }
 };
-window.openEditTaskModal = (id=null) => {
-    document.getElementById('modal-edit-task').style.display = 'flex';
-    if(id) {
-        const t = localTasks.find(x => x.id === id);
-        document.getElementById('task-id').value = t.id;
-        document.getElementById('task-name').value = t.name;
-        document.getElementById('task-freq').value = t.freq;
-    } else {
-        // New task
-        document.getElementById('task-id').value = '';
-        document.getElementById('task-name').value = '';
-        document.getElementById('task-freq').value = 7;
-    }
+window.openEditTaskModal = (id) => {
+    const t = localTasks.find(x => x.id === id);
+    document.getElementById('task-id').value = t.id;
+    document.getElementById('task-name').value = t.name;
+    document.getElementById('task-freq').value = t.freq;
+    document.getElementById('modal-task').style.display = 'flex';
 };
-document.getElementById('modal-edit-task').querySelector('.btn-primary').addEventListener('click', () => {
-    // This listener might be added multiple times if not careful, better use onclick in HTML or named function
-});
-window.saveTaskChanges = () => {
+window.saveTask = () => {
     const id = document.getElementById('task-id').value;
-    const data = {
-        name: document.getElementById('task-name').value,
-        freq: parseInt(document.getElementById('task-freq').value),
-        icon: 'fa-tools'
-    };
-    if(id) {
-        const idx = localTasks.findIndex(t => t.id === id);
-        if(idx >= 0) localTasks[idx] = { ...localTasks[idx], ...data };
-    } else {
-        localTasks.push({ id: 'task'+Date.now(), ...data, lastDone: new Date().toISOString() });
+    const idx = localTasks.findIndex(t => t.id === id);
+    if(idx > -1) {
+        localTasks[idx].name = document.getElementById('task-name').value;
+        localTasks[idx].freq = parseInt(document.getElementById('task-freq').value);
+        saveData();
+        document.getElementById('modal-task').style.display = 'none';
+        renderTasks();
     }
-    saveData();
-    document.getElementById('modal-edit-task').style.display = 'none';
-    renderMaintenance();
 };
-window.deleteCurrentTask = () => {
-    if(confirm("Supprimer ?")) {
+window.deleteTask = () => {
+    if(confirm('Supprimer cette tâche ?')) {
         localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value);
         saveData();
-        document.getElementById('modal-edit-task').style.display = 'none';
-        renderMaintenance();
+        document.getElementById('modal-task').style.display = 'none';
+        renderTasks();
     }
 };
 
-// UTILS
-window.handlePhotoUpload = (input) => {
-    if (input.files && input.files[0]) {
-        compressImage(input.files[0], 150, 0.4).then(b => {
-            document.getElementById('preview-photo').src = b;
-            tempPhotoBase64 = b;
-        });
-    }
-};
 
-function compressImage(file, maxWidth, quality) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = event => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const elem = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                if (width > maxWidth) {
-                    height *= maxWidth / width;
-                    width = maxWidth;
-                }
-                elem.width = width;
-                elem.height = height;
-                const ctx = elem.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                resolve(elem.toDataURL('image/webp', quality));
-            };
-        };
-        reader.onerror = error => reject(error);
-    });
-}
-
+// UTILS & DATA
 function getAge(d) {
     if(!d) return '';
-    const m = Math.floor((Date.now()-new Date(d).getTime())/(1000*60*60*24*30));
-    return m<1?'Poussin':(m<12?m+' mois':Math.floor(m/12)+' ans');
-}
-function getDaysDiff(d) {
-    return Math.floor((new Date()-new Date(d))/(1000*60*60*24));
+    const diff = Date.now() - new Date(d).getTime();
+    const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30.44));
+    if(months < 1) return 'Poussin';
+    if(months < 12) return months + ' mois';
+    return Math.floor(months/12) + ' ans';
 }
 
-// DATA
+function handlePhotoUpload(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('preview-photo').src = e.target.result;
+            tempPhotoBase64 = e.target.result; // Stockage temporaire simple
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
 function saveData() {
     const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks };
-    try {
-        if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(d));
-        else if(currentUser) db.collection('users').doc(currentUser.uid).set(d);
-    } catch(e) { console.error("Sauvegarde impossible", e); }
+    if(currentUser) {
+        db.collection('users').doc(currentUser.uid).set(d, { merge: true });
+    } else {
+        localStorage.setItem('poupoules_data', JSON.stringify(d));
+    }
 }
 
 function loadLocalData() {
-    const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[]}');
-    localChickens = d.chickens||[];
-    localEggs = d.eggs||[];
-    localTransactions = d.transactions||[];
-    localTasks = d.tasks||[];
+    const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[],"eggs":[],"transactions":[],"tasks":[]}');
+    localChickens = d.chickens || [];
+    localEggs = d.eggs || [];
+    localTransactions = d.transactions || [];
+    localTasks = d.tasks || [];
     renderChickensList();
     renderDashboard();
     renderFinance();
-    renderMaintenance();
+    renderTasks();
 }
 
 function loadFirebaseData() {
     db.collection('users').doc(currentUser.uid).get().then(doc => {
         if(doc.exists) {
             const d = doc.data();
-            localChickens = d.chickens||[];
-            localEggs = d.eggs||[];
-            localTransactions = d.transactions||[];
-            localTasks = d.tasks||[];
+            localChickens = d.chickens || [];
+            localEggs = d.eggs || [];
+            localTransactions = d.transactions || [];
+            localTasks = d.tasks || [];
             renderChickensList();
             renderDashboard();
             renderFinance();
-            renderMaintenance();
+            renderTasks();
+        } else {
+            loadLocalData(); // Fallback si pas de données distantes
         }
     });
 }
 
-window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+window.login = () => { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); };
 window.exportData = () => {
-    const a = document.createElement('a');
-    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }));
-    a.download = "sauvegarde.json";
-    a.click();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "sauvegarde_poulettes.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
 };
-
 window.toggleDarkMode = () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
