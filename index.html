@@ -87,35 +87,6 @@
             <ul id="recent-activity-list" class="glass-list activity-list"></ul>
         </section>
 
-        <section id="view-chickens">
-            <h1 class="big-title">Mon Cheptel</h1>
-            <div class="segment-control">
-                <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Poulailler</button>
-                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
-            </div>
-            <div id="chickens-grid" class="grid-container"></div>
-        </section>
-
-        <section id="view-finance">
-            <h1 class="big-title">Budget</h1>
-            <div class="glass-card balance-card">
-                <span class="balance-label">Bilan Global</span>
-                <h2 id="balance-total" class="balance-amount">0.00 €</h2>
-            </div>
-            
-            <div id="sales-register-container"></div>
-
-            <h3 class="section-title">Historique</h3>
-            <ul id="finance-list" class="glass-list"></ul>
-        </section>
-
-        <section id="view-maintenance">
-            <h1 class="big-title">Entretien</h1>
-            <ul id="tasks-list" class="glass-list task-list-full"></ul>
-            
-            <div id="health-widget-container" style="margin-top:30px;"></div>
-        </section>
-
         <section id="view-stats">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1 class="big-title">Statistiques</h1>
@@ -165,6 +136,35 @@
                 </div>
             </div>
         </section>
+        <section id="view-chickens">
+            <h1 class="big-title">Mon Cheptel</h1>
+            <div class="segment-control">
+                <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Poulailler</button>
+                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
+            </div>
+            <div id="chickens-grid" class="grid-container"></div>
+        </section>
+
+        <section id="view-finance">
+            <h1 class="big-title">Budget</h1>
+            <div class="glass-card balance-card">
+                <span class="balance-label">Bilan Global</span>
+                <h2 id="balance-total" class="balance-amount">0.00 €</h2>
+            </div>
+            
+            <div id="sales-register-container"></div>
+
+            <h3 class="section-title">Historique</h3>
+            <ul id="finance-list" class="glass-list"></ul>
+        </section>
+
+        <section id="view-maintenance">
+            <h1 class="big-title">Entretien</h1>
+            <ul id="tasks-list" class="glass-list task-list-full"></ul>
+            
+            <div id="health-widget-container" style="margin-top:30px;"></div>
+        </section>
+
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
             <div class="profile-header-card">
@@ -209,167 +209,48 @@
                     <div class="upload-icon"><i class="fas fa-camera"></i></div>
                 </div>
                 <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)">
-                
-                <div class="form-group">
-                    <label>Nom</label>
-                    <input type="text" id="chicken-name" required placeholder="Ex: Huguette">
+                <div class="form-group"><label>Nom</label><input type="text" id="chicken-name" required placeholder="Ex: Huguette"></div>
+                <div class="form-group"><label>Race</label>
+                    <select id="chicken-breed"><option value="">-- Inconnue / Croisée --</option><optgroup label="Les Stars du Jardin"><option value="Rousse (Isa Brown)">Rousse (Isa Brown)</option><option value="Harco (Noire)">Harco (Noire)</option><option value="Sussex">Sussex (Blanche herminée)</option><option value="Cendrée (Limousine)">Cendrée (Limousine)</option><option value="Marans">Marans (Œufs extra-roux)</option></optgroup><option value="Autre">Autre race</option></select>
                 </div>
-                
-                <div class="form-group">
-                    <label>Race</label>
-                    <select id="chicken-breed">
-                        <option value="">-- Inconnue / Croisée --</option>
-                        <optgroup label="Les Stars du Jardin">
-                            <option value="Rousse (Isa Brown)">Rousse (Isa Brown)</option>
-                            <option value="Harco (Noire)">Harco (Noire)</option>
-                            <option value="Sussex">Sussex (Blanche herminée)</option>
-                            <option value="Cendrée (Limousine)">Cendrée (Limousine)</option>
-                            <option value="Marans">Marans (Œufs extra-roux)</option>
-                        </optgroup>
-                        <optgroup label="Races d'Ornement & Anciennes">
-                            <option value="Araucana">Araucana (Œufs verts)</option>
-                            <option value="Ameraucana">Ameraucana</option>
-                            <option value="Australorp">Australorp</option>
-                            <option value="Barnevelder">Barnevelder</option>
-                            <option value="Brahma">Brahma (Géante)</option>
-                            <option value="Chabo">Chabo (Nagasaki)</option>
-                            <option value="Cochin">Cochin</option>
-                            <option value="Cou Nu">Cou Nu</option>
-                            <option value="Cream Legbar">Cream Legbar (Œufs bleus)</option>
-                            <option value="Faverolles">Faverolles</option>
-                            <option value="Gauloise Dorée">Gauloise Dorée</option>
-                            <option value="Gâtinaise">Gâtinaise</option>
-                            <option value="Houdan">Houdan</option>
-                            <option value="Leghorn">Leghorn</option>
-                            <option value="Orpington">Orpington</option>
-                            <option value="Pékin">Pékin (Bantam)</option>
-                            <option value="Poule Soie">Poule Soie</option>
-                            <option value="Rhode Island">Rhode Island</option>
-                            <option value="Wyandotte">Wyandotte</option>
-                        </optgroup>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Date de naissance (approx)</label>
-                    <input type="date" id="chicken-date">
-                </div>
-                
-                <div class="form-group">
-                    <label>État de santé</label>
-                    <select id="chicken-health">
-                        <option value="good">En pleine forme</option>
-                        <option value="sick">Malade / Soins</option>
-                        <option value="broody">Couve</option>
-                        <option value="molting">En mue</option>
-                    </select>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button>
-                    <button type="submit" class="btn-primary">Enregistrer</button>
-                </div>
+                <div class="form-group"><label>Date Arrivée / Naissance</label><input type="date" id="chicken-date" required></div>
+                <div class="form-group"><label>Santé</label><select id="chicken-health"><option value="healthy">En forme</option><option value="sick">Malade</option><option value="molting">En mue</option><option value="broody">Couve</option></select></div>
+                <div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Sauver</button></div>
             </form>
-            <button class="close-menu-btn" onclick="document.getElementById('modal-chicken').style.display='none'">&times;</button>
         </div>
     </div>
-
-    <div id="modal-add-egg" class="modal">
-        <div class="modal-content glass-panel animate-pop">
-            <h2 style="text-align:center; margin-bottom:20px;">🥚 Ramassage</h2>
-            <form id="form-add-egg" style="display:flex; flex-direction:column; gap:20px;">
-                <div style="text-align:center;">
-                    <label style="display:block; margin-bottom:10px; color:var(--text-grey);">Combien d'œufs ?</label>
-                    <div style="display:flex; align-items:center; justify-content:center; gap:20px;">
-                        <button type="button" onclick="adjustEggCount(-1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; border:none; background:#eee;">-</button>
-                        <input type="number" id="egg-count-input" value="1" min="1" style="font-size:40px; width:80px; text-align:center; border:none; background:transparent; font-weight:bold;">
-                        <button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; border:none; background:#eee;">+</button>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Date</label>
-                    <input type="date" id="egg-date-input" required>
-                </div>
-                <button type="submit" class="btn-primary">Valider</button>
-            </form>
-            <button class="close-menu-btn" onclick="document.getElementById('modal-add-egg').style.display='none'">&times;</button>
-        </div>
-    </div>
-
     <div id="modal-transaction" class="modal">
         <div class="modal-content glass-panel animate-pop">
-            <h2 id="modal-transaction-title">Transaction</h2>
-            <div class="selection-grid" id="trans-type-selector" style="margin-bottom:20px;">
-                <div class="selection-card" onclick="selectTransType('graines', this)">
-                    <img src="https://cdn-icons-png.flaticon.com/512/1046/1046857.png" alt="Graines">
-                    <span>Alimentation</span>
+            <h2>Transaction</h2>
+            <form id="form-transaction">
+                <input type="hidden" id="trans-id">
+                <div class="segment-control margin-bottom">
+                    <button type="button" class="segment-btn active" id="btn-expense" onclick="setTransactionType('expense')">Dépense</button>
+                    <button type="button" class="segment-btn" id="btn-income" onclick="setTransactionType('income')">Revenu</button>
                 </div>
-                <div class="selection-card" onclick="selectTransType('soins', this)">
-                    <img src="https://cdn-icons-png.flaticon.com/512/3063/3063206.png" alt="Soins">
-                    <span>Santé / Véto</span>
-                </div>
-                <div class="selection-card" onclick="selectTransType('materiel', this)">
-                    <img src="https://cdn-icons-png.flaticon.com/512/2665/2665038.png" alt="Matériel">
-                    <span>Matériel</span>
-                </div>
-                <div class="selection-card" onclick="selectTransType('achat_poule', this)">
-                    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" alt="Poule">
-                    <span>Achat Poule</span>
-                </div>
-                <div class="selection-card" onclick="selectTransType('vente_oeufs', this)">
-                    <img src="https://cdn-icons-png.flaticon.com/512/3063/3063822.png" alt="Œufs">
-                    <span>Vente Œufs</span>
-                </div>
-                <div class="selection-card" onclick="selectTransType('autre', this)">
-                    <img src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" alt="Autre">
-                    <span>Autre</span>
-                </div>
-            </div>
-            <input type="hidden" id="trans-type">
-            <input type="hidden" id="trans-id">
-
-            <div class="form-group">
-                <label>Montant (€)</label>
-                <input type="number" step="0.01" id="trans-amount" class="glass-input" placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label>Date</label>
-                <input type="date" id="trans-date">
-            </div>
-            <div class="modal-actions">
-                <button class="btn-text-danger" id="btn-delete-trans" onclick="deleteTransaction()" style="display:none;">Supprimer</button>
-                <button class="btn-primary" onclick="saveTransaction()">Valider</button>
-            </div>
-            <button class="close-menu-btn" onclick="document.getElementById('modal-transaction').style.display='none'">&times;</button>
+                <input type="hidden" id="trans-category" value="expense">
+                <div class="form-group"><label>Type</label><select id="trans-type"><option value="graines">Alimentation</option><option value="paille">Litière</option><option value="soins">Soins</option><option value="materiel">Matériel</option><option value="achat_poule">Achat Poule</option><option value="vente_oeufs">Vente Œufs</option><option value="autre">Autre</option></select></div>
+                <div class="form-group"><label>Montant (€)</label><input type="number" id="trans-amount" step="0.01" required></div>
+                <div class="form-group"><label>Date</label><input type="date" id="trans-date" required></div>
+                <div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-delete-trans" onclick="deleteTransaction()">Supprimer</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Valider</button></div>
+            </form>
         </div>
     </div>
-    
-    <div id="modal-task" class="modal">
+    <div id="modal-edit-task" class="modal">
         <div class="modal-content glass-panel animate-pop">
-            <h2>Éditer Tâche</h2>
-            <input type="hidden" id="task-id">
-            <div class="form-group">
-                <label>Nom</label>
-                <input type="text" id="task-name">
-            </div>
-            <div class="form-group">
-                <label>Fréquence (jours)</label>
-                <input type="number" id="task-freq">
-            </div>
-            <div class="modal-actions">
-                <button class="btn-text-danger" onclick="deleteTask()">Supprimer</button>
-                <button class="btn-primary" onclick="saveTask()">Enregistrer</button>
-            </div>
-            <button class="close-menu-btn" onclick="document.getElementById('modal-task').style.display='none'">&times;</button>
+            <h2>Tâche</h2>
+            <form id="form-task">
+                <input type="hidden" id="task-id">
+                <div class="form-group"><label>Titre</label><input type="text" id="task-title" required></div>
+                <div class="form-group"><label>Fréquence (jours)</label><input type="number" id="task-freq" required min="1"></div>
+                <div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-delete-task" onclick="deleteCurrentTask()">Supprimer</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Valider</button></div>
+            </form>
         </div>
     </div>
-
+    <div id="modal-stock" class="modal"><div class="modal-content glass-panel animate-pop"><h2>📦 Stock Graines</h2><form onsubmit="saveStock(event)"><div class="form-group"><label>Quantité (kg)</label><input type="number" id="stock-qty" step="0.1" required></div><div class="modal-actions"><button type="button" class="btn-secondary close-modal">Fermer</button><button type="submit" class="btn-primary">OK</button></div></form></div></div>
+    <div id="modal-add-egg" class="modal"><div class="modal-content glass-panel animate-pop"><h2 style="text-align:center; margin-bottom:20px;">🥚 Ramassage</h2><form id="form-add-egg" style="display:flex; flex-direction:column; gap:20px;"><div style="text-align:center;"><label style="display:block; margin-bottom:10px; color:var(--text-grey);">Combien d'œufs ?</label><div style="display:flex; align-items:center; justify-content:center; gap:20px;"><button type="button" onclick="adjustEggCount(-1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:rgba(0,0,0,0.05); border:none;">-</button><input type="number" id="egg-count-input" value="1" min="1" max="50" style="width:80px; text-align:center; font-size:30px; border:none; background:transparent; font-weight:bold;"><button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:var(--primary); color:white; border:none;">+</button></div></div><div class="form-group"><label>Date</label><input type="date" id="egg-date-input" required></div><div class="modal-actions"><button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button><button type="submit" class="btn-primary" style="flex:1;">Valider</button></div></form></div></div>
+    <script src="app.js"></script>
     <script src="extensions.js"></script>
-    <script src="stats.js"></script> <script src="app.js"></script>
-    
-    <script>
-        // Set default dates
-        document.getElementById('egg-date-input').valueAsDate = new Date();
-    </script>
+    <script src="stats.js"></script>
 </body>
 </html>
