@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('dark-mode-toggle').checked = true;
     }
     
-    // Default dates
     if(document.getElementById('egg-date-input')) document.getElementById('egg-date-input').valueAsDate = new Date();
     
     updateFabVisibility('view-dashboard');
@@ -56,54 +55,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Close modals
     document.querySelectorAll('.close-modal').forEach(b => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
     });
 
-    // Add Egg Form
-    const formAddEgg = document.getElementById('form-add-egg');
-    if(formAddEgg) {
-        formAddEgg.addEventListener('submit', (e) => {
+    // Forms Listeners
+    if(document.getElementById('form-add-egg')) {
+        document.getElementById('form-add-egg').addEventListener('submit', (e) => {
             e.preventDefault();
             const count = parseInt(document.getElementById('egg-count-input').value);
             const date = document.getElementById('egg-date-input').value;
             if (count > 0 && date) {
                 localEggs.push({ id: 'e' + Date.now(), count: count, date: new Date(date).toISOString() });
                 saveData();
-                if(window.updateFridge) window.updateFridge(count);
+                // On ajoute aussi au stock frigo automatiquement
+                updateFridgeStock(count);
                 renderDashboard();
                 document.getElementById('modal-add-egg').style.display = 'none';
             }
         });
     }
-
-    // Task Form
-    const formTask = document.getElementById('form-task');
-    if(formTask) {
-        formTask.addEventListener('submit', (e) => {
-            e.preventDefault();
-            saveTask();
-        });
-    }
-    
-    // Chicken Form
-    const formChicken = document.getElementById('form-chicken');
-    if(formChicken) {
-        formChicken.addEventListener('submit', (e) => {
-            e.preventDefault();
-            saveChicken();
-        });
-    }
-
-    // Transaction Form
-    const formTrans = document.getElementById('form-transaction');
-    if(formTrans) {
-        formTrans.addEventListener('submit', (e) => {
-            e.preventDefault();
-            saveTransaction();
-        });
-    }
+    if(document.getElementById('form-task')) document.getElementById('form-task').addEventListener('submit', (e) => { e.preventDefault(); saveTask(); });
+    if(document.getElementById('form-chicken')) document.getElementById('form-chicken').addEventListener('submit', (e) => { e.preventDefault(); saveChicken(); });
+    if(document.getElementById('form-transaction')) document.getElementById('form-transaction').addEventListener('submit', (e) => { e.preventDefault(); saveTransaction(); });
 });
 
 window.adjustEggCount = (val) => {
@@ -122,10 +96,7 @@ window.navigate = (targetId) => {
     currentViewId = targetId;
     updateFabVisibility(targetId);
 
-    if(targetId === 'view-stats' && window.renderStatsView) {
-        window.renderStatsView();
-    }
-
+    if(targetId === 'view-stats' && window.renderStatsView) window.renderStatsView();
     window.scrollTo(0,0);
 };
 
@@ -140,6 +111,327 @@ window.handleFabClick = () => {
     if(currentViewId === 'view-chickens') openChickenModal();
     if(currentViewId === 'view-finance') openTransactionModal();
     if(currentViewId === 'view-maintenance') openEditTaskModal();
+};
+
+// =======================
+// DASHBOARD & WIDGET FRIGO (CORRIGÉ)
+// =======================
+function renderDashboard() {
+    const now = new Date();
+    let monthCount = 0;
+    let totalCount = 0;
+
+    localEggs.forEach(e => {
+        const qty = e.count || 1;
+        totalCount += qty;
+        const d = new Date(e.date);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+            monthCount += qty;
+        }
+    });
+
+    if(document.getElementById('total-eggs-display')) document.getElementById('total-eggs-display').innerText = totalCount;
+    if(document.getElementById('eggs-month-count')) document.getElementById('eggs-month-count').innerText = monthCount;
+    
+    updateChart(localEggs);
+    renderFridgeWidget(); // On force l'affichage du widget ici
+    
+    // Activité récente
+    const list = document.getElementById('recent-activity-list');
+    if(list) {
+        list.innerHTML = '';
+        localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(e => {
+            const qty = e.count || 1;
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
+                    <strong>Ramassage</strong>
+                </div>
+                <div style="text-align:right;">
+                    <span style="display:block; font-weight:bold;">${qty} œuf${qty>1?'s':''}</span>
+                    <span style="font-size:11px; color:gray;">${new Date(e.date).toLocaleDateString()}</span>
+                </div>
+                <button class="btn-text-danger" style="margin-left:10px; background:none; border:none;" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    if(window.injectExtensionContainers) injectExtensionContainers();
+}
+
+// --- FONCTION WIDGET FRIGO DEMANDÉE ---
+function renderFridgeWidget() {
+    const container = document.getElementById('stock-widget-container');
+    if(!container) return;
+    
+    const stock = parseInt(localStorage.getItem('poupoules_fridge_stock') || '0');
+    
+    container.innerHTML = `
+        <div class="glass-card" style="padding:15px; display:flex; flex-direction:column; gap:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:bold; color:var(--text-grey); text-transform:uppercase; font-size:12px;"><i class="fas fa-box-open"></i> Stock Frigo</span>
+                <span style="font-weight:800; font-size:22px; color:var(--text-dark);">${stock} Œufs</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-primary" style="margin:0; flex:1; background:var(--success); font-size:13px; padding:10px;" onclick="updateFridgeStock(1)"><i class="fas fa-plus"></i> Ajouter</button>
+                <button class="btn-primary" style="margin:0; flex:1; background:var(--warning); font-size:13px; padding:10px;" onclick="updateFridgeStock(-1)"><i class="fas fa-utensils"></i> Manger</button>
+                <button class="btn-primary" style="margin:0; flex:1; background:var(--primary); font-size:13px; padding:10px;" onclick="sellEggsFromFridge()"><i class="fas fa-euro-sign"></i> Vendre</button>
+            </div>
+        </div>
+    `;
+}
+
+window.updateFridgeStock = (delta) => {
+    let stock = parseInt(localStorage.getItem('poupoules_fridge_stock') || '0');
+    stock += delta;
+    if(stock < 0) stock = 0;
+    localStorage.setItem('poupoules_fridge_stock', stock);
+    renderFridgeWidget();
+};
+
+window.sellEggsFromFridge = () => {
+    // Ouvre la modale de transaction et pré-remplit "Vente oeufs"
+    openTransactionModal(null, 'vente_oeufs');
+    // On décrémente le stock de 6 par défaut (une boite) ou on laisse l'utilisateur gérer ? 
+    // Pour simplifier, on demande juste la vente, l'utilisateur gère son stock s'il le souhaite via le bouton "manger" ou on pourrait lier les deux. 
+    // Ici je laisse simple comme demandé : bouton vente -> ouvre transaction.
+};
+// --------------------------------------
+
+window.openAddEggModal = () => document.getElementById('modal-add-egg').style.display = 'flex';
+window.deleteEgg = (id) => {
+    if(confirm('Supprimer ce ramassage ?')) {
+        const idx = localEggs.findIndex(e => e.id === id);
+        if(idx > -1) {
+            localEggs.splice(idx, 1);
+            saveData();
+            // On retire du frigo si on supprime un ramassage ? (Optionnel, ici je le fais pas pour éviter la confusion)
+            renderDashboard();
+        }
+    }
+};
+
+function initEggsChart() { /* Loaded via updateChart */ }
+function updateChart(eggs) {
+    const ctx = document.getElementById('eggsChart');
+    if(!ctx) return;
+    const now = new Date();
+    const data = Array(12).fill(0);
+    eggs.forEach(e => {
+        const d = new Date(e.date);
+        if(d.getFullYear() === now.getFullYear()) data[d.getMonth()] += (e.count || 1);
+    });
+
+    if(eggsChartInstance) eggsChartInstance.destroy();
+    eggsChartInstance = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: ['J','F','M','A','M','J','J','A','S','O','N','D'],
+            datasets: [{
+                label: 'Œufs',
+                data: data,
+                borderColor: '#007aff',
+                backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+        }
+    });
+}
+
+// =======================
+// FINANCE
+// =======================
+function renderFinance() {
+    const list = document.getElementById('finance-list');
+    if(!list) return;
+    list.innerHTML = '';
+    let total = 0;
+    
+    localTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+        const val = parseFloat(t.amount);
+        const isIncome = (t.category === 'income') || (t.type === 'vente_oeufs');
+        if(isIncome) total += val; else total -= val;
+
+        const li = document.createElement('li');
+        li.onclick = () => openTransactionModal(t.id);
+        li.style.cursor = "pointer";
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div style="width:40px; height:40px; border-radius:12px; background:${isIncome ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isIncome ? 'var(--success)' : 'var(--danger)'}; font-size:18px;">
+                    <i class="fas ${isIncome ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                </div>
+                <div>
+                    <div style="font-weight:600;">${formatTransType(t.type)}</div>
+                    <div style="font-size:11px; color:gray;">${new Date(t.date).toLocaleDateString()}</div>
+                </div>
+            </div>
+            <div style="font-weight:bold; color:${isIncome ? 'var(--success)' : 'var(--text-dark)'};">${isIncome ? '+' : '-'}${val.toFixed(2)} €</div>
+        `;
+        list.appendChild(li);
+    });
+    
+    const bal = document.getElementById('balance-total');
+    if(bal) {
+        bal.innerText = total.toFixed(2) + " €";
+        bal.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+}
+
+window.openTransactionModal = (id=null, defaultType=null) => {
+    document.getElementById('trans-id').value = id || '';
+    if(id) {
+        const t = localTransactions.find(x => x.id === id);
+        document.getElementById('trans-amount').value = t.amount;
+        document.getElementById('trans-date').value = t.date;
+        document.getElementById('trans-type').value = t.type;
+        setTransactionType(t.category || 'expense');
+        document.getElementById('btn-delete-trans').style.display = 'block';
+    } else {
+        document.getElementById('trans-amount').value = '';
+        document.getElementById('trans-date').valueAsDate = new Date();
+        if(defaultType) {
+            document.getElementById('trans-type').value = defaultType;
+            setTransactionType(defaultType === 'vente_oeufs' ? 'income' : 'expense');
+        } else {
+            setTransactionType('expense');
+        }
+        document.getElementById('btn-delete-trans').style.display = 'none';
+    }
+    document.getElementById('modal-transaction').style.display = 'flex';
+};
+
+window.setTransactionType = (type) => {
+    document.getElementById('trans-category').value = type;
+    document.getElementById('btn-expense').className = type === 'expense' ? 'segment-btn active' : 'segment-btn';
+    document.getElementById('btn-income').className = type === 'income' ? 'segment-btn active' : 'segment-btn';
+};
+
+window.saveTransaction = () => {
+    const id = document.getElementById('trans-id').value;
+    const type = document.getElementById('trans-type').value;
+    const category = document.getElementById('trans-category').value;
+    const amount = parseFloat(document.getElementById('trans-amount').value);
+    const date = document.getElementById('trans-date').value;
+    
+    if(!amount || !date) return;
+
+    if(id) {
+        const idx = localTransactions.findIndex(t => t.id === id);
+        if(idx > -1) localTransactions[idx] = { ...localTransactions[idx], type, category, amount, date };
+    } else {
+        localTransactions.push({ id: 't'+Date.now(), type, category, amount, date });
+    }
+    saveData();
+    document.getElementById('modal-transaction').style.display = 'none';
+    renderFinance();
+};
+window.deleteTransaction = () => {
+    if(confirm('Supprimer ?')) {
+        localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value);
+        saveData();
+        document.getElementById('modal-transaction').style.display = 'none';
+        renderFinance();
+    }
+};
+function formatTransType(t) {
+    const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Œufs', 'soins': 'Soins', 'achat_poule': 'Achat Poule', 'materiel': 'Matériel', 'paille': 'Litière' };
+    return map[t] || t;
+}
+
+// =======================
+// ENTRETIEN (CORRIGÉ & AFFICHAGE NETTOYÉ)
+// =======================
+function renderTasks() {
+    const list = document.getElementById('tasks-list');
+    if(!list) return;
+    list.innerHTML = '';
+    
+    if(localTasks.length === 0) {
+        const defaults = [
+            { title: "Changer l'eau", freq: 2 },
+            { title: "Nettoyer le pondoir", freq: 7 },
+            { title: "Grand nettoyage", freq: 30 }
+        ];
+        localTasks = defaults.map(d => ({ id: 'def'+Date.now()+Math.random(), ...d, lastDone: new Date(new Date().setDate(new Date().getDate() - d.freq - 1)).toISOString() }));
+    }
+
+    localTasks.forEach(t => {
+        const daysSince = Math.floor((new Date() - new Date(t.lastDone)) / (1000*60*60*24));
+        const urgency = daysSince / t.freq;
+        let color = 'var(--success)';
+        let icon = 'fa-check';
+        let statusText = 'OK';
+        
+        if(urgency > 0.8) { color = 'var(--warning)'; icon = 'fa-exclamation-triangle'; statusText = 'À faire'; }
+        if(urgency >= 1) { color = 'var(--danger)'; icon = 'fa-times'; statusText = 'Urgent'; }
+
+        const li = document.createElement('li');
+        // Structure simplifiée pour éviter les problèmes d'affichage CSS
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:15px; flex:1; overflow:hidden;" onclick="openEditTaskModal('${t.id}')">
+                <div style="width:40px; height:40px; border-radius:50%; background:${color}; opacity:0.2; display:flex; align-items:center; justify-content:center; flex-shrink:0;"></div>
+                <i class="fas ${icon}" style="position:absolute; left:28px; color:${color}; font-size:14px;"></i>
+                <div style="display:flex; flex-direction:column; overflow:hidden;">
+                    <div style="font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.title}</div>
+                    <div style="font-size:11px; color:gray;">Fait il y a ${daysSince}j (tous les ${t.freq}j)</div>
+                </div>
+            </div>
+            <button class="btn-primary" style="width:auto; margin:0; padding:8px 12px; font-size:12px; border-radius:10px;" onclick="completeTask('${t.id}')">FAIT</button>
+        `;
+        list.appendChild(li);
+    });
+}
+
+window.completeTask = (id) => {
+    const idx = localTasks.findIndex(t => t.id === id);
+    if(idx > -1) { localTasks[idx].lastDone = new Date().toISOString(); saveData(); renderTasks(); }
+};
+window.openEditTaskModal = (id) => {
+    document.getElementById('form-task').reset();
+    document.getElementById('task-id').value = id || '';
+    if(id) {
+        const t = localTasks.find(x => x.id === id);
+        // Utilisation de t.title (et non t.name)
+        document.getElementById('task-title').value = t.title;
+        document.getElementById('task-freq').value = t.freq;
+        document.getElementById('btn-delete-task').style.display = 'block';
+    } else {
+        document.getElementById('btn-delete-task').style.display = 'none';
+    }
+    document.getElementById('modal-edit-task').style.display = 'flex';
+};
+window.saveTask = () => {
+    const id = document.getElementById('task-id').value;
+    const title = document.getElementById('task-title').value;
+    const freq = parseInt(document.getElementById('task-freq').value);
+    
+    if(!title || !freq) return;
+
+    if(id) {
+        const idx = localTasks.findIndex(t => t.id === id);
+        if(idx > -1) { localTasks[idx].title = title; localTasks[idx].freq = freq; }
+    } else {
+        localTasks.push({ id: 'task'+Date.now(), title, freq, lastDone: new Date().toISOString() });
+    }
+    saveData();
+    document.getElementById('modal-edit-task').style.display = 'none';
+    renderTasks();
+};
+window.deleteCurrentTask = () => {
+    if(confirm('Supprimer cette tâche ?')) {
+        localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value);
+        saveData();
+        document.getElementById('modal-edit-task').style.display = 'none';
+        renderTasks();
+    }
 };
 
 // =======================
@@ -225,290 +517,6 @@ window.saveChicken = () => {
     renderChickensList();
 };
 
-// =======================
-// DASHBOARD
-// =======================
-function renderDashboard() {
-    const now = new Date();
-    let monthCount = 0;
-    let totalCount = 0;
-
-    localEggs.forEach(e => {
-        const qty = e.count || 1;
-        totalCount += qty;
-        const d = new Date(e.date);
-        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
-            monthCount += qty;
-        }
-    });
-
-    if(document.getElementById('total-eggs-display')) document.getElementById('total-eggs-display').innerText = totalCount;
-    if(document.getElementById('eggs-month-count')) document.getElementById('eggs-month-count').innerText = monthCount;
-    
-    updateChart(localEggs);
-    
-    const list = document.getElementById('recent-activity-list');
-    if(list) {
-        list.innerHTML = '';
-        localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(e => {
-            const qty = e.count || 1;
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
-                    <strong>Ramassage</strong>
-                </div>
-                <div style="text-align:right;">
-                    <span style="display:block; font-weight:bold;">${qty} œuf${qty>1?'s':''}</span>
-                    <span style="font-size:11px; color:gray;">${new Date(e.date).toLocaleDateString()}</span>
-                </div>
-                <button class="btn-text-danger" style="margin-left:10px; background:none; border:none;" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
-            `;
-            list.appendChild(li);
-        });
-    }
-
-    if(window.injectExtensionContainers) injectExtensionContainers();
-    if(window.renderLayingRate) window.renderLayingRate();
-    if(window.renderSuppliesWidget) renderSuppliesWidget();
-    if(window.renderRecyclerWidget) renderRecyclerWidget();
-    if(window.renderAlmanac) renderAlmanac();
-}
-
-window.openAddEggModal = () => document.getElementById('modal-add-egg').style.display = 'flex';
-window.deleteEgg = (id) => {
-    if(confirm('Supprimer ce ramassage ?')) {
-        const idx = localEggs.findIndex(e => e.id === id);
-        if(idx > -1) {
-            localEggs.splice(idx, 1);
-            saveData();
-            renderDashboard();
-        }
-    }
-};
-
-function initEggsChart() { /* Loaded via updateChart */ }
-function updateChart(eggs) {
-    const ctx = document.getElementById('eggsChart');
-    if(!ctx) return;
-    const now = new Date();
-    const data = Array(12).fill(0);
-    eggs.forEach(e => {
-        const d = new Date(e.date);
-        if(d.getFullYear() === now.getFullYear()) data[d.getMonth()] += (e.count || 1);
-    });
-
-    if(eggsChartInstance) eggsChartInstance.destroy();
-    eggsChartInstance = new Chart(ctx.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: ['J','F','M','A','M','J','J','A','S','O','N','D'],
-            datasets: [{
-                label: 'Œufs',
-                data: data,
-                borderColor: '#007aff',
-                backgroundColor: 'rgba(0, 122, 255, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
-        }
-    });
-}
-
-// =======================
-// FINANCE
-// =======================
-function renderFinance() {
-    const list = document.getElementById('finance-list');
-    if(!list) return;
-    list.innerHTML = '';
-    let total = 0;
-    
-    localTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
-        const val = parseFloat(t.amount);
-        const isIncome = (t.category === 'income') || (t.type === 'vente_oeufs'); // Compatibilité
-        if(isIncome) total += val; else total -= val;
-
-        const li = document.createElement('li');
-        li.onclick = () => openTransactionModal(t.id);
-        li.style.cursor = "pointer";
-        li.innerHTML = `
-            <div style="display:flex; align-items:center; gap:15px;">
-                <div style="width:40px; height:40px; border-radius:12px; background:${isIncome ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isIncome ? 'var(--success)' : 'var(--danger)'}; font-size:18px;">
-                    <i class="fas ${isIncome ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
-                </div>
-                <div>
-                    <div style="font-weight:600;">${formatTransType(t.type)}</div>
-                    <div style="font-size:11px; color:gray;">${new Date(t.date).toLocaleDateString()}</div>
-                </div>
-            </div>
-            <div style="font-weight:bold; color:${isIncome ? 'var(--success)' : 'var(--text-dark)'};">${isIncome ? '+' : '-'}${val.toFixed(2)} €</div>
-        `;
-        list.appendChild(li);
-    });
-    
-    const bal = document.getElementById('balance-total');
-    if(bal) {
-        bal.innerText = total.toFixed(2) + " €";
-        bal.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
-    }
-}
-
-window.openTransactionModal = (id=null) => {
-    document.getElementById('trans-id').value = id || '';
-    if(id) {
-        const t = localTransactions.find(x => x.id === id);
-        document.getElementById('trans-amount').value = t.amount;
-        document.getElementById('trans-date').value = t.date;
-        document.getElementById('trans-type').value = t.type;
-        setTransactionType(t.category || 'expense');
-        document.getElementById('btn-delete-trans').style.display = 'block';
-    } else {
-        document.getElementById('trans-amount').value = '';
-        document.getElementById('trans-date').valueAsDate = new Date();
-        setTransactionType('expense');
-        document.getElementById('btn-delete-trans').style.display = 'none';
-    }
-    document.getElementById('modal-transaction').style.display = 'flex';
-};
-
-window.setTransactionType = (type) => {
-    document.getElementById('trans-category').value = type;
-    document.getElementById('btn-expense').className = type === 'expense' ? 'segment-btn active' : 'segment-btn';
-    document.getElementById('btn-income').className = type === 'income' ? 'segment-btn active' : 'segment-btn';
-};
-
-window.saveTransaction = () => {
-    const id = document.getElementById('trans-id').value;
-    const type = document.getElementById('trans-type').value;
-    const category = document.getElementById('trans-category').value;
-    const amount = parseFloat(document.getElementById('trans-amount').value);
-    const date = document.getElementById('trans-date').value;
-    
-    if(!amount || !date) return;
-
-    if(id) {
-        const idx = localTransactions.findIndex(t => t.id === id);
-        if(idx > -1) localTransactions[idx] = { ...localTransactions[idx], type, category, amount, date };
-    } else {
-        localTransactions.push({ id: 't'+Date.now(), type, category, amount, date });
-    }
-    saveData();
-    document.getElementById('modal-transaction').style.display = 'none';
-    renderFinance();
-};
-window.deleteTransaction = () => {
-    if(confirm('Supprimer ?')) {
-        localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value);
-        saveData();
-        document.getElementById('modal-transaction').style.display = 'none';
-        renderFinance();
-    }
-};
-function formatTransType(t) {
-    const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Œufs', 'soins': 'Soins', 'achat_poule': 'Achat Poule', 'materiel': 'Matériel', 'paille': 'Litière' };
-    return map[t] || t;
-}
-
-// =======================
-// ENTRETIEN (TASKS)
-// =======================
-function renderTasks() {
-    const list = document.getElementById('tasks-list');
-    if(!list) return;
-    list.innerHTML = '';
-    
-    // Initialisation par défaut si vide
-    if(localTasks.length === 0) {
-        const defaults = [
-            { title: "Changer l'eau", freq: 2 },
-            { title: "Nettoyer le pondoir", freq: 7 },
-            { title: "Grand nettoyage", freq: 30 }
-        ];
-        localTasks = defaults.map(d => ({ id: 'def'+Date.now()+Math.random(), ...d, lastDone: new Date(new Date().setDate(new Date().getDate() - d.freq - 1)).toISOString() }));
-    }
-
-    localTasks.forEach(t => {
-        const daysSince = Math.floor((new Date() - new Date(t.lastDone)) / (1000*60*60*24));
-        const urgency = daysSince / t.freq;
-        let color = 'var(--success)';
-        let icon = 'fa-check';
-        if(urgency > 0.8) { color = 'var(--warning)'; icon = 'fa-exclamation-triangle'; }
-        if(urgency >= 1) { color = 'var(--danger)'; icon = 'fa-times'; }
-
-        const li = document.createElement('li');
-        // CORRECTION ICI : On utilise t.title et non t.name
-        li.innerHTML = `
-            <div style="display:flex; align-items:center; gap:15px; flex:1; cursor:pointer;" onclick="openEditTaskModal('${t.id}')">
-                <div style="width:40px; height:40px; border-radius:50%; background:${color}; opacity:0.2; display:flex; align-items:center; justify-content:center;"></div>
-                <i class="fas ${icon}" style="position:absolute; left:27px; color:${color}; font-size:14px;"></i>
-                <div>
-                    <div style="font-weight:600;">${t.title}</div>
-                    <div style="font-size:11px; color:gray;">Fait il y a ${daysSince}j (tous les ${t.freq}j)</div>
-                </div>
-            </div>
-            <button class="btn-primary" style="width:auto; margin:0; padding:8px 15px; font-size:12px;" onclick="completeTask('${t.id}')">Fait</button>
-        `;
-        list.appendChild(li);
-    });
-}
-
-window.completeTask = (id) => {
-    const idx = localTasks.findIndex(t => t.id === id);
-    if(idx > -1) { localTasks[idx].lastDone = new Date().toISOString(); saveData(); renderTasks(); }
-};
-
-window.openEditTaskModal = (id) => {
-    document.getElementById('form-task').reset();
-    document.getElementById('task-id').value = id || '';
-    if(id) {
-        const t = localTasks.find(x => x.id === id);
-        // CORRECTION ICI : On lie task-title à t.title
-        document.getElementById('task-title').value = t.title;
-        document.getElementById('task-freq').value = t.freq;
-        document.getElementById('btn-delete-task').style.display = 'block';
-    } else {
-        document.getElementById('btn-delete-task').style.display = 'none';
-    }
-    document.getElementById('modal-edit-task').style.display = 'flex';
-};
-
-window.saveTask = () => {
-    const id = document.getElementById('task-id').value;
-    const title = document.getElementById('task-title').value;
-    const freq = parseInt(document.getElementById('task-freq').value);
-    
-    if(!title || !freq) return;
-
-    if(id) {
-        const idx = localTasks.findIndex(t => t.id === id);
-        if(idx > -1) {
-            localTasks[idx].title = title;
-            localTasks[idx].freq = freq;
-        }
-    } else {
-        localTasks.push({ id: 'task'+Date.now(), title, freq, lastDone: new Date().toISOString() });
-    }
-    saveData();
-    document.getElementById('modal-edit-task').style.display = 'none';
-    renderTasks();
-};
-
-window.deleteCurrentTask = () => {
-    if(confirm('Supprimer cette tâche ?')) {
-        localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value);
-        saveData();
-        document.getElementById('modal-edit-task').style.display = 'none';
-        renderTasks();
-    }
-};
-
-
 // UTILS & DATA
 function getAge(d) {
     if(!d) return '';
@@ -518,7 +526,6 @@ function getAge(d) {
     if(months < 12) return months + ' mois';
     return Math.floor(months/12) + ' ans';
 }
-
 function handlePhotoUpload(input) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
@@ -529,57 +536,28 @@ function handlePhotoUpload(input) {
         reader.readAsDataURL(input.files[0]);
     }
 }
-
 function saveData() {
     const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks };
-    if(currentUser) {
-        db.collection('users').doc(currentUser.uid).set(d, { merge: true });
-    } else {
-        localStorage.setItem('poupoules_data', JSON.stringify(d));
-    }
+    if(currentUser) db.collection('users').doc(currentUser.uid).set(d, { merge: true });
+    else localStorage.setItem('poupoules_data', JSON.stringify(d));
 }
-
 function loadLocalData() {
     const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[],"eggs":[],"transactions":[],"tasks":[]}');
-    localChickens = d.chickens || [];
-    localEggs = d.eggs || [];
-    localTransactions = d.transactions || [];
-    localTasks = d.tasks || [];
-    renderChickensList();
-    renderDashboard();
-    renderFinance();
-    renderTasks();
+    localChickens = d.chickens || []; localEggs = d.eggs || []; localTransactions = d.transactions || []; localTasks = d.tasks || [];
+    renderChickensList(); renderDashboard(); renderFinance(); renderTasks();
 }
-
 function loadFirebaseData() {
     db.collection('users').doc(currentUser.uid).get().then(doc => {
         if(doc.exists) {
             const d = doc.data();
-            localChickens = d.chickens || [];
-            localEggs = d.eggs || [];
-            localTransactions = d.transactions || [];
-            localTasks = d.tasks || [];
-            renderChickensList();
-            renderDashboard();
-            renderFinance();
-            renderTasks();
-        } else {
-            loadLocalData();
-        }
+            localChickens = d.chickens || []; localEggs = d.eggs || []; localTransactions = d.transactions || []; localTasks = d.tasks || [];
+            renderChickensList(); renderDashboard(); renderFinance(); renderTasks();
+        } else loadLocalData();
     });
 }
-
 window.login = () => { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); };
 window.exportData = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "sauvegarde_poulettes.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    const a = document.createElement('a'); a.href = dataStr; a.download = "sauvegarde.json"; document.body.appendChild(a); a.click(); a.remove();
 };
-window.toggleDarkMode = () => {
-    document.body.classList.toggle('dark-mode');
-    localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-};
+window.toggleDarkMode = () => { document.body.classList.toggle('dark-mode'); localStorage.setItem('darkMode', document.body.classList.contains('dark-mode')); };
