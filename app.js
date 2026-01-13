@@ -1,4 +1,8 @@
-// CONFIG
+// ==========================================
+// app.js - LOGIQUE PRINCIPALE & SYNCHRO
+// ==========================================
+
+// --- CONFIGURATION FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEtJ0SqA",
     authDomain: "poulettes-75fb5.firebaseapp.com",
@@ -11,38 +15,48 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// STATE
+// --- ÉTAT GLOBAL ---
 let localChickens = [], localEggs = [], localTransactions = [], localTasks = [];
 let currentUser = null, isDemoMode = true;
 let currentViewId = 'view-dashboard';
 let tempPhotoBase64 = null;
 let eggsChartInstance = null;
 
-// INIT
+// --- INITIALISATION ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Mode sombre
     if(localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');
         document.getElementById('dark-mode-toggle').checked = true;
     }
-    initEggsChart();
+    
+    // Date par défaut formulaire
+    if(document.getElementById('egg-date-input')) document.getElementById('egg-date-input').valueAsDate = new Date();
+    
     updateFabVisibility('view-dashboard');
 
+    // Écouteurs pour l'état de la connexion (Icône Wifi vivante)
+    window.addEventListener('online',  () => updateHeaderIcons(currentUser ? 'online' : 'guest'));
+    window.addEventListener('offline', () => updateHeaderIcons('offline'));
+
+    // Authentification
     auth.onAuthStateChanged(user => {
         if (user) {
             currentUser = user;
             isDemoMode = false;
-            loadFirebaseData();
-            document.getElementById('header-status').classList.remove('demo');
+            loadFirebaseData(); // Charge tout depuis le cloud
             document.getElementById('auth-container').innerHTML = `
-                <img src="${user.photoURL || 'icon.png'}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px;">
-                <h3>${user.displayName || 'Utilisateur'}</h3>
-                <p style="color:gray; margin-bottom:15px;">${user.email}</p>
-                <button class="btn-text-danger" onclick="auth.signOut()">Se déconnecter</button>`;
+                <div style="display:flex; flex-direction:column; align-items:center;">
+                    <img src="${user.photoURL || 'icon.png'}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px;">
+                    <h3>${user.displayName || 'Utilisateur'}</h3>
+                    <p style="color:gray; margin-bottom:15px;">${user.email}</p>
+                    <button class="btn-text-danger" onclick="auth.signOut()">Se déconnecter</button>
+                </div>`;
         } else {
             currentUser = null;
             isDemoMode = true;
-            loadLocalData();
-            document.getElementById('header-status').classList.add('demo');
+            loadLocalData(); // Charge le local
+            updateHeaderIcons('guest');
             document.getElementById('auth-container').innerHTML = `
                 <div style="width:80px; height:80px; background:#ddd; border-radius:50%; margin:0 auto 10px auto; display:flex; align-items:center; justify-content:center; font-size:30px; color:white;"><i class="fas fa-user"></i></div>
                 <h3>Mode Invité</h3>
@@ -51,23 +65,284 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Fermeture des modales
     document.querySelectorAll('.close-modal').forEach(b => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
     });
 
-    document.getElementById('form-add-egg').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const count = parseInt(document.getElementById('egg-count-input').value);
-        const date = document.getElementById('egg-date-input').value;
-        if (count > 0 && date) {
-            localEggs.push({ id: 'e' + Date.now(), count: count, date: new Date(date).toISOString() });
-            saveData();
-            if(window.updateFridge) window.updateFridge(count);
-            renderDashboard();
-            document.getElementById('modal-add-egg').style.display = 'none';
-        }
-    });
+    // Listeners Formulaires
+    if(document.getElementById('form-add-egg')) {
+        document.getElementById('form-add-egg').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const count = parseInt(document.getElementById('egg-count-input').value);
+            const date = document.getElementById('egg-date-input').value;
+            if (count > 0 && date) {
+                localEggs.push({ id: 'e' + Date.now(), count: count, date: new Date(date).toISOString() });
+                updateFridgeStock(count); // Ajoute au stock et sauvegarde
+                renderDashboard();
+                document.getElementById('modal-add-egg').style.display = 'none';
+            }
+        });
+    }
+    if(document.getElementById('form-task')) document.getElementById('form-task').addEventListener('submit', (e) => { e.preventDefault(); saveTask(); });
+    if(document.getElementById('form-chicken')) document.getElementById('form-chicken').addEventListener('submit', (e) => { e.preventDefault(); saveChicken(); });
+    if(document.getElementById('form-transaction')) document.getElementById('form-transaction').addEventListener('submit', (e) => { e.preventDefault(); saveTransaction(); });
 });
+
+// --- NAVIGATION ---
+window.toggleMenu = () => document.getElementById('menu-overlay').classList.toggle('open');
+
+window.navigate = (targetId) => {
+    document.getElementById('menu-overlay').classList.remove('open');
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
+    
+    // Déclencheur pour l'onglet Stats
+    if (targetId === 'view-stats' && window.renderStatsView) {
+        window.renderStatsView();
+    }
+
+    const target = document.getElementById(targetId);
+    if(target) target.classList.add('active-view');
+    
+    currentViewId = targetId;
+    updateFabVisibility(targetId);
+    window.scrollTo(0,0);
+};
+
+function updateFabVisibility(viewId) {
+    const fab = document.getElementById('main-fab');
+    if(!fab) return;
+    // Caché sur Dashboard, Stats et Réglages
+    if(viewId === 'view-dashboard' || viewId === 'view-stats' || viewId === 'view-settings') fab.classList.add('hidden');
+    else fab.classList.remove('hidden');
+}
+
+window.handleFabClick = () => {
+    if(currentViewId === 'view-chickens') openChickenModal();
+    if(currentViewId === 'view-finance') openTransactionModal();
+    if(currentViewId === 'view-maintenance') openEditTaskModal();
+};
+
+// --- GESTION DES ICÔNES D'ÉTAT (WIFI & MAINTENANCE) ---
+function updateHeaderIcons(state) {
+    const wifiBadge = document.getElementById('header-status');
+    if(!wifiBadge) return;
+
+    wifiBadge.classList.remove('status-green', 'status-orange', 'status-red', 'demo');
+    wifiBadge.innerHTML = '<i class="fas fa-wifi"></i>';
+
+    if (state === 'online') {
+        wifiBadge.classList.add('status-green'); // Connecté & Synchro OK
+    } else if (state === 'syncing') {
+        wifiBadge.classList.add('status-orange'); // Synchro en cours
+        wifiBadge.innerHTML = '<i class="fas fa-sync fa-spin"></i>';
+    } else if (state === 'offline') {
+        wifiBadge.classList.add('status-red'); // Hors ligne
+    } else if (state === 'guest') {
+        wifiBadge.classList.add('status-red'); // Mode invité
+    }
+}
+
+function updateMaintenanceIcon() {
+    const maintBadge = document.getElementById('maintenance-badge');
+    if(!maintBadge) return;
+
+    maintBadge.classList.remove('status-green', 'status-orange', 'status-red');
+    
+    if (localTasks.length === 0) {
+         maintBadge.classList.add('status-green'); 
+         return;
+    }
+
+    let maxUrgency = 0;
+    localTasks.forEach(t => {
+        const daysSince = Math.floor((new Date() - new Date(t.lastDone)) / (1000*60*60*24));
+        const urgency = daysSince / t.freq;
+        if (urgency > maxUrgency) maxUrgency = urgency;
+    });
+
+    if (maxUrgency >= 1) {
+        maintBadge.classList.add('status-red'); // Retard
+        maintBadge.innerHTML = '<i class="fas fa-exclamation"></i>';
+    } else if (maxUrgency > 0.7) {
+        maintBadge.classList.add('status-orange'); // Bientôt
+        maintBadge.innerHTML = '<i class="fas fa-broom"></i>';
+    } else {
+        maintBadge.classList.add('status-green'); // OK
+        maintBadge.innerHTML = '<i class="fas fa-check"></i>';
+    }
+}
+
+
+// ==========================================
+// GESTION DES DONNÉES & SYNCHRONISATION
+// ==========================================
+
+function saveData() {
+    // 1. On rassemble TOUTES les données (y compris les extensions)
+    const d = {
+        // Core
+        chickens: localChickens,
+        eggs: localEggs,
+        transactions: localTransactions,
+        tasks: localTasks,
+        
+        // Extensions (Stockées localement par les scripts, on les envoie au cloud)
+        fridgeStock: localStorage.getItem('poupoules_fridge_stock') || '0',
+        seedStock: localStorage.getItem('poupoules_seed_stock') || '0',
+        recycling: JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]')
+    };
+
+    updateHeaderIcons('syncing'); // Icône orange
+
+    if(currentUser) {
+        db.collection('users').doc(currentUser.uid).set(d, { merge: true })
+            .then(() => {
+                updateHeaderIcons('online'); // Icône verte
+            })
+            .catch((e) => {
+                console.error("Erreur sync", e);
+                updateHeaderIcons('offline'); // Icône rouge
+            });
+    } else {
+        localStorage.setItem('poupoules_data', JSON.stringify(d));
+        updateHeaderIcons('guest');
+    }
+    
+    updateMaintenanceIcon();
+}
+
+function loadFirebaseData() {
+    updateHeaderIcons('syncing');
+
+    db.collection('users').doc(currentUser.uid).get().then(doc => {
+        if(doc.exists) {
+            const d = doc.data();
+            
+            // 1. Restauration Core
+            localChickens = d.chickens || [];
+            localEggs = d.eggs || [];
+            localTransactions = d.transactions || [];
+            localTasks = d.tasks || [];
+
+            // 2. Restauration Extensions (On force l'écriture dans le LocalStorage du PC)
+            if(d.fridgeStock !== undefined) localStorage.setItem('poupoules_fridge_stock', d.fridgeStock);
+            if(d.seedStock !== undefined) localStorage.setItem('poupoules_seed_stock', d.seedStock);
+            if(d.recycling !== undefined) localStorage.setItem('poupoules_recycling_history', JSON.stringify(d.recycling));
+
+            // 3. Rendu
+            refreshAllViews();
+            updateHeaderIcons('online');
+        } else {
+            loadLocalData();
+            updateHeaderIcons('online');
+        }
+    }).catch(() => {
+        updateHeaderIcons('offline');
+        loadLocalData(); // Fallback
+    });
+}
+
+function loadLocalData() {
+    const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[],"eggs":[],"transactions":[],"tasks":[]}');
+    localChickens = d.chickens || [];
+    localEggs = d.eggs || [];
+    localTransactions = d.transactions || [];
+    localTasks = d.tasks || [];
+    refreshAllViews();
+}
+
+function refreshAllViews() {
+    renderChickensList();
+    renderDashboard(); // Cela va aussi rafraîchir le frigo, les graines, etc. via les injections
+    renderFinance();
+    renderTasks();
+    updateMaintenanceIcon();
+}
+
+// ==========================================
+// DASHBOARD & EXTENSIONS
+// ==========================================
+
+function renderDashboard() {
+    // Compteurs œufs
+    const now = new Date();
+    let monthCount = 0;
+    let totalCount = 0;
+    localEggs.forEach(e => {
+        const qty = e.count || 1;
+        totalCount += qty;
+        const d = new Date(e.date);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) monthCount += qty;
+    });
+
+    if(document.getElementById('total-eggs-display')) document.getElementById('total-eggs-display').innerText = totalCount;
+    if(document.getElementById('eggs-month-count')) document.getElementById('eggs-month-count').innerText = monthCount;
+    
+    updateChart(localEggs);
+    renderFridgeWidget(); // On force l'affichage du frigo
+    
+    // Activité récente
+    const list = document.getElementById('recent-activity-list');
+    if(list) {
+        list.innerHTML = '';
+        localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(e => {
+            const qty = e.count || 1;
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
+                    <strong>Ramassage</strong>
+                </div>
+                <div style="text-align:right;">
+                    <span style="display:block; font-weight:bold;">${qty} œuf${qty>1?'s':''}</span>
+                    <span style="font-size:11px; color:gray;">${new Date(e.date).toLocaleDateString()}</span>
+                </div>
+                <button class="btn-text-danger" style="margin-left:10px; background:none; border:none;" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    // Appel aux fonctions d'extensions.js si elles existent
+    if(window.injectExtensionContainers) injectExtensionContainers();
+    // Ces fonctions d'extensions lisent le localStorage, qui a été mis à jour par loadFirebaseData
+    if(window.renderSuppliesWidget) window.renderSuppliesWidget(); // Stock Graines
+    if(window.renderRecyclerWidget) window.renderRecyclerWidget(); // Recycleur
+    if(window.renderAlmanac) window.renderAlmanac(); // Hall of fame
+}
+
+// Widget Frigo Intégré
+function renderFridgeWidget() {
+    const container = document.getElementById('stock-widget-container');
+    if(!container) return;
+    const stock = parseInt(localStorage.getItem('poupoules_fridge_stock') || '0');
+    container.innerHTML = `
+        <div class="glass-card" style="padding:15px; display:flex; flex-direction:column; gap:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:bold; color:var(--text-grey); text-transform:uppercase; font-size:12px;"><i class="fas fa-box-open"></i> Stock Frigo</span>
+                <span style="font-weight:800; font-size:22px; color:var(--text-dark);">${stock} Œufs</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-primary" style="margin:0; flex:1; background:var(--success); font-size:13px; padding:10px;" onclick="updateFridgeStock(1)"><i class="fas fa-plus"></i> Ajouter</button>
+                <button class="btn-primary" style="margin:0; flex:1; background:var(--warning); font-size:13px; padding:10px;" onclick="updateFridgeStock(-1)"><i class="fas fa-utensils"></i> Manger</button>
+                <button class="btn-primary" style="margin:0; flex:1; background:var(--primary); font-size:13px; padding:10px;" onclick="sellEggsFromFridge()"><i class="fas fa-euro-sign"></i> Vendre</button>
+            </div>
+        </div>`;
+}
+
+window.updateFridgeStock = (delta) => {
+    let stock = parseInt(localStorage.getItem('poupoules_fridge_stock') || '0');
+    stock += delta;
+    if(stock < 0) stock = 0;
+    localStorage.setItem('poupoules_fridge_stock', stock);
+    saveData(); // Sauvegarde et Synchro
+    renderFridgeWidget();
+};
+
+window.sellEggsFromFridge = () => {
+    openTransactionModal(null, 'vente_oeufs');
+};
 
 window.adjustEggCount = (val) => {
     const input = document.getElementById('egg-count-input');
@@ -76,47 +351,44 @@ window.adjustEggCount = (val) => {
     input.value = v;
 };
 
-// NAVIGATION
-window.toggleMenu = () => document.getElementById('menu-overlay').classList.toggle('open');
-window.navigate = (targetId) => {
-    document.getElementById('menu-overlay').classList.remove('open');
-    document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
-
-    // --- CORRECTION ICI ---
-    // Si on demande la page stats, on s'assure qu'elle est générée avant de l'afficher
-    if (targetId === 'view-stats' && window.renderStatsView) {
-        window.renderStatsView();
+window.deleteEgg = (id) => {
+    if(confirm('Supprimer ce ramassage ?')) {
+        const idx = localEggs.findIndex(e => e.id === id);
+        if(idx > -1) {
+            localEggs.splice(idx, 1);
+            saveData();
+            renderDashboard();
+        }
     }
-    // ----------------------
-
-    // On récupère l'élément (maintenant il existe forcément)
-    const target = document.getElementById(targetId);
-    if (target) {
-        target.classList.add('active-view');
-    }
-
-    currentViewId = targetId;
-    updateFabVisibility(targetId);
-    window.scrollTo(0,0);
 };
 
-function updateFabVisibility(viewId) {
-    const fab = document.getElementById('main-fab');
-    if(viewId === 'view-dashboard') fab.classList.add('hidden');
-    else if(['view-chickens','view-finance','view-maintenance'].includes(viewId)) fab.classList.remove('hidden');
-    else fab.classList.add('hidden');
+function updateChart(eggs) {
+    const ctx = document.getElementById('eggsChart');
+    if(!ctx) return;
+    const now = new Date();
+    const data = Array(12).fill(0);
+    eggs.forEach(e => {
+        const d = new Date(e.date);
+        if(d.getFullYear() === now.getFullYear()) data[d.getMonth()] += (e.count || 1);
+    });
+
+    if(eggsChartInstance) eggsChartInstance.destroy();
+    eggsChartInstance = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: { labels: ['J','F','M','A','M','J','J','A','S','O','N','D'], datasets: [{ label: 'Œufs', data: data, borderColor: '#007aff', backgroundColor: 'rgba(0, 122, 255, 0.1)', fill: true, tension: 0.4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }
+    });
 }
-window.handleFabClick = () => {
-    if(currentViewId === 'view-chickens') openChickenModal();
-    if(currentViewId === 'view-finance') openTransactionModal();
-    if(currentViewId === 'view-maintenance') openEditTaskModal();
-};
 
-// POULES
+// ==========================================
+// POULES (CRUD)
+// ==========================================
 function renderChickensList() {
     const grid = document.getElementById('chickens-grid');
+    if(!grid) return;
     grid.innerHTML = '';
-    const filter = document.querySelector('#btn-filter-active').classList.contains('active') ? 'active' : 'archived';
+    const filterBtn = document.querySelector('#btn-filter-active');
+    const filter = (filterBtn && filterBtn.classList.contains('active')) ? 'active' : 'archived';
     
     const list = localChickens
         .filter(c => (c.status || 'active') === filter)
@@ -141,179 +413,239 @@ function renderChickensList() {
         grid.appendChild(div);
     });
 }
-window.toggleFavorite = (id) => { const idx = localChickens.findIndex(c => c.id === id); if (idx > -1) { localChickens[idx].isFavorite = !localChickens[idx].isFavorite; saveData(); renderChickensList(); }};
-window.archiveChicken = () => {
-    const id = document.getElementById('chicken-id').value;
-    const idx = localChickens.findIndex(c => c.id === id);
-    if (idx > -1) {
-        if(localChickens[idx].status === 'archived') { if(confirm("Supprimer ?")) localChickens.splice(idx, 1); } 
-        else { if(confirm("Archiver ?")) localChickens[idx].status = 'archived'; }
-        saveData(); document.getElementById('modal-chicken').style.display = 'none'; renderChickensList();
-    }
-};
-window.filterChickens = (type, btn) => { document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderChickensList(); document.getElementById('btn-archive-chicken').innerText = type === 'archived' ? 'Supprimer' : 'Archiver'; };
+
 window.openChickenModal = (id = null) => {
-    const modal = document.getElementById('modal-chicken'); document.getElementById('form-chicken').reset(); document.getElementById('preview-photo').src = 'icon.png'; tempPhotoBase64 = null;
+    const modal = document.getElementById('modal-chicken'); 
+    document.getElementById('form-chicken').reset(); 
+    document.getElementById('preview-photo').src = 'icon.png'; 
+    tempPhotoBase64 = null;
     if(id) {
-        const c = localChickens.find(x => x.id === id); document.getElementById('modal-chicken-title').innerText = "Modifier";
-        document.getElementById('chicken-id').value = c.id; document.getElementById('chicken-name').value = c.name; document.getElementById('chicken-breed').value = c.breed; document.getElementById('chicken-date').value = c.date; document.getElementById('chicken-health').value = c.health; if(c.photo) document.getElementById('preview-photo').src = c.photo; document.getElementById('btn-archive-chicken').style.display = 'block';
-    } else { document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule"; document.getElementById('chicken-id').value = ""; document.getElementById('chicken-date').valueAsDate = new Date(); document.getElementById('btn-archive-chicken').style.display = 'none'; }
+        const c = localChickens.find(x => x.id === id); 
+        document.getElementById('modal-chicken-title').innerText = "Modifier";
+        document.getElementById('chicken-id').value = c.id; 
+        document.getElementById('chicken-name').value = c.name; 
+        document.getElementById('chicken-breed').value = c.breed || ''; 
+        document.getElementById('chicken-date').value = c.date; 
+        if(c.health) document.getElementById('chicken-health').value = c.health; 
+        if(c.photo) document.getElementById('preview-photo').src = c.photo; 
+        document.getElementById('btn-archive-chicken').style.display = 'block';
+    } else { 
+        document.getElementById('modal-chicken-title').innerText = "Nouvelle Poule"; 
+        document.getElementById('chicken-id').value = ""; 
+        document.getElementById('chicken-date').valueAsDate = new Date(); 
+        document.getElementById('btn-archive-chicken').style.display = 'none'; 
+    }
     modal.style.display = 'flex';
 };
-document.getElementById('form-chicken').addEventListener('submit', (e) => {
-    e.preventDefault(); const id = document.getElementById('chicken-id').value;
-    const data = { name: document.getElementById('chicken-name').value, breed: document.getElementById('chicken-breed').value, date: document.getElementById('chicken-date').value, health: document.getElementById('chicken-health').value, photo: tempPhotoBase64 || document.getElementById('preview-photo').src };
+
+window.saveChicken = () => {
+    const id = document.getElementById('chicken-id').value;
+    const data = { 
+        name: document.getElementById('chicken-name').value, 
+        breed: document.getElementById('chicken-breed').value, 
+        date: document.getElementById('chicken-date').value, 
+        health: document.getElementById('chicken-health').value, 
+        photo: tempPhotoBase64 || document.getElementById('preview-photo').src 
+    };
     if(id) { const idx = localChickens.findIndex(c => c.id === id); if(idx>-1) localChickens[idx] = { ...localChickens[idx], ...data }; }
     else { localChickens.push({ id: 'c' + Date.now(), ...data, status: 'active', isFavorite: false }); }
-    saveData(); document.getElementById('modal-chicken').style.display = 'none'; renderChickensList();
-});
-
-// DASHBOARD
-function renderDashboard() {
-    const now = new Date();
-    let monthCount = 0;
-    let totalCount = 0;
-
-    localEggs.forEach(e => {
-        const qty = e.count || 1;
-        totalCount += qty;
-        const d = new Date(e.date);
-        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
-            monthCount += qty;
-        }
-    });
-
-    document.getElementById('total-eggs-display').innerText = totalCount;
-    document.getElementById('eggs-month-count').innerText = monthCount;
-    
-    updateChart(localEggs);
-    
-    const list = document.getElementById('recent-activity-list');
-    list.innerHTML = '';
-    localEggs.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5).forEach(e => {
-        const qty = e.count || 1;
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px;">
-                <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
-                <strong>Ramassage</strong>
-            </div>
-            <div style="text-align:right;">
-                <span style="display:block; font-weight:bold;">${qty} œuf${qty>1?'s':''}</span>
-                <span style="font-size:11px; color:gray;">${new Date(e.date).toLocaleDateString()}</span>
-            </div>
-            <button class="btn-text-danger" style="margin-left:10px;" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
-        `;
-        list.appendChild(li);
-    });
-
-    if(window.renderExtensions) window.renderExtensions();
-}
-
-window.openAddEggModal = () => {
-    const modal = document.getElementById('modal-add-egg');
-    document.getElementById('egg-count-input').value = 1;
-    document.getElementById('egg-date-input').valueAsDate = new Date();
-    modal.style.display = 'flex';
+    saveData(); 
+    document.getElementById('modal-chicken').style.display = 'none'; 
+    refreshAllViews();
 };
 
-window.deleteEgg = (id) => { if(confirm("Supprimer ce ramassage ?")) { localEggs = localEggs.filter(e => e.id !== id); saveData(); renderDashboard(); }};
+window.toggleFavorite = (id) => { const idx = localChickens.findIndex(c => c.id === id); if (idx > -1) { localChickens[idx].isFavorite = !localChickens[idx].isFavorite; saveData(); renderChickensList(); }};
+window.archiveChicken = () => { const id = document.getElementById('chicken-id').value; const idx = localChickens.findIndex(c => c.id === id); if (idx > -1) { if(localChickens[idx].status === 'archived') { if(confirm("Supprimer ?")) localChickens.splice(idx, 1); } else { if(confirm("Archiver ?")) localChickens[idx].status = 'archived'; } saveData(); document.getElementById('modal-chicken').style.display = 'none'; renderChickensList(); }};
+window.filterChickens = (type, btn) => { document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderChickensList(); };
 
-// CHART
-function initEggsChart() { const ctx = document.getElementById('eggsChart').getContext('2d'); eggsChartInstance = new Chart(ctx, { type: 'bar', data: { labels: ['J','F','M','A','M','J','J','A','S','O','N','D'], datasets: [{ label:'Œufs', data:[], backgroundColor:'#007aff' }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}, y:{beginAtZero:true}} } }); }
-function updateChart(eggs) { 
-    const c = new Array(12).fill(0); 
-    const y = new Date().getFullYear(); 
-    eggs.forEach(e => { if (new Date(e.date).getFullYear() === y) c[new Date(e.date).getMonth()] += (e.count || 1); });
-    eggsChartInstance.data.datasets[0].data = c; eggsChartInstance.update(); 
-}
-
+// ==========================================
 // FINANCE
+// ==========================================
 function renderFinance() {
-    const list = document.getElementById('finance-list'); list.innerHTML = ''; let total = 0;
-    localTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
-        total += (t.category === 'income' ? t.amount : -t.amount);
-        const li = document.createElement('li'); li.onclick = () => openTransactionModal(t.id);
-        li.innerHTML = `<div><strong>${formatTransType(t.type)}</strong><br><small>${t.date}</small></div><div style="color:${t.category === 'income' ? 'var(--success)' : 'var(--text-dark)'}; font-weight:bold;">${t.category === 'income' ? '+' : '-'}${t.amount}€</div>`;
-        list.appendChild(li);
-    });
-    document.getElementById('balance-total').innerText = total.toFixed(2) + ' €'; document.getElementById('balance-total').style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
-}
-window.setTransactionType = (type) => { document.getElementById('btn-expense').classList.remove('active'); document.getElementById('btn-income').classList.remove('active'); if(type === 'expense') document.getElementById('btn-expense').classList.add('active'); else document.getElementById('btn-income').classList.add('active'); document.getElementById('trans-category').value = type; };
-window.openTransactionModal = (id = null) => {
-    const modal = document.getElementById('modal-transaction'); document.getElementById('form-transaction').reset();
-    if(id) { const t = localTransactions.find(x => x.id === id); document.getElementById('trans-id').value = t.id; document.getElementById('trans-amount').value = t.amount; document.getElementById('trans-date').value = t.date; document.getElementById('trans-type').value = t.type; setTransactionType(t.category); document.getElementById('btn-delete-trans').style.display = 'block'; }
-    else { document.getElementById('trans-id').value = ""; document.getElementById('trans-date').valueAsDate = new Date(); setTransactionType('expense'); document.getElementById('btn-delete-trans').style.display = 'none'; }
-    modal.style.display = 'flex';
-};
-document.getElementById('form-transaction').addEventListener('submit', (e) => { e.preventDefault(); const id = document.getElementById('trans-id').value; const data = { amount: parseFloat(document.getElementById('trans-amount').value), date: document.getElementById('trans-date').value, type: document.getElementById('trans-type').value, category: document.getElementById('trans-category').value }; if(id) { const idx = localTransactions.findIndex(t => t.id === id); if(idx>-1) localTransactions[idx] = { id, ...data }; } else { localTransactions.push({ id: 't'+Date.now(), ...data }); } saveData(); document.getElementById('modal-transaction').style.display = 'none'; renderFinance(); });
-window.deleteTransaction = () => { if(confirm("Supprimer ?")) { localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value); saveData(); document.getElementById('modal-transaction').style.display = 'none'; renderFinance(); }};
-function formatTransType(t) { const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Œufs', 'soins': 'Véto', 'achat_poule': 'Achat Poule' }; return map[t] || t; }
-
-// ENTRETIEN (AVEC BARRE DE PROGRESSION)
-function renderMaintenance() {
-    const list = document.getElementById('tasks-list');
+    const list = document.getElementById('finance-list');
+    if(!list) return;
     list.innerHTML = '';
+    let total = 0;
     
-    localTasks.sort((a,b) => getDaysDiff(b.lastDone) - getDaysDiff(a.lastDone)).forEach(t => {
-        const diff = getDaysDiff(t.lastDone);
-        
-        // Calcul du pourcentage restant (Inverse : diminue avec le temps)
-        let percent = 100 - ((diff / t.frequency) * 100);
-        if (percent < 0) percent = 0; // Pas en dessous de 0
-
-        // Choix de la couleur
-        let barColor = 'var(--success)'; // Vert (Tout va bien)
-        if (percent < 50) barColor = 'var(--warning)'; // Orange (Moyen)
-        if (percent < 20) barColor = 'var(--danger)'; // Rouge (Urgent)
+    localTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+        const val = parseFloat(t.amount);
+        const isIncome = (t.category === 'income') || (t.type === 'vente_oeufs');
+        if(isIncome) total += val; else total -= val;
 
         const li = document.createElement('li');
-        // Mise en page flex pour la barre
-        li.style.display = "flex";
-        li.style.alignItems = "center";
-        li.style.gap = "15px";
-
+        li.onclick = () => openTransactionModal(t.id);
+        li.style.cursor = "pointer";
         li.innerHTML = `
-            <div style="flex:1; cursor:pointer;" onclick="openEditTaskModal('${t.id}')">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <strong>${t.title}</strong>
-                    <small style="color:${diff >= t.frequency ? 'var(--danger)' : 'var(--text-grey)'}">
-                        ${diff >= t.frequency ? '⚠️ En retard' : (t.frequency - diff) + 'j restants'}
-                    </small>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div style="width:40px; height:40px; border-radius:12px; background:${isIncome ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.1)'}; display:flex; align-items:center; justify-content:center; color:${isIncome ? 'var(--success)' : 'var(--danger)'}; font-size:18px;">
+                    <i class="fas ${isIncome ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
                 </div>
-                
-                <div style="width:100%; height:6px; background:rgba(0,0,0,0.05); border-radius:3px; overflow:hidden;">
-                    <div style="width:${percent}%; height:100%; background:${barColor}; transition:width 0.5s ease;"></div>
-                </div>
-
-                <div style="margin-top:5px; font-size:11px; color:var(--text-grey); display:flex; justify-content:space-between;">
-                    <span>Fait il y a ${diff}j</span>
-                    <span>Fréq: ${t.frequency}j</span>
+                <div>
+                    <div style="font-weight:600;">${formatTransType(t.type)}</div>
+                    <div style="font-size:11px; color:gray;">${new Date(t.date).toLocaleDateString()}</div>
                 </div>
             </div>
-            
-            <button class="glass-btn-round" style="width:40px; height:40px; border-radius:50%; border:none; background:${diff >= t.frequency ? 'var(--danger)' : 'rgba(0,0,0,0.05)'}; color:${diff >= t.frequency ? 'white' : 'var(--primary)'}; display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer;" onclick="completeTask('${t.id}')">
-                <i class="fas fa-check"></i>
-            </button>
+            <div style="font-weight:bold; color:${isIncome ? 'var(--success)' : 'var(--text-dark)'};">${isIncome ? '+' : '-'}${val.toFixed(2)} €</div>
         `;
         list.appendChild(li);
     });
+    
+    const bal = document.getElementById('balance-total');
+    if(bal) {
+        bal.innerText = total.toFixed(2) + " €";
+        bal.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
 }
-window.completeTask = (id) => { const t = localTasks.find(x => x.id === id); if(t) { t.lastDone = new Date().toISOString(); saveData(); renderMaintenance(); }};
-window.openEditTaskModal = (id = null) => { const modal = document.getElementById('modal-edit-task'); document.getElementById('form-task').reset(); if(id) { const t = localTasks.find(x => x.id === id); document.getElementById('task-id').value = t.id; document.getElementById('task-title').value = t.title; document.getElementById('task-freq').value = t.frequency; document.getElementById('btn-delete-task').style.display = 'block'; } else { document.getElementById('task-id').value = ""; document.getElementById('btn-delete-task').style.display = 'none'; } modal.style.display = 'flex'; };
-document.getElementById('form-task').addEventListener('submit', (e) => { e.preventDefault(); const id = document.getElementById('task-id').value; const data = { title: document.getElementById('task-title').value, frequency: parseInt(document.getElementById('task-freq').value) }; if(id) { const idx = localTasks.findIndex(t => t.id === id); if(idx>-1) localTasks[idx] = { ...localTasks[idx], ...data }; } else { localTasks.push({ id: 'task'+Date.now(), ...data, lastDone: new Date().toISOString() }); } saveData(); document.getElementById('modal-edit-task').style.display = 'none'; renderMaintenance(); });
-window.deleteCurrentTask = () => { if(confirm("Supprimer ?")) { localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value); saveData(); document.getElementById('modal-edit-task').style.display = 'none'; renderMaintenance(); }};
 
-// UTILS
-window.handlePhotoUpload = (input) => { if (input.files && input.files[0]) compressImage(input.files[0], 150, 0.4).then(b => { document.getElementById('preview-photo').src = b; tempPhotoBase64 = b; }); };
-function compressImage(file, maxWidth, quality) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = event => { const img = new Image(); img.src = event.target.result; img.onload = () => { const elem = document.createElement('canvas'); let width = img.width; let height = img.height; if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } elem.width = width; elem.height = height; const ctx = elem.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); resolve(elem.toDataURL('image/webp', quality)); }; }; reader.onerror = error => reject(error); }); }
-function getAge(d) { if(!d) return ''; const m = Math.floor((Date.now()-new Date(d).getTime())/(1000*60*60*24*30)); return m<1?'Poussin':(m<12?m+' mois':Math.floor(m/12)+' ans'); }
-function getDaysDiff(d) { return Math.floor((new Date()-new Date(d))/(1000*60*60*24)); }
+window.openTransactionModal = (id=null, defaultType=null) => {
+    document.getElementById('trans-id').value = id || '';
+    if(id) {
+        const t = localTransactions.find(x => x.id === id);
+        document.getElementById('trans-amount').value = t.amount;
+        document.getElementById('trans-date').value = t.date;
+        document.getElementById('trans-type').value = t.type;
+        setTransactionType(t.category || 'expense');
+        document.getElementById('btn-delete-trans').style.display = 'block';
+    } else {
+        document.getElementById('trans-amount').value = '';
+        document.getElementById('trans-date').valueAsDate = new Date();
+        if(defaultType) {
+            document.getElementById('trans-type').value = defaultType;
+            setTransactionType(defaultType === 'vente_oeufs' ? 'income' : 'expense');
+        } else {
+            setTransactionType('expense');
+        }
+        document.getElementById('btn-delete-trans').style.display = 'none';
+    }
+    document.getElementById('modal-transaction').style.display = 'flex';
+};
 
-// DATA
-function saveData() { const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }; try { if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(d)); else if(currentUser) db.collection('users').doc(currentUser.uid).set(d); } catch(e) { console.error("Sauvegarde impossible", e); } }
-function loadLocalData() { const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[]}'); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }
-function loadFirebaseData() { db.collection('users').doc(currentUser.uid).get().then(doc => { if(doc.exists) { const d = doc.data(); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }}); }
-window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-window.exportData = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks })); a.download = "sauvegarde.json"; a.click(); };
+window.setTransactionType = (type) => {
+    document.getElementById('trans-category').value = type;
+    document.getElementById('btn-expense').className = type === 'expense' ? 'segment-btn active' : 'segment-btn';
+    document.getElementById('btn-income').className = type === 'income' ? 'segment-btn active' : 'segment-btn';
+};
+
+window.saveTransaction = () => {
+    const id = document.getElementById('trans-id').value;
+    const type = document.getElementById('trans-type').value;
+    const category = document.getElementById('trans-category').value;
+    const amount = parseFloat(document.getElementById('trans-amount').value);
+    const date = document.getElementById('trans-date').value;
+    if(!amount || !date) return;
+    if(id) { const idx = localTransactions.findIndex(t => t.id === id); if(idx > -1) localTransactions[idx] = { ...localTransactions[idx], type, category, amount, date }; } 
+    else { localTransactions.push({ id: 't'+Date.now(), type, category, amount, date }); }
+    saveData(); document.getElementById('modal-transaction').style.display = 'none'; renderFinance();
+};
+
+window.deleteTransaction = () => {
+    if(confirm('Supprimer ?')) { localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value); saveData(); document.getElementById('modal-transaction').style.display = 'none'; renderFinance(); }
+};
+
+function formatTransType(t) { const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Œufs', 'soins': 'Soins', 'achat_poule': 'Achat Poule', 'materiel': 'Matériel', 'paille': 'Litière' }; return map[t] || t; }
+
+// ==========================================
+// ENTRETIEN (TASKS) - CORRIGÉ
+// ==========================================
+function renderTasks() {
+    const list = document.getElementById('tasks-list');
+    if(!list) return;
+    list.innerHTML = '';
+    
+    if(localTasks.length === 0) {
+        const defaults = [ { title: "Changer l'eau", freq: 2 }, { title: "Nettoyer le pondoir", freq: 7 }, { title: "Grand nettoyage", freq: 30 } ];
+        localTasks = defaults.map(d => ({ id: 'def'+Date.now()+Math.random(), ...d, lastDone: new Date(new Date().setDate(new Date().getDate() - d.freq - 1)).toISOString() }));
+    }
+
+    localTasks.forEach(t => {
+        const daysSince = Math.floor((new Date() - new Date(t.lastDone)) / (1000*60*60*24));
+        const urgency = daysSince / t.freq;
+        let color = 'var(--success)';
+        let icon = 'fa-check';
+        
+        if(urgency > 0.8) { color = 'var(--warning)'; icon = 'fa-exclamation-triangle'; }
+        if(urgency >= 1) { color = 'var(--danger)'; icon = 'fa-times'; }
+
+        const li = document.createElement('li');
+        // ATTENTION : utilisation de t.title et non t.name pour éviter undefined
+        const safeTitle = t.title || t.name || 'Tâche sans nom';
+        
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:15px; flex:1; overflow:hidden;" onclick="openEditTaskModal('${t.id}')">
+                <div style="width:40px; height:40px; border-radius:50%; background:${color}; opacity:0.2; display:flex; align-items:center; justify-content:center; flex-shrink:0;"></div>
+                <i class="fas ${icon}" style="position:absolute; left:28px; color:${color}; font-size:14px;"></i>
+                <div style="display:flex; flex-direction:column; overflow:hidden;">
+                    <div style="font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeTitle}</div>
+                    <div style="font-size:11px; color:gray;">Fait il y a ${daysSince}j (tous les ${t.freq}j)</div>
+                </div>
+            </div>
+            <button class="btn-primary" style="width:auto; margin:0; padding:8px 12px; font-size:12px; border-radius:10px;" onclick="completeTask('${t.id}')">FAIT</button>
+        `;
+        list.appendChild(li);
+    });
+    
+    updateMaintenanceIcon();
+}
+
+window.completeTask = (id) => { const idx = localTasks.findIndex(t => t.id === id); if(idx > -1) { localTasks[idx].lastDone = new Date().toISOString(); saveData(); renderTasks(); } };
+
+window.openEditTaskModal = (id) => {
+    document.getElementById('form-task').reset();
+    document.getElementById('task-id').value = id || '';
+    if(id) {
+        const t = localTasks.find(x => x.id === id);
+        // Utilisation de t.title
+        document.getElementById('task-title').value = t.title || t.name;
+        document.getElementById('task-freq').value = t.freq;
+        document.getElementById('btn-delete-task').style.display = 'block';
+    } else {
+        document.getElementById('btn-delete-task').style.display = 'none';
+    }
+    document.getElementById('modal-edit-task').style.display = 'flex';
+};
+
+window.saveTask = () => {
+    const id = document.getElementById('task-id').value;
+    const title = document.getElementById('task-title').value;
+    const freq = parseInt(document.getElementById('task-freq').value);
+    if(!title || !freq) return;
+
+    if(id) {
+        const idx = localTasks.findIndex(t => t.id === id);
+        if(idx > -1) { localTasks[idx].title = title; localTasks[idx].freq = freq; }
+    } else {
+        // On enregistre bien 'title' pour la cohérence
+        localTasks.push({ id: 'task'+Date.now(), title, freq, lastDone: new Date().toISOString() });
+    }
+    saveData(); document.getElementById('modal-edit-task').style.display = 'none'; renderTasks();
+};
+
+window.deleteCurrentTask = () => {
+    if(confirm('Supprimer cette tâche ?')) { localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value); saveData(); document.getElementById('modal-edit-task').style.display = 'none'; renderTasks(); }
+};
+
+// ==========================================
+// UTILITAIRES
+// ==========================================
+function getAge(d) {
+    if(!d) return '';
+    const diff = Date.now() - new Date(d).getTime();
+    const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30.44));
+    if(months < 1) return 'Poussin';
+    if(months < 12) return months + ' mois';
+    return Math.floor(months/12) + ' ans';
+}
+function handlePhotoUpload(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => { document.getElementById('preview-photo').src = e.target.result; tempPhotoBase64 = e.target.result; };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+window.openAddEggModal = () => document.getElementById('modal-add-egg').style.display = 'flex';
+window.login = () => { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); };
+window.exportData = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }));
+    const a = document.createElement('a'); a.href = dataStr; a.download = "sauvegarde.json"; document.body.appendChild(a); a.click(); a.remove();
+};
 window.toggleDarkMode = () => { document.body.classList.toggle('dark-mode'); localStorage.setItem('darkMode', document.body.classList.contains('dark-mode')); };
