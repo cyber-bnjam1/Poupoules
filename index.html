@@ -4,39 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mes Poulettes</title>
-    
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Mes Poulettes">
-    
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
-
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
-
-    <div class="background-blobs">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-    </div>
+    <div class="background-blobs"><div class="blob blob-1"></div><div class="blob blob-2"></div></div>
 
     <header id="app-header">
         <button id="burger-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
         <div id="header-right">
-            <div id="maintenance-badge" class="header-badge" onclick="navigate('view-maintenance')">
-                <i class="fas fa-check"></i>
-            </div>
-            <div id="header-status" class="header-badge status-badge demo">
-                <i class="fas fa-wifi"></i>
-            </div>
+            <div id="maintenance-badge" class="header-badge" onclick="navigate('view-maintenance')"><i class="fas fa-check"></i></div>
+            <div id="header-status" class="header-badge status-badge demo"><i class="fas fa-wifi"></i></div>
         </div>
     </header>
 
@@ -59,7 +47,6 @@
         
         <section id="view-dashboard" class="active-view">
             <h1 class="big-title">Tableau de bord</h1>
-            
             <div class="status-row">
                 <div class="glass-card mini-status-card highlight-card" onclick="openAddEggModal()">
                     <div class="icon-circle egg-color"><i class="fas fa-plus"></i></div>
@@ -76,13 +63,9 @@
             <div class="glass-card chart-card">
                 <h3><i class="fas fa-chart-line"></i> Ponte mensuelle</h3>
                 <div class="chart-container"><canvas id="eggsChart"></canvas></div>
-                <div class="stats-summary-row">
-                    <span class="stat-pill"><span id="total-eggs-display">0</span> Œufs (Total)</span>
-                </div>
+                <div class="stats-summary-row"><span class="stat-pill"><span id="total-eggs-display">0</span> Œufs (Total)</span></div>
             </div>
-
             <div id="journal-widget-container"></div>
-
             <h3 class="section-title">Activité récente</h3>
             <ul id="recent-activity-list" class="glass-list activity-list"></ul>
         </section>
@@ -92,50 +75,31 @@
                 <h1 class="big-title">Statistiques</h1>
                 <select id="stats-year-select" style="width:auto; padding:5px 15px; border-radius:15px; font-weight:bold; background:rgba(0,0,0,0.05); border:none;"></select>
             </div>
-
             <div class="status-row">
                 <div class="glass-card mini-status-card">
                     <div class="icon-circle egg-color"><i class="fas fa-egg"></i></div>
-                    <div class="status-info">
-                        <span class="status-label">Total Œufs</span>
-                        <span class="status-value" id="stat-total-eggs">0</span>
-                    </div>
+                    <div class="status-info"><span class="status-label">Total Œufs</span><span class="status-value" id="stat-total-eggs">0</span></div>
                 </div>
                 <div class="glass-card mini-status-card">
                     <div class="icon-circle success-color"><i class="fas fa-recycle"></i></div>
-                    <div class="status-info">
-                        <span class="status-label">Total Déchets</span>
-                        <span class="status-value" id="stat-total-waste">0 kg</span>
-                    </div>
+                    <div class="status-info"><span class="status-label">Total Déchets</span><span class="status-value" id="stat-total-waste">0 kg</span></div>
                 </div>
             </div>
-
             <div class="glass-card chart-card">
                 <h3><i class="fas fa-chart-area"></i> Courbe de Ponte</h3>
-                <div class="chart-container" style="height:200px;">
-                    <canvas id="chart-stats-eggs"></canvas>
-                </div>
+                <div class="chart-container" style="height:200px;"><canvas id="chart-stats-eggs"></canvas></div>
             </div>
-
             <div class="glass-card chart-card">
                 <h3><i class="fas fa-dumpster"></i> Recyclage Déchets</h3>
-                <div class="chart-container" style="height:200px;">
-                    <canvas id="chart-stats-waste"></canvas>
-                </div>
+                <div class="chart-container" style="height:200px;"><canvas id="chart-stats-waste"></canvas></div>
             </div>
-
             <h3 class="section-title">Autres statistiques</h3>
             <div class="glass-card" style="padding:15px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:10px;">
-                    <span style="color:var(--text-grey);">Meilleur mois</span>
-                    <span style="font-weight:bold;" id="stat-best-month">-</span>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--text-grey);">Moyenne œufs/jour</span>
-                    <span style="font-weight:bold;" id="stat-avg-eggs">0</span>
-                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:10px;"><span style="color:var(--text-grey);">Meilleur mois</span><span style="font-weight:bold;" id="stat-best-month">-</span></div>
+                <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-grey);">Moyenne œufs/jour</span><span style="font-weight:bold;" id="stat-avg-eggs">0</span></div>
             </div>
         </section>
+
         <section id="view-chickens">
             <h1 class="big-title">Mon Cheptel</h1>
             <div class="segment-control">
@@ -151,9 +115,7 @@
                 <span class="balance-label">Bilan Global</span>
                 <h2 id="balance-total" class="balance-amount">0.00 €</h2>
             </div>
-            
             <div id="sales-register-container"></div>
-
             <h3 class="section-title">Historique</h3>
             <ul id="finance-list" class="glass-list"></ul>
         </section>
@@ -161,94 +123,28 @@
         <section id="view-maintenance">
             <h1 class="big-title">Entretien</h1>
             <ul id="tasks-list" class="glass-list task-list-full"></ul>
-            
             <div id="health-widget-container" style="margin-top:30px;"></div>
         </section>
 
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
-            <div class="profile-header-card">
-                <div id="auth-container"></div>
-            </div>
+            <div class="profile-header-card"><div id="auth-container"></div></div>
             <div id="achievements-container"></div>
-
             <h3 class="settings-header">Préférences</h3>
             <div class="ios-list">
-                <div class="ios-item">
-                    <div class="ios-icon" style="background-color: #333;"><i class="fas fa-moon"></i></div>
-                    <div class="ios-content">
-                        <span>Mode Sombre</span>
-                        <label class="switch">
-                            <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-                <div class="ios-item clickable" onclick="exportData()">
-                    <div class="ios-icon" style="background-color: #007aff;"><i class="fas fa-file-export"></i></div>
-                    <div class="ios-content">
-                        <span>Sauvegarder les données</span>
-                        <i class="fas fa-chevron-right arrow"></i>
-                    </div>
-                </div>
+                <div class="ios-item"><div class="ios-icon" style="background-color: #333;"><i class="fas fa-moon"></i></div><div class="ios-content"><span>Mode Sombre</span><label class="switch"><input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()"><span class="slider"></span></label></div></div>
+                <div class="ios-item clickable" onclick="exportData()"><div class="ios-icon" style="background-color: #007aff;"><i class="fas fa-file-export"></i></div><div class="ios-content"><span>Sauvegarder les données</span><i class="fas fa-chevron-right arrow"></i></div></div>
             </div>
         </section>
     </main>
 
-    <div id="fab-container">
-        <button id="main-fab" class="fab-btn" onclick="handleFabClick()"><i class="fas fa-plus"></i></button>
-    </div>
+    <div id="fab-container"><button id="main-fab" class="fab-btn" onclick="handleFabClick()"><i class="fas fa-plus"></i></button></div>
 
-    <div id="modal-chicken" class="modal">
-        <div class="modal-content glass-panel animate-pop">
-            <h2 id="modal-chicken-title">Fiche Poule</h2>
-            <form id="form-chicken">
-                <input type="hidden" id="chicken-id">
-                <div class="photo-upload-wrapper" onclick="document.getElementById('chicken-photo-input').click()">
-                    <img id="preview-photo" src="icon.png">
-                    <div class="upload-icon"><i class="fas fa-camera"></i></div>
-                </div>
-                <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)">
-                <div class="form-group"><label>Nom</label><input type="text" id="chicken-name" required placeholder="Ex: Huguette"></div>
-                <div class="form-group"><label>Race</label>
-                    <select id="chicken-breed"><option value="">-- Inconnue / Croisée --</option><optgroup label="Les Stars du Jardin"><option value="Rousse (Isa Brown)">Rousse (Isa Brown)</option><option value="Harco (Noire)">Harco (Noire)</option><option value="Sussex">Sussex (Blanche herminée)</option><option value="Cendrée (Limousine)">Cendrée (Limousine)</option><option value="Marans">Marans (Œufs extra-roux)</option></optgroup><option value="Autre">Autre race</option></select>
-                </div>
-                <div class="form-group"><label>Date Arrivée / Naissance</label><input type="date" id="chicken-date" required></div>
-                <div class="form-group"><label>Santé</label><select id="chicken-health"><option value="healthy">En forme</option><option value="sick">Malade</option><option value="molting">En mue</option><option value="broody">Couve</option></select></div>
-                <div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Sauver</button></div>
-            </form>
-        </div>
-    </div>
-    <div id="modal-transaction" class="modal">
-        <div class="modal-content glass-panel animate-pop">
-            <h2>Transaction</h2>
-            <form id="form-transaction">
-                <input type="hidden" id="trans-id">
-                <div class="segment-control margin-bottom">
-                    <button type="button" class="segment-btn active" id="btn-expense" onclick="setTransactionType('expense')">Dépense</button>
-                    <button type="button" class="segment-btn" id="btn-income" onclick="setTransactionType('income')">Revenu</button>
-                </div>
-                <input type="hidden" id="trans-category" value="expense">
-                <div class="form-group"><label>Type</label><select id="trans-type"><option value="graines">Alimentation</option><option value="paille">Litière</option><option value="soins">Soins</option><option value="materiel">Matériel</option><option value="achat_poule">Achat Poule</option><option value="vente_oeufs">Vente Œufs</option><option value="autre">Autre</option></select></div>
-                <div class="form-group"><label>Montant (€)</label><input type="number" id="trans-amount" step="0.01" required></div>
-                <div class="form-group"><label>Date</label><input type="date" id="trans-date" required></div>
-                <div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-delete-trans" onclick="deleteTransaction()">Supprimer</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Valider</button></div>
-            </form>
-        </div>
-    </div>
-    <div id="modal-edit-task" class="modal">
-        <div class="modal-content glass-panel animate-pop">
-            <h2>Tâche</h2>
-            <form id="form-task">
-                <input type="hidden" id="task-id">
-                <div class="form-group"><label>Titre</label><input type="text" id="task-title" required></div>
-                <div class="form-group"><label>Fréquence (jours)</label><input type="number" id="task-freq" required min="1"></div>
-                <div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-delete-task" onclick="deleteCurrentTask()">Supprimer</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Valider</button></div>
-            </form>
-        </div>
-    </div>
-    <div id="modal-stock" class="modal"><div class="modal-content glass-panel animate-pop"><h2>📦 Stock Graines</h2><form onsubmit="saveStock(event)"><div class="form-group"><label>Quantité (kg)</label><input type="number" id="stock-qty" step="0.1" required></div><div class="modal-actions"><button type="button" class="btn-secondary close-modal">Fermer</button><button type="submit" class="btn-primary">OK</button></div></form></div></div>
+    <div id="modal-chicken" class="modal"><div class="modal-content glass-panel animate-pop"><h2 id="modal-chicken-title">Fiche Poule</h2><form id="form-chicken"><input type="hidden" id="chicken-id"><div class="photo-upload-wrapper" onclick="document.getElementById('chicken-photo-input').click()"><img id="preview-photo" src="icon.png"><div class="upload-icon"><i class="fas fa-camera"></i></div></div><input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)"><div class="form-group"><label>Nom</label><input type="text" id="chicken-name" required placeholder="Ex: Huguette"></div><div class="form-group"><label>Race</label><select id="chicken-breed"><option value="">-- Inconnue / Croisée --</option><optgroup label="Les Stars du Jardin"><option value="Rousse (Isa Brown)">Rousse (Isa Brown)</option><option value="Harco (Noire)">Harco (Noire)</option><option value="Sussex">Sussex (Blanche herminée)</option><option value="Cendrée (Limousine)">Cendrée (Limousine)</option><option value="Marans">Marans (Œufs extra-roux)</option></optgroup><option value="Autre">Autre race</option></select></div><div class="form-group"><label>Date Arrivée / Naissance</label><input type="date" id="chicken-date" required></div><div class="form-group"><label>Santé</label><select id="chicken-health"><option value="healthy">En forme</option><option value="sick">Malade</option><option value="molting">En mue</option><option value="broody">Couve</option></select></div><div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Sauver</button></div></form></div></div>
+    <div id="modal-transaction" class="modal"><div class="modal-content glass-panel animate-pop"><h2>Transaction</h2><form id="form-transaction"><input type="hidden" id="trans-id"><div class="segment-control margin-bottom"><button type="button" class="segment-btn active" id="btn-expense" onclick="setTransactionType('expense')">Dépense</button><button type="button" class="segment-btn" id="btn-income" onclick="setTransactionType('income')">Revenu</button></div><input type="hidden" id="trans-category" value="expense"><div class="form-group"><label>Type</label><select id="trans-type"><option value="graines">Alimentation</option><option value="paille">Litière</option><option value="soins">Soins</option><option value="materiel">Matériel</option><option value="achat_poule">Achat Poule</option><option value="vente_oeufs">Vente Œufs</option><option value="autre">Autre</option></select></div><div class="form-group"><label>Montant (€)</label><input type="number" id="trans-amount" step="0.01" required></div><div class="form-group"><label>Date</label><input type="date" id="trans-date" required></div><div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-delete-trans" onclick="deleteTransaction()">Supprimer</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Valider</button></div></form></div></div>
+    <div id="modal-edit-task" class="modal"><div class="modal-content glass-panel animate-pop"><h2>Tâche</h2><form id="form-task"><input type="hidden" id="task-id"><div class="form-group"><label>Titre</label><input type="text" id="task-title" required></div><div class="form-group"><label>Fréquence (jours)</label><input type="number" id="task-freq" required min="1"></div><div class="modal-actions"><button type="button" class="btn-text-danger" id="btn-delete-task" onclick="deleteCurrentTask()">Supprimer</button><div style="flex:1"></div><button type="button" class="btn-secondary close-modal">Annuler</button><button type="submit" class="btn-primary">Valider</button></div></form></div></div>
     <div id="modal-add-egg" class="modal"><div class="modal-content glass-panel animate-pop"><h2 style="text-align:center; margin-bottom:20px;">🥚 Ramassage</h2><form id="form-add-egg" style="display:flex; flex-direction:column; gap:20px;"><div style="text-align:center;"><label style="display:block; margin-bottom:10px; color:var(--text-grey);">Combien d'œufs ?</label><div style="display:flex; align-items:center; justify-content:center; gap:20px;"><button type="button" onclick="adjustEggCount(-1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:rgba(0,0,0,0.05); border:none;">-</button><input type="number" id="egg-count-input" value="1" min="1" max="50" style="width:80px; text-align:center; font-size:30px; border:none; background:transparent; font-weight:bold;"><button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:var(--primary); color:white; border:none;">+</button></div></div><div class="form-group"><label>Date</label><input type="date" id="egg-date-input" required></div><div class="modal-actions"><button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button><button type="submit" class="btn-primary" style="flex:1;">Valider</button></div></form></div></div>
+
     <script src="app.js"></script>
     <script src="extensions.js"></script>
     <script src="stats.js"></script>
