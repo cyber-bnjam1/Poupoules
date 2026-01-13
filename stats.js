@@ -98,7 +98,11 @@ function initYearSelector() {
     const currentYear = new Date().getFullYear();
     yearSelect.innerHTML = '';
     
-    for (let y = currentYear; y >= currentYear - 4; y--) {
+    // --- MODIFICATION ICI ---
+    // On part de l'année actuelle et on descend jusqu'à 2025 seulement.
+    // L'année prochaine (2026), la boucle fera 2026, 2025.
+    // Dans 2 ans (2027), elle fera 2027, 2026, 2025, etc.
+    for (let y = currentYear; y >= 2025; y--) {
         const opt = document.createElement('option');
         opt.value = y;
         opt.innerText = y;
