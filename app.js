@@ -311,82 +311,9 @@ function getAge(d) { if(!d) return ''; const m = Math.floor((Date.now()-new Date
 function getDaysDiff(d) { return Math.floor((new Date()-new Date(d))/(1000*60*60*24)); }
 
 // DATA
-function saveData() {
-    // 1. On prépare le paquet de données
-    const d = {
-        // Données principales
-        chickens: localChickens,
-        eggs: localEggs,
-        transactions: localTransactions,
-        tasks: localTasks,
-        
-        // Données Extensions (On les récupère du LocalStorage pour les envoyer au Cloud)
-        fridgeStock: localStorage.getItem('poupoules_fridge_stock') || '0',
-        seedStock: localStorage.getItem('poupoules_seed_stock') || '0',
-        recycling: JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]')
-    };
-
-    // 2. Indicateur visuel : Synchronisation en cours (Orange)
-    updateHeaderIcons('syncing');
-
-    // 3. Envoi
-    if(currentUser) {
-        db.collection('users').doc(currentUser.uid).set(d, { merge: true })
-            .then(() => {
-                updateHeaderIcons('online'); // Succès -> Vert
-            })
-            .catch((e) => {
-                console.error("Erreur sync", e);
-                updateHeaderIcons('offline'); // Erreur -> Rouge
-            });
-    } else {
-        // Mode invité
-        localStorage.setItem('poupoules_data', JSON.stringify(d));
-        updateHeaderIcons('guest'); // Mode Invité -> Rouge/Gris
-    }
-    
-    // On met à jour l'icône de maintenance à chaque sauvegarde
-    updateMaintenanceIcon();
-}
+function saveData() { const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }; try { if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(d)); else if(currentUser) db.collection('users').doc(currentUser.uid).set(d); } catch(e) { console.error("Sauvegarde impossible", e); } }
 function loadLocalData() { const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[]}'); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }
-function loadFirebaseData() {
-    updateHeaderIcons('syncing'); // Orange pendant le chargement
-
-    db.collection('users').doc(currentUser.uid).get().then(doc => {
-        if(doc.exists) {
-            const d = doc.data();
-            
-            // 1. Réception des données principales
-            localChickens = d.chickens || [];
-            localEggs = d.eggs || [];
-            localTransactions = d.transactions || [];
-            localTasks = d.tasks || [];
-
-            // 2. Réception des données Extensions (On les remet dans le LocalStorage du PC)
-            // C'est ça qui va synchroniser votre stock et frigo !
-            if(d.fridgeStock !== undefined) localStorage.setItem('poupoules_fridge_stock', d.fridgeStock);
-            if(d.seedStock !== undefined) localStorage.setItem('poupoules_seed_stock', d.seedStock);
-            if(d.recycling !== undefined) localStorage.setItem('poupoules_recycling_history', JSON.stringify(d.recycling));
-
-            // 3. Mise à jour de l'affichage
-            renderChickensList();
-            renderDashboard();
-            renderFinance();
-            renderTasks();
-            
-            // Forcer la mise à jour des widgets extensions s'ils existent
-            if(window.renderFridgeWidget) window.renderFridgeWidget();
-            if(window.renderSuppliesWidget) window.renderSuppliesWidget(); // Pour le stock graine
-            
-            updateHeaderIcons('online'); // Tout est chargé -> Vert
-        } else {
-            loadLocalData();
-            updateHeaderIcons('online');
-        }
-    }).catch(() => {
-        updateHeaderIcons('offline');
-    });
-}
+function loadFirebaseData() { db.collection('users').doc(currentUser.uid).get().then(doc => { if(doc.exists) { const d = doc.data(); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }}); }
 window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 window.exportData = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks })); a.download = "sauvegarde.json"; a.click(); };
 window.toggleDarkMode = () => { document.body.classList.toggle('dark-mode'); localStorage.setItem('darkMode', document.body.classList.contains('dark-mode')); };
