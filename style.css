@@ -179,17 +179,5 @@ input, select { width: 100%; padding: 12px; border-radius: 12px; border: 1px sol
 
 section { display: none; } section.active-view { display: block; }
 
-/* --- NOUVEAUX STYLES POUR L'ONGLET STATISTIQUES --- */
-
-/* Nécessaire pour afficher les graphiques Chart.js correctement */
-.chart-container {
-    position: relative;
-    height: 250px;
-    width: 100%;
-}
-
-/* Couleur pour l'icône déchets (vert succès) */
-.success-color {
-    background: rgba(52, 199, 89, 0.2);
-    color: var(--success);
-}
+/* AJOUT POUR STATS */
+.success-color { background: rgba(52, 199, 89, 0.2); color: var(--success); }
