@@ -49,7 +49,7 @@
                 <button class="menu-link" onclick="navigate('view-chickens')"><i class="fas fa-crow"></i> Poules</button>
                 <button class="menu-link" onclick="navigate('view-finance')"><i class="fas fa-coins"></i> Budget</button>
                 <button class="menu-link" onclick="navigate('view-maintenance')"><i class="fas fa-broom"></i> Entretien</button>
-                <button class="menu-link" onclick="navigate('view-stats')"><i class="fas fa-chart-pie"></i> Stats</button>
+                <button class="menu-link" onclick="navigate('view-stats')"><i class="fas fa-chart-pie"></i> Stat</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
             </nav>
         </div>
@@ -87,11 +87,39 @@
             <ul id="recent-activity-list" class="glass-list activity-list"></ul>
         </section>
 
+        <section id="view-chickens">
+            <h1 class="big-title">Mon Cheptel</h1>
+            <div class="segment-control">
+                <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Poulailler</button>
+                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
+            </div>
+            <div id="chickens-grid" class="grid-container"></div>
+        </section>
+
+        <section id="view-finance">
+            <h1 class="big-title">Budget</h1>
+            <div class="glass-card balance-card">
+                <span class="balance-label">Bilan Global</span>
+                <h2 id="balance-total" class="balance-amount">0.00 €</h2>
+            </div>
+            
+            <div id="sales-register-container"></div>
+
+            <h3 class="section-title">Historique</h3>
+            <ul id="finance-list" class="glass-list"></ul>
+        </section>
+
+        <section id="view-maintenance">
+            <h1 class="big-title">Entretien</h1>
+            <ul id="tasks-list" class="glass-list task-list-full"></ul>
+            
+            <div id="health-widget-container" style="margin-top:30px;"></div>
+        </section>
+
         <section id="view-stats">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1 class="big-title">Statistiques</h1>
-                <select id="stats-year-select" class="glass-input" style="width:auto; padding:5px 15px; border-radius:15px; font-weight:bold;">
-                    </select>
+                <select id="stats-year-select" style="width:auto; padding:5px 15px; border-radius:15px; font-weight:bold; background:rgba(0,0,0,0.05); border:none;"></select>
             </div>
 
             <div class="status-row">
@@ -99,116 +127,151 @@
                     <div class="icon-circle egg-color"><i class="fas fa-egg"></i></div>
                     <div class="status-info">
                         <span class="status-label">Total Œufs</span>
-                        <span class="status-value" id="stat-total-eggs-year">0</span>
+                        <span class="status-value" id="stat-total-eggs">0</span>
                     </div>
                 </div>
                 <div class="glass-card mini-status-card">
-                    <div class="icon-circle success-color" style="background:rgba(52, 199, 89, 0.2); color:#34c759;"><i class="fas fa-recycle"></i></div>
+                    <div class="icon-circle success-color"><i class="fas fa-recycle"></i></div>
                     <div class="status-info">
                         <span class="status-label">Total Déchets</span>
-                        <span class="status-value" id="stat-total-waste-year">0 kg</span>
+                        <span class="status-value" id="stat-total-waste">0 kg</span>
                     </div>
                 </div>
             </div>
 
-            <div class="glass-card chart-card" style="margin-top:20px;">
+            <div class="glass-card chart-card">
                 <h3><i class="fas fa-chart-area"></i> Courbe de Ponte</h3>
                 <div class="chart-container" style="height:200px;">
-                    <canvas id="chart-annual-eggs"></canvas>
+                    <canvas id="chart-stats-eggs"></canvas>
                 </div>
             </div>
 
-            <div class="glass-card chart-card" style="margin-top:20px;">
+            <div class="glass-card chart-card">
                 <h3><i class="fas fa-dumpster"></i> Recyclage Déchets</h3>
                 <div class="chart-container" style="height:200px;">
-                    <canvas id="chart-annual-waste"></canvas>
+                    <canvas id="chart-stats-waste"></canvas>
                 </div>
             </div>
 
-            <h3 class="section-title">En bref sur l'année</h3>
+            <h3 class="section-title">Autres statistiques</h3>
             <div class="glass-card" style="padding:15px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:10px;">
                     <span style="color:var(--text-grey);">Meilleur mois</span>
-                    <span style="font-weight:bold;" id="stat-best-month-eggs">-</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:10px;">
-                    <span style="color:var(--text-grey);">Moyenne / jour</span>
-                    <span style="font-weight:bold;" id="stat-avg-eggs">0</span>
+                    <span style="font-weight:bold;" id="stat-best-month">-</span>
                 </div>
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="color:var(--text-grey);">Économies estimées</span>
-                    <span style="font-weight:bold; color:var(--success);" id="stat-savings">0 €</span>
+                    <span style="color:var(--text-grey);">Moyenne œufs/jour</span>
+                    <span style="font-weight:bold;" id="stat-avg-eggs">0</span>
                 </div>
             </div>
-            
-            <div style="height:80px;"></div> </section>
-
-        <section id="view-chickens">
-            <h1 class="big-title">Mon Cheptel</h1>
-            <div class="segment-control">
-                <button id="btn-filter-active" class="segment-btn active" onclick="filterChickens('active', this)">Poulailler</button>
-                <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
-            </div>
-            
-            <div id="chickens-grid" class="grid-container"></div>
         </section>
-
-        <section id="view-finance">
-            <h1 class="big-title">Budget & Ventes</h1>
-            <div class="glass-card balance-card">
-                <span class="balance-label">Solde Total</span>
-                <div class="balance-amount" id="finance-balance">0.00 €</div>
-            </div>
-            
-            <div class="action-row">
-                <button class="action-btn income" onclick="openTransactionModal('income')">
-                    <i class="fas fa-plus"></i> Vente
-                </button>
-                <button class="action-btn expense" onclick="openTransactionModal('expense')">
-                    <i class="fas fa-minus"></i> Dépense
-                </button>
-            </div>
-
-            <h3 class="section-title">Historique</h3>
-            <ul id="transactions-list" class="glass-list"></ul>
-        </section>
-
-        <section id="view-maintenance">
-            <h1 class="big-title">Entretien</h1>
-            <div class="maintenance-grid" id="maintenance-grid"></div>
-        </section>
-
         <section id="view-settings">
             <h1 class="big-title">Réglages</h1>
-            
-            <div class="glass-card profile-header-card" id="auth-container"></div>
-
-            <div class="settings-list">
-                <div class="setting-item">
-                    <div class="setting-icon"><i class="fas fa-moon"></i></div>
-                    <div class="setting-label">Mode Sombre</div>
-                    <label class="switch">
-                        <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="setting-item" onclick="exportData()">
-                    <div class="setting-icon"><i class="fas fa-file-export"></i></div>
-                    <div class="setting-label">Sauvegarder les données (JSON)</div>
-                    <i class="fas fa-chevron-right" style="color:#ccc;"></i>
-                </div>
+            <div class="profile-header-card">
+                <div id="auth-container"></div>
             </div>
-            <div style="text-align:center; margin-top:30px; color:#aaa; font-size:12px;">
-                Mes Poulettes v2.1<br>Application PWA
+            <div id="achievements-container"></div>
+
+            <h3 class="settings-header">Préférences</h3>
+            <div class="ios-list">
+                <div class="ios-item">
+                    <div class="ios-icon" style="background-color: #333;"><i class="fas fa-moon"></i></div>
+                    <div class="ios-content">
+                        <span>Mode Sombre</span>
+                        <label class="switch">
+                            <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="ios-item clickable" onclick="exportData()">
+                    <div class="ios-icon" style="background-color: #007aff;"><i class="fas fa-file-export"></i></div>
+                    <div class="ios-content">
+                        <span>Sauvegarder les données</span>
+                        <i class="fas fa-chevron-right arrow"></i>
+                    </div>
+                </div>
             </div>
         </section>
-
     </main>
 
     <div id="fab-container">
-        <button id="main-fab" class="fab-btn hidden" onclick="handleFabClick()">
-            <i class="fas fa-plus"></i>
-        </button>
+        <button id="main-fab" class="fab-btn" onclick="handleFabClick()"><i class="fas fa-plus"></i></button>
+    </div>
+
+    <div id="modal-chicken" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2 id="modal-chicken-title">Fiche Poule</h2>
+            <form id="form-chicken">
+                <input type="hidden" id="chicken-id">
+                <div class="photo-upload-wrapper" onclick="document.getElementById('chicken-photo-input').click()">
+                    <img id="preview-photo" src="icon.png">
+                    <div class="upload-icon"><i class="fas fa-camera"></i></div>
+                </div>
+                <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)">
+                
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" id="chicken-name" required placeholder="Ex: Huguette">
+                </div>
+                
+                <div class="form-group">
+                    <label>Race</label>
+                    <select id="chicken-breed">
+                        <option value="">-- Inconnue / Croisée --</option>
+                        <optgroup label="Les Stars du Jardin">
+                            <option value="Rousse (Isa Brown)">Rousse (Isa Brown)</option>
+                            <option value="Harco (Noire)">Harco (Noire)</option>
+                            <option value="Sussex">Sussex (Blanche herminée)</option>
+                            <option value="Cendrée (Limousine)">Cendrée (Limousine)</option>
+                            <option value="Marans">Marans (Œufs extra-roux)</option>
+                        </optgroup>
+                        <optgroup label="Races d'Ornement & Anciennes">
+                            <option value="Araucana">Araucana (Œufs verts)</option>
+                            <option value="Ameraucana">Ameraucana</option>
+                            <option value="Australorp">Australorp</option>
+                            <option value="Barnevelder">Barnevelder</option>
+                            <option value="Brahma">Brahma (Géante)</option>
+                            <option value="Chabo">Chabo (Nagasaki)</option>
+                            <option value="Cochin">Cochin</option>
+                            <option value="Cou Nu">Cou Nu</option>
+                            <option value="Cream Legbar">Cream Legbar (Œufs bleus)</option>
+                            <option value="Faverolles">Faverolles</option>
+                            <option value="Gauloise Dorée">Gauloise Dorée</option>
+                            <option value="Gâtinaise">Gâtinaise</option>
+                            <option value="Houdan">Houdan</option>
+                            <option value="Leghorn">Leghorn</option>
+                            <option value="Orpington">Orpington</option>
+                            <option value="Pékin">Pékin (Bantam)</option>
+                            <option value="Poule Soie">Poule Soie</option>
+                            <option value="Rhode Island">Rhode Island</option>
+                            <option value="Wyandotte">Wyandotte</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Date de naissance (approx)</label>
+                    <input type="date" id="chicken-date">
+                </div>
+                
+                <div class="form-group">
+                    <label>État de santé</label>
+                    <select id="chicken-health">
+                        <option value="good">En pleine forme</option>
+                        <option value="sick">Malade / Soins</option>
+                        <option value="broody">Couve</option>
+                        <option value="molting">En mue</option>
+                    </select>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-text-danger" id="btn-archive-chicken" onclick="archiveChicken()">Archiver</button>
+                    <button type="submit" class="btn-primary">Enregistrer</button>
+                </div>
+            </form>
+            <button class="close-menu-btn" onclick="document.getElementById('modal-chicken').style.display='none'">&times;</button>
+        </div>
     </div>
 
     <div id="modal-add-egg" class="modal">
@@ -218,81 +281,91 @@
                 <div style="text-align:center;">
                     <label style="display:block; margin-bottom:10px; color:var(--text-grey);">Combien d'œufs ?</label>
                     <div style="display:flex; align-items:center; justify-content:center; gap:20px;">
-                        <button type="button" class="btn-circle" onclick="adjustEggCount(-1)"><i class="fas fa-minus"></i></button>
-                        <input type="number" id="egg-count-input" value="1" min="1" style="font-size:30px; width:60px; text-align:center; border:none; background:transparent; font-weight:bold;">
-                        <button type="button" class="btn-circle" onclick="adjustEggCount(1)"><i class="fas fa-plus"></i></button>
+                        <button type="button" onclick="adjustEggCount(-1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; border:none; background:#eee;">-</button>
+                        <input type="number" id="egg-count-input" value="1" min="1" style="font-size:40px; width:80px; text-align:center; border:none; background:transparent; font-weight:bold;">
+                        <button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; border:none; background:#eee;">+</button>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Date</label>
-                    <input type="date" id="egg-date-input" required class="glass-input">
+                    <input type="date" id="egg-date-input" required>
                 </div>
                 <button type="submit" class="btn-primary">Valider</button>
-                <button type="button" class="btn-text close-modal">Annuler</button>
             </form>
+            <button class="close-menu-btn" onclick="document.getElementById('modal-add-egg').style.display='none'">&times;</button>
+        </div>
+    </div>
+
+    <div id="modal-transaction" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2 id="modal-transaction-title">Transaction</h2>
+            <div class="selection-grid" id="trans-type-selector" style="margin-bottom:20px;">
+                <div class="selection-card" onclick="selectTransType('graines', this)">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1046/1046857.png" alt="Graines">
+                    <span>Alimentation</span>
+                </div>
+                <div class="selection-card" onclick="selectTransType('soins', this)">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3063/3063206.png" alt="Soins">
+                    <span>Santé / Véto</span>
+                </div>
+                <div class="selection-card" onclick="selectTransType('materiel', this)">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2665/2665038.png" alt="Matériel">
+                    <span>Matériel</span>
+                </div>
+                <div class="selection-card" onclick="selectTransType('achat_poule', this)">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" alt="Poule">
+                    <span>Achat Poule</span>
+                </div>
+                <div class="selection-card" onclick="selectTransType('vente_oeufs', this)">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3063/3063822.png" alt="Œufs">
+                    <span>Vente Œufs</span>
+                </div>
+                <div class="selection-card" onclick="selectTransType('autre', this)">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" alt="Autre">
+                    <span>Autre</span>
+                </div>
+            </div>
+            <input type="hidden" id="trans-type">
+            <input type="hidden" id="trans-id">
+
+            <div class="form-group">
+                <label>Montant (€)</label>
+                <input type="number" step="0.01" id="trans-amount" class="glass-input" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="trans-date">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-text-danger" id="btn-delete-trans" onclick="deleteTransaction()" style="display:none;">Supprimer</button>
+                <button class="btn-primary" onclick="saveTransaction()">Valider</button>
+            </div>
+            <button class="close-menu-btn" onclick="document.getElementById('modal-transaction').style.display='none'">&times;</button>
         </div>
     </div>
     
-    <div id="modal-chicken" class="modal"> <div class="modal-content glass-panel animate-pop">
-            <h2 id="modal-chicken-title">Nouvelle Poule</h2>
-            <div class="photo-upload-container">
-                <img id="preview-photo" src="icon.png">
-                <div class="upload-icon"><i class="fas fa-camera"></i></div>
-            </div>
-            <input type="file" id="chicken-photo-input" accept="image/*" hidden onchange="handlePhotoUpload(this)">
-            <div class="form-group"> <label>Nom</label> <input type="text" id="chicken-name" required placeholder="Ex: Huguette"> </div>
-            <div class="form-group"> <label>Race</label> 
-                <select id="chicken-breed">
-                    <option value="">-- Inconnue / Croisée --</option>
-                    <option value="Rousse (Isa Brown)">Rousse (Isa Brown)</option>
-                    <option value="Harco (Noire)">Harco (Noire)</option>
-                    <option value="Sussex">Sussex (Blanche herminée)</option>
-                    <option value="Cendrée (Limousine)">Cendrée (Limousine)</option>
-                    <option value="Marans">Marans (Oeufs roux)</option>
-                    <option value="Araucana">Araucana (Oeufs verts)</option>
-                    <option value="Soie">Poule Soie</option>
-                </select>
-            </div>
-            <div class="form-group"> <label>Date de naissance (approx)</label> <input type="date" id="chicken-dob"> </div>
-            <div class="form-group" style="flex-direction:row; align-items:center; justify-content:space-between;">
-                <label>Favori (Apparaît en haut)</label> <input type="checkbox" id="chicken-fav" style="width:auto;">
-            </div>
-            <input type="hidden" id="chicken-id">
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button type="button" class="btn-danger" id="btn-delete-chicken" onclick="deleteCurrentChicken()" style="display:none;">Supprimer</button>
-                <button type="button" class="btn-primary" onclick="saveChicken()" style="flex:1;">Enregistrer</button>
-            </div>
-            <button class="btn-text close-modal" style="margin-top:10px;">Fermer</button>
-        </div>
-    </div>
-
-    <div id="modal-transaction" class="modal"> <div class="modal-content glass-panel animate-pop">
-            <h2 id="modal-transaction-title">Nouvelle Transaction</h2>
-            <div class="form-group"> <label>Montant (€)</label> <input type="number" step="0.01" id="trans-amount" required class="glass-input"> </div>
-            <div class="form-group"> <label>Description</label> <input type="text" id="trans-desc" placeholder="Ex: Sac de graines" class="glass-input"> </div>
-            <div class="form-group"> <label>Date</label> <input type="date" id="trans-date" class="glass-input"> </div>
-            <input type="hidden" id="trans-type">
-            <button class="btn-primary" onclick="saveTransaction()">Valider</button>
-            <button class="btn-text close-modal">Annuler</button>
-        </div>
-    </div>
-
-    <div id="modal-edit-task" class="modal"> <div class="modal-content glass-panel animate-pop">
-            <h2>Modifier la tâche</h2>
-            <div class="form-group"> <label>Nom de la tâche</label> <input type="text" id="task-name" class="glass-input"> </div>
-            <div class="form-group"> <label>Fréquence (jours)</label> <input type="number" id="task-freq" class="glass-input"> </div>
+    <div id="modal-task" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2>Éditer Tâche</h2>
             <input type="hidden" id="task-id">
-            <div style="display:flex; gap:10px; margin-top:10px;">
-                <button class="btn-danger" onclick="deleteCurrentTask()">Supprimer</button>
-                <button class="btn-primary" onclick="saveTaskChanges()" style="flex:1;">Enregistrer</button>
+            <div class="form-group">
+                <label>Nom</label>
+                <input type="text" id="task-name">
             </div>
-            <button class="btn-text close-modal">Annuler</button>
+            <div class="form-group">
+                <label>Fréquence (jours)</label>
+                <input type="number" id="task-freq">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-text-danger" onclick="deleteTask()">Supprimer</button>
+                <button class="btn-primary" onclick="saveTask()">Enregistrer</button>
+            </div>
+            <button class="close-menu-btn" onclick="document.getElementById('modal-task').style.display='none'">&times;</button>
         </div>
     </div>
 
-    <script src="stats.js"></script>
     <script src="extensions.js"></script>
-    <script src="app.js"></script>
+    <script src="stats.js"></script> <script src="app.js"></script>
     
     <script>
         // Set default dates
