@@ -178,3 +178,15 @@ input, select { width: 100%; padding: 12px; border-radius: 12px; border: 1px sol
 .menu-link.active { color: var(--primary); font-weight: bold; }
 
 section { display: none; } section.active-view { display: block; }
+/* --- AJOUT POUR LES STATUTS (WIFI & MAINTENACE) --- */
+.status-green { color: #34c759 !important; background: rgba(52, 199, 89, 0.1) !important; }
+.status-orange { color: #ff9500 !important; background: rgba(255, 149, 0, 0.1) !important; }
+.status-red { color: #ff3b30 !important; background: rgba(255, 59, 48, 0.1) !important; }
+
+/* Animation de pulsation pour l'orange (synchronisation en attente) */
+@keyframes pulse-orange {
+    0% { box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 149, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 149, 0, 0); }
+}
+.status-orange { animation: pulse-orange 2s infinite; }
