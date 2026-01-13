@@ -179,5 +179,6 @@ input, select { width: 100%; padding: 12px; border-radius: 12px; border: 1px sol
 
 section { display: none; } section.active-view { display: block; }
 
-/* AJOUT POUR STATS */
+/* AJOUTS POUR STATS (MINIMUM VITAL) */
 .success-color { background: rgba(52, 199, 89, 0.2); color: var(--success); }
+.chart-container { position: relative; height: 200px; width: 100%; }
