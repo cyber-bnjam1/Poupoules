@@ -81,7 +81,20 @@ window.toggleMenu = () => document.getElementById('menu-overlay').classList.togg
 window.navigate = (targetId) => {
     document.getElementById('menu-overlay').classList.remove('open');
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
-    document.getElementById(targetId).classList.add('active-view');
+
+    // --- CORRECTION ICI ---
+    // Si on demande la page stats, on s'assure qu'elle est générée avant de l'afficher
+    if (targetId === 'view-stats' && window.renderStatsView) {
+        window.renderStatsView();
+    }
+    // ----------------------
+
+    // On récupère l'élément (maintenant il existe forcément)
+    const target = document.getElementById(targetId);
+    if (target) {
+        target.classList.add('active-view');
+    }
+
     currentViewId = targetId;
     updateFabVisibility(targetId);
     window.scrollTo(0,0);
