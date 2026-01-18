@@ -311,7 +311,71 @@ function getAge(d) { if(!d) return ''; const m = Math.floor((Date.now()-new Date
 function getDaysDiff(d) { return Math.floor((new Date()-new Date(d))/(1000*60*60*24)); }
 
 // DATA
-function saveData() { const d = { chickens: localChickens, eggs: localEggs, transactions: localTransactions, tasks: localTasks }; try { if(isDemoMode) localStorage.setItem('poupoules_data', JSON.stringify(d)); else if(currentUser) db.collection('users').doc(currentUser.uid).set(d); } catch(e) { console.error("Sauvegarde impossible", e); } }
+// DANS APP.JS
+
+function loadData() {
+    if (!user || isDemoMode) return;
+
+    db.collection('users').doc(user.uid).get().then((doc) => {
+        if (doc.exists) {
+            const data = doc.data();
+            
+            // Chargement Poules/Oeufs (classique)
+            localChickens = data.chickens || [];
+            localEggs = data.eggs || [];
+            localTransactions = data.transactions || [];
+
+            // --- SYNCHRO EXTENSIONS (CLOUD -> LOCALSTORAGE) ---
+            if (data.extensions) {
+                // On met à jour la mémoire du téléphone avec ce qui vient du Cloud
+                if (data.extensions.recycling) {
+                    localStorage.setItem('poupoules_recycling_history', JSON.stringify(data.extensions.recycling));
+                    // On met à jour la variable globale du fichier extensions.js si possible
+                    if(typeof recyclingHistory !== 'undefined') {
+                        recyclingHistory = data.extensions.recycling;
+                    }
+                }
+                // (Tu peux faire pareil pour les autres extensions : health, supplies...)
+            }
+            // --------------------------------------------------
+
+            console.log("Données chargées et synchronisées en local !");
+            renderViews();
+            
+            // On force le rafraîchissement du widget Recycleur pour qu'il affiche les nouvelles données
+            if(typeof renderRecyclerWidget === 'function') renderRecyclerWidget();
+
+        } else {
+            // Premier démarrage : on sauvegarde ce qu'on a en local vers le cloud
+            saveData(); 
+        }
+    });
+}
+
+function saveData() {
+    if (!user || isDemoMode) return;
+
+    // --- SYNCHRO EXTENSIONS (LOCALSTORAGE -> CLOUD) ---
+    // On va piocher directement dans le localStorage pour être sûr d'avoir la dernière version
+    const recyclingLocal = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
+    // --------------------------------------------------
+
+    const dataToSave = {
+        chickens: localChickens,
+        eggs: localEggs,
+        transactions: localTransactions,
+        
+        // On crée un objet "extensions" dans Firebase qui contient nos données locales
+        extensions: {
+            recycling: recyclingLocal
+            // Ajoute ici les autres si besoin : health: ..., supplies: ...
+        }
+    };
+
+    db.collection('users').doc(user.uid).set(dataToSave)
+        .then(() => console.log("Sauvegarde Cloud OK"))
+        .catch((e) => console.error("Erreur save:", e));
+}
 function loadLocalData() { const d = JSON.parse(localStorage.getItem('poupoules_data') || '{"chickens":[]}'); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }
 function loadFirebaseData() { db.collection('users').doc(currentUser.uid).get().then(doc => { if(doc.exists) { const d = doc.data(); localChickens = d.chickens||[]; localEggs = d.eggs||[]; localTransactions = d.transactions||[]; localTasks = d.tasks||[]; renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance(); }}); }
 window.login = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
