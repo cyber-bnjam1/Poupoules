@@ -198,6 +198,8 @@ window.toggleSupply = (id) => { if (suppliesState[id] === false) suppliesState[i
 // ==========================================
 // --- BIO RECYCLEUR (Version LocalStorage + Pain) ---
 
+// --- BIO RECYCLEUR (Version LocalStorage + Pain + Sync Cloud) ---
+
 let recyclingHistory = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
 
 // Migration ancienne version (si existe)
@@ -243,7 +245,6 @@ function renderRecyclerWidget() {
     } 
     chartHtml += '</div>';
     
-    // Affichage HTML (Avec ajout section Pain)
     container.innerHTML = `
     <div class="glass-card" style="background:linear-gradient(to right, rgba(255,255,255,0.8), rgba(200, 255, 200, 0.4)); border:1px solid rgba(52, 199, 89, 0.2);">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -277,7 +278,13 @@ window.addRecycling = (e, qty) => {
     if(e) { e.preventDefault(); e.stopPropagation(); } 
     recyclingHistory.push({ date: new Date().toISOString(), qty: qty }); 
     localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); 
+    
     renderRecyclerWidget(); 
+    
+    // --- C'est ICI qu'on déclenche la synchro Cloud ---
+    if(typeof window.saveData === 'function') window.saveData(); 
+    // ------------------------------------------------
+    
     if(window.checkAchievements) checkAchievements(); 
     if(e && e.target) { 
         const btn = e.target; 
@@ -307,7 +314,13 @@ window.editRecyclingTotal = () => {
             recyclingHistory.push({ date: new Date().toISOString(), qty: target }); 
         } 
         localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); 
+        
         renderRecyclerWidget(); 
+        
+        // --- C'est ICI qu'on déclenche la synchro Cloud ---
+        if(typeof window.saveData === 'function') window.saveData();
+        // ------------------------------------------------
+        
         if(window.checkAchievements) checkAchievements(); 
     } 
 };
