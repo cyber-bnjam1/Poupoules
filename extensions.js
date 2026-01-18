@@ -196,134 +196,23 @@ window.toggleSupply = (id) => { if (suppliesState[id] === false) suppliesState[i
 // ==========================================
 // 3. BIO-RECYCLEUR V2
 // ==========================================
-// --- BIO RECYCLEUR (Version LocalStorage + Pain) ---
-
-// --- BIO RECYCLEUR (Version LocalStorage + Pain + Sync Cloud) ---
-
 let recyclingHistory = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
-
-// Migration ancienne version (si existe)
 if (localStorage.getItem('poupoules_recycled') && recyclingHistory.length === 0) {
     const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
-    if (oldTotal > 0) { 
-        recyclingHistory.push({ date: new Date().toISOString(), qty: oldTotal }); 
-        localStorage.removeItem('poupoules_recycled'); 
-        localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); 
-    }
+    if (oldTotal > 0) { recyclingHistory.push({ date: new Date().toISOString(), qty: oldTotal }); localStorage.removeItem('poupoules_recycled'); localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); }
 }
-
 function renderRecyclerWidget() {
-    const container = document.getElementById('recycler-widget-container'); 
-    if (!container) return;
-    
-    const now = new Date(); 
-    const currentMonth = now.getMonth(); 
-    const currentYear = now.getFullYear();
-    
-    let monthTotal = 0; 
-    recyclingHistory.forEach(item => { 
-        const d = new Date(item.date); 
-        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) { 
-            monthTotal += item.qty; 
-        } 
-    });
-    
-    // Génération du graphique
+    const container = document.getElementById('recycler-widget-container'); if (!container) return;
+    const now = new Date(); const currentMonth = now.getMonth(); const currentYear = now.getFullYear();
+    let monthTotal = 0; recyclingHistory.forEach(item => { const d = new Date(item.date); if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) { monthTotal += item.qty; } });
     let chartHtml = '<div style="display:flex; align-items:flex-end; gap:5px; height:40px; margin-top:10px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.05);">';
     const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-    for (let i = 5; i >= 0; i--) { 
-        const d = new Date(); d.setMonth(now.getMonth() - i); 
-        const m = d.getMonth(); const y = d.getFullYear(); 
-        let val = 0; 
-        recyclingHistory.forEach(item => { 
-            const itemD = new Date(item.date); 
-            if(itemD.getMonth() === m && itemD.getFullYear() === y) val += item.qty; 
-        }); 
-        const h = Math.min((val / 20) * 100, 100); 
-        const isCurrent = (i === 0); 
-        chartHtml += `<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;"><div style="width:100%; height:${Math.max(h, 5)}%; background:${isCurrent ? 'var(--success)' : 'rgba(52, 199, 89, 0.3)'}; border-radius:2px;"></div><div style="font-size:9px; color:var(--text-grey); margin-top:2px;">${months[m]}</div></div>`; 
-    } 
-    chartHtml += '</div>';
-    
-    container.innerHTML = `
-    <div class="glass-card" style="background:linear-gradient(to right, rgba(255,255,255,0.8), rgba(200, 255, 200, 0.4)); border:1px solid rgba(52, 199, 89, 0.2);">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <div class="icon-circle" style="background:rgba(52, 199, 89, 0.2); color:var(--success);"><i class="fas fa-recycle"></i></div>
-                <div class="status-info"><span class="status-label">Bio-Recycleur</span><span class="status-value" style="font-size:14px; color:var(--text-dark);">Ce mois-ci</span></div>
-            </div>
-            <div style="text-align:right;" onclick="editRecyclingTotal()">
-                <span style="font-size:24px; font-weight:800; color:var(--success); cursor:pointer;">${monthTotal.toFixed(2)} <span style="font-size:12px;">kg</span> <i class="fas fa-pen" style="font-size:10px; opacity:0.5;"></i></span>
-            </div>
-        </div>
-        
-        ${chartHtml}
-        
-        <div style="margin-top:10px; font-size:10px; font-weight:bold; color:var(--success);">♻️ Compost</div>
-        <div style="display:flex; gap:10px; margin-top:5px;">
-            <button type="button" onclick="addRecycling(event, 0.75)" style="flex:1; background:rgba(255,255,255,0.5); border:1px solid var(--success); color:var(--success); border-radius:10px; padding:8px; font-size:12px; font-weight:bold; cursor:pointer;">+ 1/2 Boîte</button>
-            <button type="button" onclick="addRecycling(event, 1.5)" style="flex:1; background:var(--success); color:white; border:none; border-radius:10px; padding:8px; font-size:12px; font-weight:bold; cursor:pointer;">+ Boîte Pleine</button>
-        </div>
-
-        <div style="margin-top:10px; font-size:10px; font-weight:bold; color:#d35400;">🥖 Pain</div>
-        <div style="display:flex; gap:5px; margin-top:5px;">
-            <button type="button" onclick="addRecycling(event, 0.06)" style="flex:1; background:rgba(211, 84, 0, 0.1); border:1px solid #d35400; color:#d35400; border-radius:10px; padding:6px; font-size:11px; font-weight:bold; cursor:pointer;">1/4</button>
-            <button type="button" onclick="addRecycling(event, 0.125)" style="flex:1; background:rgba(211, 84, 0, 0.1); border:1px solid #d35400; color:#d35400; border-radius:10px; padding:6px; font-size:11px; font-weight:bold; cursor:pointer;">1/2</button>
-            <button type="button" onclick="addRecycling(event, 0.25)" style="flex:1; background:#d35400; color:white; border:none; border-radius:10px; padding:6px; font-size:11px; font-weight:bold; cursor:pointer;">1 Baguette</button>
-        </div>
-    </div>`;
+    for (let i = 5; i >= 0; i--) { const d = new Date(); d.setMonth(now.getMonth() - i); const m = d.getMonth(); const y = d.getFullYear(); let val = 0; recyclingHistory.forEach(item => { const itemD = new Date(item.date); if(itemD.getMonth() === m && itemD.getFullYear() === y) val += item.qty; }); const h = Math.min((val / 20) * 100, 100); const isCurrent = (i === 0); chartHtml += `<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;"><div style="width:100%; height:${Math.max(h, 5)}%; background:${isCurrent ? 'var(--success)' : 'rgba(52, 199, 89, 0.3)'}; border-radius:2px;"></div><div style="font-size:9px; color:var(--text-grey); margin-top:2px;">${months[m]}</div></div>`; } chartHtml += '</div>';
+    container.innerHTML = `<div class="glass-card" style="background:linear-gradient(to right, rgba(255,255,255,0.8), rgba(200, 255, 200, 0.4)); border:1px solid rgba(52, 199, 89, 0.2);"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><div style="display:flex; align-items:center; gap:10px;"><div class="icon-circle" style="background:rgba(52, 199, 89, 0.2); color:var(--success);"><i class="fas fa-recycle"></i></div><div class="status-info"><span class="status-label">Bio-Recycleur</span><span class="status-value" style="font-size:14px; color:var(--text-dark);">Ce mois-ci</span></div></div><div style="text-align:right;" onclick="editRecyclingTotal()"><span style="font-size:24px; font-weight:800; color:var(--success); cursor:pointer;">${monthTotal.toFixed(2)} <span style="font-size:12px;">kg</span> <i class="fas fa-pen" style="font-size:10px; opacity:0.5;"></i></span></div></div>${chartHtml}<div style="display:flex; gap:10px; margin-top:10px;"><button type="button" onclick="addRecycling(event, 0.75)" style="flex:1; background:rgba(255,255,255,0.5); border:1px solid var(--success); color:var(--success); border-radius:10px; padding:8px; font-size:12px; font-weight:bold; cursor:pointer;">+ 1/2 Boîte</button><button type="button" onclick="addRecycling(event, 1.5)" style="flex:1; background:var(--success); color:white; border:none; border-radius:10px; padding:8px; font-size:12px; font-weight:bold; cursor:pointer;">+ Boîte Pleine</button></div></div>`;
 }
+window.addRecycling = (e, qty) => { if(e) { e.preventDefault(); e.stopPropagation(); } recyclingHistory.push({ date: new Date().toISOString(), qty: qty }); localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); renderRecyclerWidget(); checkAchievements(); if(e && e.target) { const btn = e.target; const originalText = btn.innerText; btn.innerText = "Ajouté !"; setTimeout(() => btn.innerText = originalText, 1000); } };
+window.editRecyclingTotal = () => { const currentMonth = new Date().getMonth(); const currentYear = new Date().getFullYear(); let currentTotal = 0; recyclingHistory.forEach(item => { const d = new Date(item.date); if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) currentTotal += item.qty; }); const newVal = prompt("Corriger le total de ce mois (kg) :", currentTotal.toFixed(2)); if (newVal !== null && !isNaN(parseFloat(newVal))) { const target = parseFloat(newVal); if (target < 0) return; recyclingHistory = recyclingHistory.filter(item => { const d = new Date(item.date); return !(d.getMonth() === currentMonth && d.getFullYear() === currentYear); }); if (target > 0) { recyclingHistory.push({ date: new Date().toISOString(), qty: target }); } localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); renderRecyclerWidget(); checkAchievements(); } };
 
-window.addRecycling = (e, qty) => { 
-    if(e) { e.preventDefault(); e.stopPropagation(); } 
-    recyclingHistory.push({ date: new Date().toISOString(), qty: qty }); 
-    localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); 
-    
-    renderRecyclerWidget(); 
-    
-    // --- C'est ICI qu'on déclenche la synchro Cloud ---
-    if(typeof window.saveData === 'function') window.saveData(); 
-    // ------------------------------------------------
-    
-    if(window.checkAchievements) checkAchievements(); 
-    if(e && e.target) { 
-        const btn = e.target; 
-        const originalText = btn.innerText; 
-        btn.innerText = "Miam !"; 
-        setTimeout(() => btn.innerText = originalText, 1000); 
-    } 
-};
-
-window.editRecyclingTotal = () => { 
-    const currentMonth = new Date().getMonth(); 
-    const currentYear = new Date().getFullYear(); 
-    let currentTotal = 0; 
-    recyclingHistory.forEach(item => { 
-        const d = new Date(item.date); 
-        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) currentTotal += item.qty; 
-    }); 
-    const newVal = prompt("Corriger le total de ce mois (kg) :", currentTotal.toFixed(2)); 
-    if (newVal !== null && !isNaN(parseFloat(newVal))) { 
-        const target = parseFloat(newVal); 
-        if (target < 0) return; 
-        recyclingHistory = recyclingHistory.filter(item => { 
-            const d = new Date(item.date); 
-            return !(d.getMonth() === currentMonth && d.getFullYear() === currentYear); 
-        }); 
-        if (target > 0) { 
-            recyclingHistory.push({ date: new Date().toISOString(), qty: target }); 
-        } 
-        localStorage.setItem('poupoules_recycling_history', JSON.stringify(recyclingHistory)); 
-        
-        renderRecyclerWidget(); 
-        
-        // --- C'est ICI qu'on déclenche la synchro Cloud ---
-        if(typeof window.saveData === 'function') window.saveData();
-        // ------------------------------------------------
-        
-        if(window.checkAchievements) checkAchievements(); 
-    } 
-};
 // ==========================================
 // 4. HALL OF FAME
 // ==========================================
