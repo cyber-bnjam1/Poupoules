@@ -1,5 +1,4 @@
-// extensions.js - VERSION "BIO-RECYCLEUR V3" (Pain + Compost)
-// Comprend : Tout le reste (Santé, Succès, Cloud, etc.) inchangé.
+// extensions.js - VERSION RÉPARÉE + RECYCLEUR COMPLET (Pain & Compost)
 
 const FEED_KG_PER_DAY = 0.12; 
 const MARKET_EGG_PRICE = 0.45; 
@@ -34,7 +33,7 @@ window.migrateLocalStorageToCloud = function() {
 };
 
 // ==========================================
-// INJECTION HTML
+// INJECTION HTML (LA CORRECTION EST ICI)
 // ==========================================
 function injectExtensionContainers() {
     const dashboard = document.getElementById('view-dashboard');
@@ -45,7 +44,7 @@ function injectExtensionContainers() {
 
     if (!dashboard) return;
 
-    // Haut de page
+    // 1. Widgets du Haut (Météo, Almanach)
     if (!document.getElementById('weather-tip-container')) {
         const div = document.createElement('div'); div.id = 'weather-tip-container'; div.style.marginBottom = "10px";
         const title = dashboard.querySelector('.big-title');
@@ -56,40 +55,48 @@ function injectExtensionContainers() {
         const w = document.getElementById('weather-tip-container'); if(w) w.insertAdjacentElement('afterend', div);
     }
 
-    // Zone Widgets
+    // 2. Zone Stock & Matériel
     let stockContainer = document.getElementById('stock-widget-container');
     if (!stockContainer) {
         stockContainer = document.createElement('div'); stockContainer.id = 'stock-widget-container';
+        // Fallback agressif : si pas de chart-card, on met après weather, sinon en bas
         const chart = dashboard.querySelector('.chart-card');
+        const almanac = document.getElementById('almanac-container');
+        
         if (chart) dashboard.insertBefore(stockContainer, chart);
-        else dashboard.querySelector('.status-row')?.insertAdjacentElement('afterend', stockContainer);
+        else if (almanac) almanac.insertAdjacentElement('afterend', stockContainer);
+        else dashboard.appendChild(stockContainer);
     }
 
-    // Forme (Juste avant Stock)
     if (!document.getElementById('laying-rate-container')) {
         const div = document.createElement('div'); div.id = 'laying-rate-container'; div.style.marginBottom = "20px";
         stockContainer.parentNode.insertBefore(div, stockContainer);
     }
-    
-    // Check Matériel
     if (!document.getElementById('supplies-widget-container')) {
         const div = document.createElement('div'); div.id = 'supplies-widget-container'; div.style.marginBottom = "15px"; 
         stockContainer.appendChild(div);
     }
-
-    // Frigo
     if (!document.getElementById('fridge-widget-container')) {
         const div = document.createElement('div'); div.id = 'fridge-widget-container';
         stockContainer.parentNode.insertBefore(div, stockContainer);
     }
     
-    // Recycler V3 (Pain + Compost)
+    // 3. RECYCLEUR (CORRECTION FORCEE)
     if (!document.getElementById('recycler-widget-container')) {
-        const div = document.createElement('div'); div.id = 'recycler-widget-container'; div.style.marginTop = "20px";
-        const chart = dashboard.querySelector('.chart-card'); if(chart) chart.insertAdjacentElement('afterend', div);
+        const div = document.createElement('div'); 
+        div.id = 'recycler-widget-container'; 
+        div.style.marginTop = "20px";
+        
+        const chart = dashboard.querySelector('.chart-card');
+        if(chart) {
+            chart.insertAdjacentElement('afterend', div);
+        } else {
+            // Si pas de graphique, on le colle à la fin du dashboard
+            dashboard.appendChild(div);
+        }
     }
     
-    // Journal
+    // 4. Autres Widgets
     if (!document.getElementById('journal-widget-container')) {
         const div = document.createElement('div'); div.id = 'journal-widget-container';
         const act = document.getElementById('recent-activity-list');
@@ -97,13 +104,11 @@ function injectExtensionContainers() {
         else dashboard.appendChild(div);
     }
 
-    // Hall of Fame
     if (chickens && !document.getElementById('hall-of-fame-container')) {
         const div = document.createElement('div'); div.id = 'hall-of-fame-container'; div.style.marginBottom = "20px";
         const filter = chickens.querySelector('.segment-control'); if(filter) filter.insertAdjacentElement('afterend', div);
     }
 
-    // Finance
     if (finance) {
         if (!document.getElementById('cost-price-container')) {
             const div = document.createElement('div'); div.id = 'cost-price-container';
@@ -120,12 +125,9 @@ function injectExtensionContainers() {
         }
     }
 
-    // Entretien & Santé
     if (maintenance) {
         if (!document.getElementById('health-widget-container')) {
-            const div = document.createElement('div'); 
-            div.id = 'health-widget-container';
-            div.style.marginTop = "50px"; 
+            const div = document.createElement('div'); div.id = 'health-widget-container'; div.style.marginTop = "50px"; 
             maintenance.appendChild(div);
         }
         if (!document.getElementById('vet-widget-container')) {
@@ -134,7 +136,6 @@ function injectExtensionContainers() {
         }
     }
 
-    // Succès
     if (settings && !document.getElementById('achievements-container')) {
         const div = document.createElement('div'); div.id = 'achievements-container';
         const prof = settings.querySelector('.profile-header-card'); if(prof) prof.insertAdjacentElement('afterend', div);
@@ -172,7 +173,6 @@ function renderRecyclerWidget() {
 
     container.innerHTML = `
         <div class="glass-card" style="background:linear-gradient(to right, rgba(255,255,255,0.8), rgba(200, 255, 200, 0.4)); border:1px solid rgba(52, 199, 89, 0.2);">
-            
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div class="icon-circle" style="background:rgba(52, 199, 89, 0.2); color:var(--success);"><i class="fas fa-recycle"></i></div>
@@ -200,7 +200,6 @@ function renderRecyclerWidget() {
                 <button type="button" onclick="addRecycling(event, 0.125)" style="flex:1; background:rgba(255,240,230,0.8); border:1px solid #d35400; color:#d35400; border-radius:10px; padding:6px; font-size:11px; font-weight:bold; cursor:pointer;">1/2 Bag.</button>
                 <button type="button" onclick="addRecycling(event, 0.25)" style="flex:1; background:#d35400; color:white; border:none; border-radius:10px; padding:6px; font-size:11px; font-weight:bold; cursor:pointer;">1 Baguette</button>
             </div>
-
         </div>
     `;
 }
@@ -213,7 +212,6 @@ window.addRecycling = (e, qty) => {
     renderRecyclerWidget(); 
     checkAchievements();
     
-    // Feedback visuel sur le bouton
     if(e && e.target) { 
         const btn = e.target; 
         const originalText = btn.innerText; 
@@ -240,7 +238,7 @@ window.editRecyclingTotal = () => {
 };
 
 // ==========================================
-// 2. FORME
+// 2. FORME & STOCKS
 // ==========================================
 function renderLayingRate() {
     const container = document.getElementById('laying-rate-container'); if (!container) return;
@@ -256,9 +254,6 @@ function renderLayingRate() {
     container.innerHTML = `<div class="glass-card" style="padding: 12px 15px; display: flex; align-items: center; justify-content: space-between;"><div style="display:flex; align-items:center; gap:12px;"><div class="icon-circle" style="background:${color}20; color:${color}; width:35px; height:35px; font-size:16px;"><i class="fas ${icon}"></i></div><div><span style="font-size:11px; color:var(--text-grey); display:block;">Taux de forme (7j)</span><span style="font-size:13px; color:var(--text-dark); font-weight:600;">${text}</span></div></div><div style="font-size:18px; font-weight:800; color:${color};">${rate.toFixed(0)}%</div></div>`;
 }
 
-// ==========================================
-// 3. STOCKS
-// ==========================================
 function renderSuppliesWidget() {
     const container = document.getElementById('supplies-widget-container'); if (!container) return;
     const suppliesState = window.localExtensionData.supplies || {};
@@ -274,13 +269,13 @@ function renderSuppliesWidget() {
 window.toggleSupply = (id) => { if (!window.localExtensionData.supplies) window.localExtensionData.supplies = {}; if (window.localExtensionData.supplies[id] === false) window.localExtensionData.supplies[id] = true; else window.localExtensionData.supplies[id] = false; if(window.saveData) window.saveData(); renderSuppliesWidget(); };
 
 // ==========================================
-// 4. HALL OF FAME
+// 3. HALL OF FAME
 // ==========================================
 function renderHallOfFame() { const container = document.getElementById('hall-of-fame-container'); if (!container) return; const records = window.localExtensionData.records || { heaviest: 0, lightest: 1000 }; const heavy = records.heaviest > 0 ? records.heaviest + 'g' : '--'; const light = records.lightest < 1000 ? records.lightest + 'g' : '--'; container.innerHTML = `<div class="glass-card" style="padding:15px; position:relative;"><div style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:#ffd700; color:#333; padding:2px 10px; border-radius:10px; font-size:10px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.1);">HALL OF FAME</div><div style="display:flex; justify-content:space-around; align-items:center; margin-top:5px;"><div style="text-align:center;" onclick="updateRecord('heaviest')"><div style="font-size:24px;">🦖</div><div style="font-size:11px; color:var(--text-grey); text-transform:uppercase; margin-top:2px;">Le Monstre</div><div style="font-size:16px; font-weight:800; color:var(--text-dark);">${heavy}</div></div><div style="width:1px; height:30px; background:rgba(0,0,0,0.1);"></div><div style="text-align:center;" onclick="updateRecord('lightest')"><div style="font-size:14px; margin-bottom:5px;">💎</div><div style="font-size:11px; color:var(--text-grey); text-transform:uppercase;">Le Bijou</div><div style="font-size:16px; font-weight:800; color:var(--text-dark);">${light}</div></div></div><div style="text-align:center; margin-top:10px; font-size:10px; color:var(--primary); font-style:italic;">Cliquez sur un score pour le modifier</div></div>`; }
 window.updateRecord = (type) => { const val = prompt(type === 'heaviest' ? "Nouveau record Poids Lourd (g) ?" : "Nouveau record Poids Plume (g) ?"); if(val && !isNaN(val)) { const weight = parseFloat(val); if(!window.localExtensionData.records) window.localExtensionData.records = { heaviest: 0, lightest: 1000 }; if(type === 'heaviest') { if(weight > window.localExtensionData.records.heaviest || window.localExtensionData.records.heaviest === 0) { window.localExtensionData.records.heaviest = weight; alert("💪 Nouveau record !"); } else { alert("Pas un record !"); return; } } else { if(weight < window.localExtensionData.records.lightest) { window.localExtensionData.records.lightest = weight; alert("✨ Nouveau record !"); } else { alert("Pas un record !"); return; } } if(window.saveData) window.saveData(); renderHallOfFame(); checkAchievements(); } };
 
 // ==========================================
-// 5. FRIGO & STOCK
+// 4. FRIGO & STOCK
 // ==========================================
 function renderFridgeWidget() { const container = document.getElementById('fridge-widget-container'); if (!container) return; const fridgeStock = window.localExtensionData.fridge || 0; const dcr = new Date(); dcr.setDate(dcr.getDate() + 28); const dcrStr = dcr.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); container.innerHTML = `<div class="glass-card" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;"><div style="display:flex; align-items:center; gap:15px;"><div class="icon-circle" style="background:rgba(52, 199, 89, 0.2); color:var(--success); font-size:20px;"><i class="fas fa-box-open"></i></div><div><span class="status-label">Stock Frigo</span><div style="font-size:20px; font-weight:800;">${fridgeStock} œufs</div></div></div><div style="display:flex; gap:5px;"><button onclick="updateFridge(1)" class="glass-btn-round" style="width:35px; height:35px; border:none; background:rgba(0,0,0,0.05); cursor:pointer; border-radius:50%;"><i class="fas fa-plus"></i></button><button onclick="updateFridge(-1)" class="glass-btn-round" style="width:35px; height:35px; border:none; background:rgba(0,0,0,0.05); cursor:pointer; border-radius:50%;"><i class="fas fa-utensils"></i></button><button onclick="openSellModal()" class="glass-btn-round" style="width:35px; height:35px; background:var(--success); color:white; border:none; cursor:pointer; border-radius:50%;"><i class="fas fa-euro-sign"></i></button></div></div><div style="margin-bottom:20px; font-size:12px; color:var(--text-grey); display:flex; gap:8px; align-items:center; padding:0 10px;"><i class="fas fa-calendar-check" style="color:var(--primary);"></i><span>DCR œufs du jour : <strong>${dcrStr}</strong>.</span></div>`; }
 window.updateFridge = (amount) => { if(typeof window.localExtensionData.fridge === 'undefined') window.localExtensionData.fridge = 0; window.localExtensionData.fridge += amount; if (window.localExtensionData.fridge < 0) window.localExtensionData.fridge = 0; if(window.saveData) window.saveData(); renderFridgeWidget(); checkAchievements(); };
@@ -291,7 +286,7 @@ window.saveStock = (e) => { e.preventDefault(); const qty = parseFloat(document.
 window.openStockModal = () => { document.getElementById('modal-stock').style.display = 'flex'; document.getElementById('stock-qty').value = (window.localExtensionData.stock && window.localExtensionData.stock.quantity) || ''; };
 
 // ==========================================
-// 6. JOURNAL, SANTÉ, VENTES, MÉTÉO, ALMANACH
+// 5. JOURNAL, SANTÉ, VENTES, MÉTÉO, ALMANACH
 // ==========================================
 function renderJournalWidget() { const container = document.getElementById('journal-widget-container'); if (!container) return; const notes = window.localExtensionData.notes || []; let notesHtml = ''; const recentNotes = notes.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 3); if (recentNotes.length === 0) notesHtml = `<li style="color:var(--text-grey); font-size:14px; padding:10px; text-align:center;">Rien à signaler.</li>`; else recentNotes.forEach(n => notesHtml += `<li style="display:flex; flex-direction:column; align-items:flex-start; gap:5px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:10px;"><div style="display:flex; justify-content:space-between; width:100%;"><small style="color:var(--text-grey); font-weight:600;">${new Date(n.date).toLocaleDateString()}</small><i class="fas fa-times" style="color:var(--text-grey); cursor:pointer;" onclick="deleteNote('${n.id}')"></i></div><span style="font-size:15px;">${n.text}</span></li>`); container.innerHTML = `<h3 class="section-title">📝 Journal</h3><div class="glass-card"><form onsubmit="addNote(event)" style="display:flex; gap:10px; margin-bottom:15px;"><input type="text" id="new-note-input" placeholder="Événement..." required style="flex:1;"><button type="submit" class="glass-btn-round" style="width:40px; height:40px; background:var(--primary); color:white; border:none; border-radius:12px;"><i class="fas fa-paper-plane"></i></button></form><ul class="glass-list" style="background:transparent; border:none; box-shadow:none; padding:0; gap:10px;">${notesHtml}</ul></div>`; }
 window.addNote = (e) => { e.preventDefault(); const input = document.getElementById('new-note-input'); if (input.value) { if(!window.localExtensionData.notes) window.localExtensionData.notes = []; window.localExtensionData.notes.push({ id: 'n'+Date.now(), text: input.value, date: new Date().toISOString() }); if(window.saveData) window.saveData(); renderJournalWidget(); }};
@@ -314,7 +309,7 @@ function renderVetGuide() { const container = document.getElementById('vet-widge
 function renderWeatherTip() { const container = document.getElementById('weather-tip-container'); if (!container) return; if (container.innerHTML === "") container.innerHTML = `<div class="glass-card" style="padding:15px; text-align:center; color:var(--text-grey);"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>`; const displayTip = (t, loc) => { let tip = "Tout va bien !"; let icon = "fa-sun"; let color = "var(--primary)"; if (t < 0) { tip = `Il gèle (${t}°C) ❄️ ! Graissez les crêtes.`; icon = "fa-snowflake"; color = "#007aff"; } else if (t < 10) { tip = `Frais (${t}°C). Gardez la litière sèche.`; icon = "fa-temperature-low"; color = "#5ac8fa"; } else if (t > 30) { tip = `Canicule (${t}°C) 🥵 ! Eau fraîche !`; icon = "fa-fire"; color = "#ff3b30"; } else if (t > 25) { tip = `Chaud (${t}°C). Changez l'eau souvent.`; icon = "fa-sun"; color = "#ff9500"; } container.innerHTML = `<div class="glass-card" style="padding:15px; display:flex; gap:15px; align-items:center; background:linear-gradient(to right, var(--glass-bg), rgba(255,255,255,0.4)); border-left: 4px solid ${color};"><i class="fas ${icon}" style="font-size:24px; color:${color};"></i><div style="font-size:13px; font-weight:600; color:var(--text-dark); line-height:1.4;">${tip} <br><span style="font-size:10px; color:var(--text-grey); font-weight:400;">Météo : ${loc}</span></div></div>`; }; const fallback = () => { fetch(`https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&current_weather=true`).then(r=>r.json()).then(d=>displayTip(d.current_weather.temperature, "Paris (Défaut)")).catch(e=>{container.innerHTML=`<div class="glass-card" style="padding:10px;text-align:center;font-size:12px;">Météo HS</div>`}); }; if ("geolocation" in navigator) { navigator.geolocation.getCurrentPosition((pos) => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`).then(r=>r.json()).then(d=>displayTip(d.current_weather.temperature, "Ma position")).catch(fallback), fallback); } else fallback(); }
 function renderAlmanac() { const container = document.getElementById('almanac-container'); if (!container) return; const month = new Date().getMonth(); const almanacData = [ { title: "Janvier : Grand Froid", text: "Eau tiède et maïs pour l'énergie." }, { title: "Février : Patience", text: "Nettoyez les nichoirs." }, { title: "Mars : Le Réveil", text: "Vermifuge avant la saison." }, { title: "Avril : Pleine Saison", text: "Donnez des coquilles d'huîtres." }, { title: "Mai : Attention Parasites", text: "Surveillez les poux rouges." }, { title: "Juin : Hydratation", text: "Eau fraîche à l'ombre." }, { title: "Juillet : Canicule", text: "Mouillez le sol si besoin." }, { title: "Août : Parasites 2", text: "Traitez à la terre de diatomée." }, { title: "Septembre : La Mue", text: "Protéines pour refaire les plumes." }, { title: "Octobre : L'Automne", text: "Attention au rhume (Coryza)." }, { title: "Novembre : Jours courts", text: "La ponte baisse, c'est normal." }, { title: "Décembre : Repos", text: "Laissez-les se reposer." } ]; const current = almanacData[month]; container.innerHTML = `<div style="background:rgba(255,255,255,0.5); padding:10px 15px; border-radius:15px; border:1px dashed var(--text-grey); font-size:12px; color:var(--text-dark); display:flex; gap:10px; align-items:center;"><i class="fas fa-calendar-alt" style="font-size:20px; color:var(--text-grey);"></i><div><strong style="display:block; margin-bottom:2px; text-transform:uppercase; font-size:10px; color:var(--text-grey);">${current.title}</strong><span>${current.text}</span></div></div>`; }
 
-// 7. SUCCÈS
+// 6. SUCCÈS
 function checkAchievements() {
     let eggTotal = 0; if(typeof localEggs !== 'undefined') localEggs.forEach(e => eggTotal += (e.count || 1));
     const recyc = window.localExtensionData.recycling || []; let recycledTotal = 0; recyc.forEach(r => recycledTotal += r.qty);
@@ -359,7 +354,7 @@ window.renderExtensions = () => {
     renderFridgeWidget();
     renderStockWidget();
     renderSuppliesWidget();
-    renderRecyclerWidget(); // PAIN + COMPOST
+    renderRecyclerWidget();
     renderJournalWidget();
     renderHallOfFame();
     renderCostPrice();
