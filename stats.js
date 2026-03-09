@@ -79,7 +79,9 @@ window.renderStatsView = () => {
 
     // B. Calculs et Mise à jour
     const eggsData = typeof localEggs !== 'undefined' ? localEggs : [];
-    const wasteData = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
+    // extRecyclingHistory est la variable globale synchronisée Firebase (définie dans app.js)
+    const wasteData = typeof extRecyclingHistory !== 'undefined' ? extRecyclingHistory
+        : JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
     const stats = calculateAnnualStats(currentStatsYear, eggsData, wasteData);
 
     // Update DOM
