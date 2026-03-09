@@ -158,12 +158,27 @@ function buildExtDataFromLocalStorage() {
 function setupRealtimeSync(uid) {
     if (unsubscribeFirestore) unsubscribeFirestore();
 
+    updateSyncStatus('loading');
+
     unsubscribeFirestore = db.collection('users').doc(uid)
         .onSnapshot((doc) => {
             if (doc.exists) {
                 const data = doc.data();
 
-                // Donnees core
+                // Comparer les dates : si le local est plus recent, on pousse vers Firebase
+                const firebaseDate = data.lastLocalUpdate ? new Date(data.lastLocalUpdate) : new Date(0);
+                const localDateStr = localStorage.getItem('poupoules_last_update');
+                const localDate = localDateStr ? new Date(localDateStr) : new Date(0);
+
+                if (localDate > firebaseDate) {
+                    // Le local est plus recent : on sauvegarde vers Firebase sans ecraser le local
+                    console.log(`[Firebase] Local plus recent (${localDateStr} > ${data.lastLocalUpdate}), push vers Firebase`);
+                    saveData();
+                    updateSyncStatus('ok');
+                    return;
+                }
+
+                // Firebase est plus recent ou egal : on charge depuis Firebase
                 localChickens     = data.chickens      || [];
                 localEggs         = data.eggs           || [];
                 localTransactions = data.transactions   || [];
@@ -188,20 +203,87 @@ function setupRealtimeSync(uid) {
                 renderFinance();
                 renderMaintenance();
 
-                console.log("Donnees synchronisees depuis Firebase");
+                updateSyncStatus('ok');
+                console.log(`[Firebase] Sync OK — ${localChickens.length} poules, ${localEggs.length} oeufs`);
             } else {
-                // Premiere connexion sans document : init vide
+                // Document inexistant : migrer les donnees locales
+                console.log("[Firebase] Document absent, creation depuis localStorage...");
                 db.collection('users').doc(uid).set({
-                    chickens: [], eggs: [], transactions: [], tasks: [],
+                    chickens: localChickens, eggs: localEggs,
+                    transactions: localTransactions, tasks: localTasks,
                     ...buildExtDataFromLocalStorage(),
                     lastSync: firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
         }, (error) => {
-            console.error("Erreur de synchronisation:", error);
+            console.error("[Firebase] Erreur de synchronisation:", error);
+            updateSyncStatus('error');
             loadLocalData();
         });
 }
+
+// Met a jour l'icone wifi du header selon l'etat de sync
+function updateSyncStatus(state) {
+    const badge = document.getElementById('header-status');
+    if (!badge) return;
+    if (state === 'loading') {
+        badge.classList.remove('status-green', 'status-red', 'status-orange', 'demo');
+        badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        badge.title = 'Synchronisation en cours...';
+    } else if (state === 'ok') {
+        badge.classList.remove('status-orange', 'status-red', 'demo');
+        badge.classList.add('status-green');
+        badge.innerHTML = '<i class="fas fa-wifi"></i>';
+        badge.title = 'Synchronise avec Firebase';
+    } else if (state === 'error') {
+        badge.classList.remove('status-green', 'status-orange', 'demo');
+        badge.classList.add('status-red');
+        badge.innerHTML = '<i class="fas fa-wifi"></i>';
+        badge.title = 'Erreur de synchronisation — donnees locales';
+    }
+}
+
+// Forcer une re-lecture depuis Firebase (bouton dans les reglages)
+window.forceSyncFromFirebase = async () => {
+    if (!currentUser) {
+        alert("Vous devez etre connecte pour synchroniser.");
+        return;
+    }
+    const btn = document.getElementById('btn-force-sync');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sync...'; }
+    try {
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        if (doc.exists) {
+            const data = doc.data();
+            localChickens     = data.chickens      || [];
+            localEggs         = data.eggs           || [];
+            localTransactions = data.transactions   || [];
+            localTasks        = data.tasks          || [];
+            extFridgeStock      = data.extFridgeStock      ?? 0;
+            extStockData        = data.extStockData        || { quantity: 0, date: null };
+            extRecyclingHistory = data.extRecyclingHistory || [];
+            extNotes            = data.extNotes            || [];
+            extHealth           = data.extHealth           || [];
+            extSales            = data.extSales            || [];
+            extSuppliesState    = data.extSuppliesState    || {};
+            extEggRecords       = data.extEggRecords       || { heaviest: 0, lightest: 1000 };
+            persistToLocalStorage();
+            renderChickensList();
+            renderDashboard();
+            renderFinance();
+            renderMaintenance();
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Synchronise !'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }, 2000); }
+            console.log("[Firebase] Sync forcee OK");
+        } else {
+            alert("Aucune donnee trouvee sur Firebase pour ce compte.");
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }
+        }
+    } catch (err) {
+        console.error("[Firebase] Erreur sync forcee:", err);
+        alert("Erreur : " + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }
+    }
+};
 
 // ============================================================
 // SAUVEGARDE UNIFIEE
@@ -242,11 +324,13 @@ function buildFullPayload() {
 // Persiste tout dans localStorage (cache offline)
 function persistToLocalStorage() {
     try {
+        const now = new Date().toISOString();
         localStorage.setItem('poupoules_data', JSON.stringify({
             chickens: localChickens, eggs: localEggs,
             transactions: localTransactions, tasks: localTasks,
-            lastLocalUpdate: new Date().toISOString()
+            lastLocalUpdate: now
         }));
+        localStorage.setItem('poupoules_last_update', now);
         localStorage.setItem('poupoules_fridge_qty',         String(extFridgeStock));
         localStorage.setItem('poupoules_stock',              JSON.stringify(extStockData));
         localStorage.setItem('poupoules_recycling_history',  JSON.stringify(extRecyclingHistory));
