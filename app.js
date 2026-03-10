@@ -169,29 +169,26 @@ function setupRealtimeSync(uid) {
     let initialPushDone = false;
 
     unsubscribeFirestore = db.collection('users').doc(uid)
-        .onSnapshot((doc) => {
-            // Ignorer les snapshots déclenchés par nos propres écritures
-            if (_syncInProgress) return;
+        .onSnapshot({ includeMetadataChanges: false }, (doc) => {
+            // Ignorer les snapshots locaux (nos propres écritures en attente)
+            if (doc.metadata.hasPendingWrites || doc.metadata.fromCache) return;
 
             if (doc.exists) {
                 const data = doc.data();
 
-                // Au premier snapshot seulement : comparer les dates
+                // Au premier snapshot : vérifier si le local est plus récent
                 if (!initialPushDone) {
                     initialPushDone = true;
                     const firebaseDate = data.lastLocalUpdate ? new Date(data.lastLocalUpdate) : new Date(0);
                     if (localDate > firebaseDate) {
-                        // Local plus récent → pousser vers Firebase UNE seule fois
-                        console.log(`[Firebase] Local plus récent, push initial vers Firebase`);
-                        _syncInProgress = true;
+                        console.log('[Firebase] Local plus récent, push initial vers Firebase');
                         saveData();
-                        setTimeout(() => { _syncInProgress = false; }, 3000);
                         updateSyncStatus('ok');
                         return;
                     }
                 }
 
-                // Charger depuis Firebase (source de vérité)
+                // Firebase confirmé par le serveur : charger les données
                 localChickens     = data.chickens      || [];
                 localEggs         = data.eggs           || [];
                 localTransactions = data.transactions   || [];
@@ -217,14 +214,13 @@ function setupRealtimeSync(uid) {
             } else {
                 initialPushDone = true;
                 console.log("[Firebase] Document absent, création depuis localStorage...");
-                _syncInProgress = true;
                 db.collection('users').doc(uid).set({
                     chickens: localChickens, eggs: localEggs,
                     transactions: localTransactions, tasks: localTasks,
                     ...buildExtDataFromLocalStorage(),
                     lastLocalUpdate: new Date().toISOString(),
                     lastSync: firebase.firestore.FieldValue.serverTimestamp()
-                }).then(() => { setTimeout(() => { _syncInProgress = false; }, 3000); });
+                });
             }
         }, (error) => {
             console.error("[Firebase] Erreur de synchronisation:", error);
@@ -303,16 +299,11 @@ function saveData() {
     persistToLocalStorage();
 
     if (!isDemoMode && currentUser) {
-        _syncInProgress = true;
         db.collection('users').doc(currentUser.uid).set({
             ...buildFullPayload(),
             lastSync: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true })
-        .then(() => {
-            setTimeout(() => { _syncInProgress = false; }, 2000);
-        })
         .catch(err => {
-            _syncInProgress = false;
             console.error("Erreur sauvegarde Firebase:", err);
         });
     }
