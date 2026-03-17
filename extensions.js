@@ -145,29 +145,116 @@ function injectExtensionContainers() {
 }
 
 // ==========================================
-// 1. INDICATEUR DE FORME
+// 1. INDICATEUR DE FORME (par race)
 // ==========================================
+
+// Capacite theorique de ponte en oeufs / semaine par race.
+// Les mots-cles sont en minuscules et cherches dans le champ "breed" de la poule.
+// Si la race n'est pas reconnue, on utilise la valeur "default".
+const BREED_EGGS_PER_WEEK = {
+    // Bonnes pondeuses (5-7 œufs/semaine)
+    'isa':        6,   // ISA Brown / Rousse ISA
+    'rousse':     6,
+    'leghorn':    6,
+    'legorne':    6,
+
+    // Bonnes pondeuses (4-5 œufs/semaine)
+    'sussex':     5,
+    'marans':     4,
+    'wyandotte':  4,
+    'australorp': 5,
+    'cendree':    4,   // Cendrée / Grise
+    'grise':      4,
+    'noire':      4,   // Poule noire generique
+    'black':      4,
+
+    // Races ornementales / faibles pondeuses (2-3 œufs/semaine)
+    'pekin':      2,   // Pékin naine
+    'soie':       2,   // Soie (Silkie)
+    'silkie':     2,
+    'bantam':     2,
+    'cochin':     2,
+    'sebright':   2,
+
+    // Valeur par defaut si race inconnue ou non renseignee
+    'default':    4,
+};
+
+// Retourne le nombre d'oeufs/semaine theorique pour une race donnee
+function getBreedEggsPerWeek(breed) {
+    if (!breed) return BREED_EGGS_PER_WEEK['default'];
+    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // retire accents
+    for (const [key, val] of Object.entries(BREED_EGGS_PER_WEEK)) {
+        if (key === 'default') continue;
+        if (b.includes(key)) return val;
+    }
+    return BREED_EGGS_PER_WEEK['default'];
+}
+
 function renderLayingRate() {
     const container = document.getElementById('laying-rate-container');
     if (!container) return;
-    const activeChickens = (typeof localChickens !== 'undefined') ? localChickens.filter(c => c.status === 'active').length : 0;
-    if (activeChickens === 0) { container.innerHTML = ''; return; }
 
+    const activeChickens = (typeof localChickens !== 'undefined')
+        ? localChickens.filter(c => (c.status || 'active') === 'active')
+        : [];
+
+    if (activeChickens.length === 0) { container.innerHTML = ''; return; }
+
+    // Capacite theorique reelle du troupeau sur 7 jours
+    const theoreticalWeeklyCapacity = activeChickens.reduce((sum, c) => sum + getBreedEggsPerWeek(c.breed), 0);
+
+    // Oeufs reellement collectes sur les 7 derniers jours
     const now = new Date();
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(now.getDate() - 7);
     let eggsLast7Days = 0;
     if (typeof localEggs !== 'undefined') {
-        localEggs.forEach(e => { const d = new Date(e.date); if (d >= oneWeekAgo && d <= now) eggsLast7Days += (e.count || 1); });
+        localEggs.forEach(e => {
+            const d = new Date(e.date);
+            if (d >= oneWeekAgo && d <= now) eggsLast7Days += (e.count || 1);
+        });
     }
 
-    const maxCapacity = activeChickens * 7;
-    const rate = maxCapacity > 0 ? (eggsLast7Days / maxCapacity) * 100 : 0;
+    const rate = theoreticalWeeklyCapacity > 0 ? (eggsLast7Days / theoreticalWeeklyCapacity) * 100 : 0;
+    const rateCapped = Math.min(rate, 100); // on plafonne a 100% pour l'affichage
+
     let color = 'var(--success)', icon = 'fa-chart-line', text = "Le cheptel est en pleine forme !";
     if (rate < 70) { color = 'var(--warning)'; icon = 'fa-meh'; text = "Ponte moyenne, a surveiller."; }
     if (rate < 40) { color = 'var(--danger)'; icon = 'fa-notes-medical'; text = "Baisse de regime importante."; }
 
-    container.innerHTML = `<div class="glass-card" style="padding:12px 15px; display:flex; align-items:center; justify-content:space-between;"><div style="display:flex; align-items:center; gap:12px;"><div class="icon-circle" style="background:${color}20; color:${color}; width:35px; height:35px; font-size:16px;"><i class="fas ${icon}"></i></div><div><span style="font-size:11px; color:var(--text-grey); display:block;">Taux de forme (7j)</span><span style="font-size:13px; color:var(--text-dark); font-weight:600;">${text}</span></div></div><div style="font-size:18px; font-weight:800; color:${color};">${rate.toFixed(0)}%</div></div>`;
+    // Detail des races pour l'infobulle / sous-texte
+    const breedSummary = activeChickens.reduce((acc, c) => {
+        const key = c.breed || 'Inconnue';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {});
+    const breedDetail = Object.entries(breedSummary)
+        .map(([breed, count]) => `${count} ${breed} (~${getBreedEggsPerWeek(breed)*count}/sem)`)
+        .join(' · ');
+
+    container.innerHTML = `
+        <div class="glass-card" style="padding:12px 15px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="icon-circle" style="background:${color}20; color:${color}; width:35px; height:35px; font-size:16px; flex-shrink:0;">
+                        <i class="fas ${icon}"></i>
+                    </div>
+                    <div>
+                        <span style="font-size:11px; color:var(--text-grey); display:block;">Taux de ponte (7j)</span>
+                        <span style="font-size:13px; color:var(--text-dark); font-weight:600;">${text}</span>
+                    </div>
+                </div>
+                <div style="text-align:right; flex-shrink:0; margin-left:10px;">
+                    <div style="font-size:18px; font-weight:800; color:${color};">${rate.toFixed(0)}%</div>
+                    <div style="font-size:10px; color:var(--text-grey);">${eggsLast7Days} / ${theoreticalWeeklyCapacity} œufs</div>
+                </div>
+            </div>
+            <div style="width:100%; height:6px; background:rgba(0,0,0,0.07); border-radius:3px; overflow:hidden;">
+                <div style="width:${rateCapped}%; height:100%; background:${color}; border-radius:3px; transition:width 0.5s ease;"></div>
+            </div>
+            <div style="font-size:10px; color:var(--text-grey); margin-top:6px; line-height:1.4;">${breedDetail}</div>
+        </div>`;
 }
 
 // ==========================================
