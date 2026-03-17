@@ -152,43 +152,132 @@ function injectExtensionContainers() {
 // Les mots-cles sont en minuscules et cherches dans le champ "breed" de la poule.
 // Si la race n'est pas reconnue, on utilise la valeur "default".
 const BREED_EGGS_PER_WEEK = {
-    // Bonnes pondeuses (5-7 œufs/semaine)
+    // Bonnes pondeuses (5-7 oeufs/semaine)
     'isa':        6,   // ISA Brown / Rousse ISA
     'rousse':     6,
     'leghorn':    6,
     'legorne':    6,
 
-    // Bonnes pondeuses (4-5 œufs/semaine)
+    // Bonnes pondeuses (4-5 oeufs/semaine)
     'sussex':     5,
     'marans':     4,
     'wyandotte':  4,
     'australorp': 5,
-    'cendree':    4,   // Cendrée / Grise
+    'cendree':    4,   // Cendree / Grise
     'grise':      4,
     'noire':      4,   // Poule noire generique
+    'harco':      4,
     'black':      4,
+    'rhode':      5,
+    'plymouth':   4,
+    'faverolles': 4,
+    'barnevelder':4,
+    'orpington':  3,
+    'brahma':     3,
+    'vorwerk':    4,
 
-    // Races ornementales / faibles pondeuses (2-3 œufs/semaine)
-    'pekin':      2,   // Pékin naine
-    'soie':       2,   // Soie (Silkie)
+    // Races ornementales / faibles pondeuses (2-3 oeufs/semaine)
+    'pekin':      2,
+    'soie':       2,
     'silkie':     2,
     'bantam':     2,
     'cochin':     2,
     'sebright':   2,
+    'chabo':      2,
+    'araucana':   3,
+    'ameraucana': 3,
+    'padoue':     2,
+    'gatinaise':  3,
+    'houdan':     3,
 
     // Valeur par defaut si race inconnue ou non renseignee
     'default':    4,
 };
 
+// Age max de ponte productive (en annees) par race.
+// Au-dela, la ponte chute significativement.
+const BREED_MAX_LAYING_YEARS = {
+    'isa':        3,   // ISA Brown / Rousse : s'epuisent vite
+    'rousse':     3,
+    'leghorn':    4,
+    'sussex':     5,
+    'marans':     5,
+    'wyandotte':  5,
+    'australorp': 5,
+    'cendree':    5,
+    'harco':      4,
+    'noire':      4,
+    'rhode':      5,
+    'plymouth':   5,
+    'faverolles': 5,
+    'orpington':  6,
+    'brahma':     6,
+    'pekin':      7,   // Naines vivent longtemps
+    'soie':       7,
+    'silkie':     7,
+    'cochin':     7,
+    'sebright':   6,
+    'chabo':      7,
+    'araucana':   5,
+    'ameraucana': 5,
+    'default':    5,
+};
+
 // Retourne le nombre d'oeufs/semaine theorique pour une race donnee
 function getBreedEggsPerWeek(breed) {
     if (!breed) return BREED_EGGS_PER_WEEK['default'];
-    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // retire accents
+    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     for (const [key, val] of Object.entries(BREED_EGGS_PER_WEEK)) {
         if (key === 'default') continue;
         if (b.includes(key)) return val;
     }
     return BREED_EGGS_PER_WEEK['default'];
+}
+
+// Retourne l'age max de ponte pour une race donnee (en annees)
+function getBreedMaxLayingYears(breed) {
+    if (!breed) return BREED_MAX_LAYING_YEARS['default'];
+    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    for (const [key, val] of Object.entries(BREED_MAX_LAYING_YEARS)) {
+        if (key === 'default') continue;
+        if (b.includes(key)) return val;
+    }
+    return BREED_MAX_LAYING_YEARS['default'];
+}
+
+// Retourne l'age en annees (decimal) d'une poule a partir de sa date d'arrivee
+function getChickenAgeYears(chicken) {
+    if (!chicken.date) return 0;
+    const ms = Date.now() - new Date(chicken.date).getTime();
+    return ms / (1000 * 60 * 60 * 24 * 365.25);
+}
+
+// Detecte si on est en periode basse saison (mue + manque de lumiere)
+// Periode : 1er septembre -> 28 fevrier
+function isLowSeasonPeriod() {
+    const month = new Date().getMonth(); // 0=jan ... 11=dec
+    return month >= 8 || month <= 1; // sept(8) a fev(1)
+}
+
+// Calcule un coefficient saisonnier (0.5 = ponte reduite de moitie en plein hiver)
+function getSeasonalCoefficient() {
+    const month = new Date().getMonth();
+    // Coefficients par mois (jan=0 ... dec=11)
+    const coefficients = [
+        0.55, // Janvier   — lumiere tres courte
+        0.65, // Fevrier   — reprise timide
+        0.85, // Mars      — reprise de la ponte
+        0.95, // Avril
+        1.00, // Mai
+        1.00, // Juin
+        0.95, // Juillet   — chaleur
+        0.90, // Aout      — pre-mue
+        0.75, // Septembre — debut mue
+        0.60, // Octobre   — mue + nuits longues
+        0.50, // Novembre  — creux hivernal
+        0.50, // Decembre  — creux hivernal
+    ];
+    return coefficients[month];
 }
 
 function renderLayingRate() {
@@ -201,8 +290,32 @@ function renderLayingRate() {
 
     if (activeChickens.length === 0) { container.innerHTML = ''; return; }
 
-    // Capacite theorique reelle du troupeau sur 7 jours
-    const theoreticalWeeklyCapacity = activeChickens.reduce((sum, c) => sum + getBreedEggsPerWeek(c.breed), 0);
+    // --- SAISON ---
+    const seasonCoeff = getSeasonalCoefficient();
+    const isLowSeason = isLowSeasonPeriod();
+    const monthNames = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    const currentMonthName = monthNames[new Date().getMonth()];
+
+    // --- ALERTES AGE ---
+    const agingAlerts = [];
+    activeChickens.forEach(c => {
+        const ageYears = getChickenAgeYears(c);
+        const maxYears = getBreedMaxLayingYears(c.breed);
+        if (ageYears >= maxYears) {
+            agingAlerts.push({ name: c.name, age: ageYears, max: maxYears, status: 'over' });
+        } else if (ageYears >= maxYears - 0.5) {
+            agingAlerts.push({ name: c.name, age: ageYears, max: maxYears, status: 'soon' });
+        }
+    });
+
+    // --- POULES EN MUE OU QUI COUVENT (exclues du calcul) ---
+    const inactiveHealth = ['molting', 'broody'];
+    const pontingChickens = activeChickens.filter(c => !inactiveHealth.includes(c.health));
+    const inactiveCount = activeChickens.length - pontingChickens.length;
+
+    // Capacite theorique avec coefficient saisonnier, seulement sur les poules qui pondent
+    const rawCapacity = pontingChickens.reduce((sum, c) => sum + getBreedEggsPerWeek(c.breed), 0);
+    const theoreticalWeeklyCapacity = Math.round(rawCapacity * seasonCoeff);
 
     // Oeufs reellement collectes sur les 7 derniers jours
     const now = new Date();
@@ -217,21 +330,67 @@ function renderLayingRate() {
     }
 
     const rate = theoreticalWeeklyCapacity > 0 ? (eggsLast7Days / theoreticalWeeklyCapacity) * 100 : 0;
-    const rateCapped = Math.min(rate, 100); // on plafonne a 100% pour l'affichage
+    const rateCapped = Math.min(rate, 100);
 
     let color = 'var(--success)', icon = 'fa-chart-line', text = "Le cheptel est en pleine forme !";
     if (rate < 70) { color = 'var(--warning)'; icon = 'fa-meh'; text = "Ponte moyenne, a surveiller."; }
-    if (rate < 40) { color = 'var(--danger)'; icon = 'fa-notes-medical'; text = "Baisse de regime importante."; }
+    if (rate < 40) { color = 'var(--danger)'; icon = 'fa-notes-medical'; text = "Baisse de régime importante."; }
 
-    // Detail des races pour l'infobulle / sous-texte
-    const breedSummary = activeChickens.reduce((acc, c) => {
+    // Detail des races
+    const breedSummary = pontingChickens.reduce((acc, c) => {
         const key = c.breed || 'Inconnue';
         acc[key] = (acc[key] || 0) + 1;
         return acc;
     }, {});
     const breedDetail = Object.entries(breedSummary)
-        .map(([breed, count]) => `${count} ${breed} (~${getBreedEggsPerWeek(breed)*count}/sem)`)
+        .map(([breed, count]) => `${count} ${breed} (~${Math.round(getBreedEggsPerWeek(breed) * seasonCoeff * count)}/sem)`)
         .join(' · ');
+
+    // Badge saison
+    let seasonBadge = '';
+    if (isLowSeason) {
+        const seasonPct = Math.round(seasonCoeff * 100);
+        seasonBadge = `
+            <div style="display:flex; align-items:center; gap:6px; background:rgba(90,120,255,0.08); border:1px solid rgba(90,120,255,0.2); border-radius:8px; padding:6px 10px; margin-top:8px;">
+                <i class="fas fa-moon" style="color:#5b7fff; font-size:12px;"></i>
+                <span style="font-size:11px; color:var(--text-grey);">Basse saison (${currentMonthName}) — capacité réduite à <strong style="color:var(--text-dark);">${seasonPct}%</strong> du potentiel normal</span>
+            </div>`;
+    }
+
+    // Badges poules inactives (mue / couve)
+    let inactiveBadge = '';
+    if (inactiveCount > 0) {
+        const inactiveNames = activeChickens
+            .filter(c => inactiveHealth.includes(c.health))
+            .map(c => `${c.name} (${c.health === 'molting' ? 'en mue' : 'couve'})`)
+            .join(', ');
+        inactiveBadge = `
+            <div style="display:flex; align-items:center; gap:6px; background:rgba(255,149,0,0.08); border:1px solid rgba(255,149,0,0.2); border-radius:8px; padding:6px 10px; margin-top:8px;">
+                <i class="fas fa-feather" style="color:var(--warning); font-size:12px;"></i>
+                <span style="font-size:11px; color:var(--text-grey);">${inactiveNames} — non comptabilisée${inactiveCount > 1 ? 's' : ''} dans le calcul</span>
+            </div>`;
+    }
+
+    // Badges alertes age
+    let ageBadgesHtml = '';
+    agingAlerts.forEach(alert => {
+        const ageStr = alert.age < 2
+            ? Math.round(alert.age * 12) + ' mois'
+            : alert.age.toFixed(1).replace('.', ',') + ' ans';
+        if (alert.status === 'over') {
+            ageBadgesHtml += `
+                <div style="display:flex; align-items:center; gap:6px; background:rgba(255,59,48,0.08); border:1px solid rgba(255,59,48,0.2); border-radius:8px; padding:6px 10px; margin-top:8px;">
+                    <i class="fas fa-hourglass-end" style="color:var(--danger); font-size:12px;"></i>
+                    <span style="font-size:11px; color:var(--text-grey);"><strong style="color:var(--text-dark);">${alert.name}</strong> — ${ageStr}, au-delà de l'âge de ponte optimal (${alert.max} ans pour sa race)</span>
+                </div>`;
+        } else {
+            ageBadgesHtml += `
+                <div style="display:flex; align-items:center; gap:6px; background:rgba(255,149,0,0.08); border:1px solid rgba(255,149,0,0.2); border-radius:8px; padding:6px 10px; margin-top:8px;">
+                    <i class="fas fa-hourglass-half" style="color:var(--warning); font-size:12px;"></i>
+                    <span style="font-size:11px; color:var(--text-grey);"><strong style="color:var(--text-dark);">${alert.name}</strong> — ${ageStr}, approche de la fin de sa période de ponte (${alert.max} ans)</span>
+                </div>`;
+        }
+    });
 
     container.innerHTML = `
         <div class="glass-card" style="padding:12px 15px;">
@@ -254,6 +413,9 @@ function renderLayingRate() {
                 <div style="width:${rateCapped}%; height:100%; background:${color}; border-radius:3px; transition:width 0.5s ease;"></div>
             </div>
             <div style="font-size:10px; color:var(--text-grey); margin-top:6px; line-height:1.4;">${breedDetail}</div>
+            ${seasonBadge}
+            ${inactiveBadge}
+            ${ageBadgesHtml}
         </div>`;
 }
 
