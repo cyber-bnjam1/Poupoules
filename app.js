@@ -25,17 +25,13 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 // ============================================================
-// STATE GLOBAL — toutes les données de l'app (core + extensions)
+// STATE GLOBAL
 // ============================================================
-let localChickens = [], localEggs = [], localTransactions = [], localTasks = [];
+let localChickens = [], localEggs = [], localTasks = [];
 
-// Données extensions (anciennement localStorage uniquement)
-let extFridgeStock = 0;
-let extStockData = { quantity: 0, date: null };
-let extRecyclingHistory = [];
+// Données extensions conservées
 let extNotes = [];
 let extHealth = [];
-let extSales = [];
 let extSuppliesState = {};
 let extEggRecords = { heaviest: 0, lightest: 1000 };
 
@@ -56,10 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initEggsChart();
     updateFabVisibility('view-dashboard');
 
-    // Chargement initial depuis localStorage (mode invité par défaut)
     loadLocalData();
 
-    // Gestion de l'état d'authentification
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             currentUser = user;
@@ -79,12 +73,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Fermeture des modals
     document.querySelectorAll('.close-modal').forEach(b => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
     });
 
-    // Formulaire ajout d'oeufs
     document.getElementById('form-add-egg').addEventListener('submit', (e) => {
         e.preventDefault();
         const count = parseInt(document.getElementById('egg-count-input').value);
@@ -97,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: new Date().toISOString()
             };
             localEggs.push(newEgg);
-            extFridgeStock += count;
             saveData();
             renderDashboard();
             document.getElementById('modal-add-egg').style.display = 'none';
@@ -106,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// MIGRATION : LocalStorage vers Firebase a la premiere connexion
+// MIGRATION : LocalStorage vers Firebase à la première connexion
 // ============================================================
 async function checkAndMigrateLocalData(uid) {
     try {
@@ -118,44 +109,29 @@ async function checkAndMigrateLocalData(uid) {
             await db.collection('users').doc(uid).set({
                 chickens: coreData.chickens || [],
                 eggs: coreData.eggs || [],
-                transactions: coreData.transactions || [],
                 tasks: coreData.tasks || [],
                 ...extData,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log("Migration reussie !");
-        } else {
-            console.log("Donnees Firebase existantes, pas de migration necessaire.");
         }
     } catch (error) {
         console.error("Erreur lors de la migration:", error);
     }
 }
 
-// Lit toutes les cles localStorage des extensions et les retourne en objet plat
 function buildExtDataFromLocalStorage() {
-    // Migration legacy recycling
-    let recycling = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
-    if (localStorage.getItem('poupoules_recycled') && recycling.length === 0) {
-        const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
-        if (oldTotal > 0) recycling.push({ date: new Date().toISOString(), qty: oldTotal });
-    }
     return {
-        extFridgeStock:     parseInt(localStorage.getItem('poupoules_fridge_qty') || '0'),
-        extStockData:       JSON.parse(localStorage.getItem('poupoules_stock') || '{"quantity":0,"date":null}'),
-        extRecyclingHistory: recycling,
-        extNotes:           JSON.parse(localStorage.getItem('poupoules_notes') || '[]'),
-        extHealth:          JSON.parse(localStorage.getItem('poupoules_health') || '[]'),
-        extSales:           JSON.parse(localStorage.getItem('poupoules_sales') || '[]'),
-        extSuppliesState:   JSON.parse(localStorage.getItem('poupoules_supplies') || '{}'),
-        extEggRecords:      JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}'),
+        extNotes:         JSON.parse(localStorage.getItem('poupoules_notes') || '[]'),
+        extHealth:        JSON.parse(localStorage.getItem('poupoules_health') || '[]'),
+        extSuppliesState: JSON.parse(localStorage.getItem('poupoules_supplies') || '{}'),
+        extEggRecords:    JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}'),
     };
 }
 
 // ============================================================
-// SYNCHRONISATION TEMPS REEL
+// SYNCHRONISATION TEMPS RÉEL
 // ============================================================
-// Flag pour éviter la boucle infinie onSnapshot → saveData → onSnapshot
 let _syncInProgress = false;
 
 function setupRealtimeSync(uid) {
@@ -163,20 +139,17 @@ function setupRealtimeSync(uid) {
 
     updateSyncStatus('loading');
 
-    // Au premier chargement : vérifier si local plus récent, puis pousser UNE SEULE FOIS
     const localDateStr = localStorage.getItem('poupoules_last_update');
     const localDate = localDateStr ? new Date(localDateStr) : new Date(0);
     let initialPushDone = false;
 
     unsubscribeFirestore = db.collection('users').doc(uid)
         .onSnapshot({ includeMetadataChanges: false }, (doc) => {
-            // Ignorer les snapshots locaux (nos propres écritures en attente)
             if (doc.metadata.hasPendingWrites || doc.metadata.fromCache) return;
 
             if (doc.exists) {
                 const data = doc.data();
 
-                // Au premier snapshot : vérifier si le local est plus récent
                 if (!initialPushDone) {
                     initialPushDone = true;
                     const firebaseDate = data.lastLocalUpdate ? new Date(data.lastLocalUpdate) : new Date(0);
@@ -188,25 +161,18 @@ function setupRealtimeSync(uid) {
                     }
                 }
 
-                // Firebase confirmé par le serveur : charger les données
-                localChickens     = data.chickens      || [];
-                localEggs         = data.eggs           || [];
-                localTransactions = data.transactions   || [];
-                localTasks        = data.tasks          || [];
+                localChickens = data.chickens || [];
+                localEggs     = data.eggs     || [];
+                localTasks    = data.tasks    || [];
 
-                extFridgeStock      = data.extFridgeStock      ?? 0;
-                extStockData        = data.extStockData        || { quantity: 0, date: null };
-                extRecyclingHistory = data.extRecyclingHistory || [];
-                extNotes            = data.extNotes            || [];
-                extHealth           = data.extHealth           || [];
-                extSales            = data.extSales            || [];
-                extSuppliesState    = data.extSuppliesState    || {};
-                extEggRecords       = data.extEggRecords       || { heaviest: 0, lightest: 1000 };
+                extNotes         = data.extNotes         || [];
+                extHealth        = data.extHealth        || [];
+                extSuppliesState = data.extSuppliesState || {};
+                extEggRecords    = data.extEggRecords    || { heaviest: 0, lightest: 1000 };
 
                 persistToLocalStorage();
                 renderChickensList();
                 renderDashboard();
-                renderFinance();
                 renderMaintenance();
 
                 updateSyncStatus('ok');
@@ -215,8 +181,7 @@ function setupRealtimeSync(uid) {
                 initialPushDone = true;
                 console.log("[Firebase] Document absent, création depuis localStorage...");
                 db.collection('users').doc(uid).set({
-                    chickens: localChickens, eggs: localEggs,
-                    transactions: localTransactions, tasks: localTasks,
+                    chickens: localChickens, eggs: localEggs, tasks: localTasks,
                     ...buildExtDataFromLocalStorage(),
                     lastLocalUpdate: new Date().toISOString(),
                     lastSync: firebase.firestore.FieldValue.serverTimestamp()
@@ -229,7 +194,6 @@ function setupRealtimeSync(uid) {
         });
 }
 
-// Met a jour l'icone wifi du header selon l'etat de sync
 function updateSyncStatus(state) {
     const badge = document.getElementById('header-status');
     if (!badge) return;
@@ -250,37 +214,26 @@ function updateSyncStatus(state) {
     }
 }
 
-// Forcer une re-lecture depuis Firebase (bouton dans les reglages)
 window.forceSyncFromFirebase = async () => {
-    if (!currentUser) {
-        alert("Vous devez etre connecte pour synchroniser.");
-        return;
-    }
+    if (!currentUser) { alert("Vous devez etre connecte pour synchroniser."); return; }
     const btn = document.getElementById('btn-force-sync');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sync...'; }
     try {
         const doc = await db.collection('users').doc(currentUser.uid).get();
         if (doc.exists) {
             const data = doc.data();
-            localChickens     = data.chickens      || [];
-            localEggs         = data.eggs           || [];
-            localTransactions = data.transactions   || [];
-            localTasks        = data.tasks          || [];
-            extFridgeStock      = data.extFridgeStock      ?? 0;
-            extStockData        = data.extStockData        || { quantity: 0, date: null };
-            extRecyclingHistory = data.extRecyclingHistory || [];
-            extNotes            = data.extNotes            || [];
-            extHealth           = data.extHealth           || [];
-            extSales            = data.extSales            || [];
-            extSuppliesState    = data.extSuppliesState    || {};
-            extEggRecords       = data.extEggRecords       || { heaviest: 0, lightest: 1000 };
+            localChickens = data.chickens || [];
+            localEggs     = data.eggs     || [];
+            localTasks    = data.tasks    || [];
+            extNotes         = data.extNotes         || [];
+            extHealth        = data.extHealth        || [];
+            extSuppliesState = data.extSuppliesState || {};
+            extEggRecords    = data.extEggRecords    || { heaviest: 0, lightest: 1000 };
             persistToLocalStorage();
             renderChickensList();
             renderDashboard();
-            renderFinance();
             renderMaintenance();
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Synchronise !'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }, 2000); }
-            console.log("[Firebase] Sync forcee OK");
         } else {
             alert("Aucune donnee trouvee sur Firebase pour ce compte.");
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }
@@ -293,7 +246,7 @@ window.forceSyncFromFirebase = async () => {
 };
 
 // ============================================================
-// SAUVEGARDE UNIFIEE
+// SAUVEGARDE UNIFIÉE
 // ============================================================
 function saveData() {
     persistToLocalStorage();
@@ -311,83 +264,55 @@ function saveData() {
 
 function buildFullPayload() {
     return {
-        // Core
         chickens:        localChickens,
         eggs:            localEggs,
-        transactions:    localTransactions,
         tasks:           localTasks,
         lastLocalUpdate: new Date().toISOString(),
-        // Extensions
-        extFridgeStock,
-        extStockData,
-        extRecyclingHistory,
         extNotes,
         extHealth,
-        extSales,
         extSuppliesState,
         extEggRecords,
     };
 }
 
-// Persiste tout dans localStorage (cache offline)
 function persistToLocalStorage() {
     try {
         const now = new Date().toISOString();
         localStorage.setItem('poupoules_data', JSON.stringify({
-            chickens: localChickens, eggs: localEggs,
-            transactions: localTransactions, tasks: localTasks,
+            chickens: localChickens, eggs: localEggs, tasks: localTasks,
             lastLocalUpdate: now
         }));
         localStorage.setItem('poupoules_last_update', now);
-        localStorage.setItem('poupoules_fridge_qty',         String(extFridgeStock));
-        localStorage.setItem('poupoules_stock',              JSON.stringify(extStockData));
-        localStorage.setItem('poupoules_recycling_history',  JSON.stringify(extRecyclingHistory));
-        localStorage.setItem('poupoules_notes',              JSON.stringify(extNotes));
-        localStorage.setItem('poupoules_health',             JSON.stringify(extHealth));
-        localStorage.setItem('poupoules_sales',              JSON.stringify(extSales));
-        localStorage.setItem('poupoules_supplies',           JSON.stringify(extSuppliesState));
-        localStorage.setItem('poupoules_records',            JSON.stringify(extEggRecords));
+        localStorage.setItem('poupoules_notes',    JSON.stringify(extNotes));
+        localStorage.setItem('poupoules_health',   JSON.stringify(extHealth));
+        localStorage.setItem('poupoules_supplies', JSON.stringify(extSuppliesState));
+        localStorage.setItem('poupoules_records',  JSON.stringify(extEggRecords));
     } catch (e) {
         console.error("Erreur persistance localStorage:", e);
     }
 }
 
 // ============================================================
-// CHARGEMENT LOCAL (mode invite ou fallback offline)
+// CHARGEMENT LOCAL
 // ============================================================
 function loadLocalData() {
     try {
         const d = JSON.parse(localStorage.getItem('poupoules_data') || '{}');
-        localChickens     = d.chickens     || [];
-        localEggs         = d.eggs          || [];
-        localTransactions = d.transactions  || [];
-        localTasks        = d.tasks         || [];
+        localChickens = d.chickens || [];
+        localEggs     = d.eggs     || [];
+        localTasks    = d.tasks    || [];
 
-        extFridgeStock      = parseInt(localStorage.getItem('poupoules_fridge_qty') || '0');
-        extStockData        = JSON.parse(localStorage.getItem('poupoules_stock') || '{"quantity":0,"date":null}');
-        extRecyclingHistory = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
-        extNotes            = JSON.parse(localStorage.getItem('poupoules_notes') || '[]');
-        extHealth           = JSON.parse(localStorage.getItem('poupoules_health') || '[]');
-        extSales            = JSON.parse(localStorage.getItem('poupoules_sales') || '[]');
-        extSuppliesState    = JSON.parse(localStorage.getItem('poupoules_supplies') || '{}');
-        extEggRecords       = JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}');
-
-        // Migration legacy recycling
-        if (localStorage.getItem('poupoules_recycled') && extRecyclingHistory.length === 0) {
-            const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
-            if (oldTotal > 0) {
-                extRecyclingHistory.push({ date: new Date().toISOString(), qty: oldTotal });
-                localStorage.removeItem('poupoules_recycled');
-            }
-        }
+        extNotes         = JSON.parse(localStorage.getItem('poupoules_notes')    || '[]');
+        extHealth        = JSON.parse(localStorage.getItem('poupoules_health')   || '[]');
+        extSuppliesState = JSON.parse(localStorage.getItem('poupoules_supplies') || '{}');
+        extEggRecords    = JSON.parse(localStorage.getItem('poupoules_records')  || '{"heaviest":0,"lightest":1000}');
 
         renderChickensList();
         renderDashboard();
-        renderFinance();
         renderMaintenance();
     } catch (e) {
         console.error("Erreur chargement local:", e);
-        localChickens = []; localEggs = []; localTransactions = []; localTasks = [];
+        localChickens = []; localEggs = []; localTasks = [];
     }
 }
 
@@ -455,7 +380,7 @@ window.navigate = (targetId) => {
 
 function updateFabVisibility(viewId) {
     const fab = document.getElementById('main-fab');
-    if (['view-chickens', 'view-finance', 'view-maintenance'].includes(viewId)) {
+    if (['view-chickens', 'view-maintenance'].includes(viewId)) {
         fab.classList.remove('hidden');
     } else {
         fab.classList.add('hidden');
@@ -464,7 +389,6 @@ function updateFabVisibility(viewId) {
 
 window.handleFabClick = () => {
     if (currentViewId === 'view-chickens') openChickenModal();
-    if (currentViewId === 'view-finance') openTransactionModal();
     if (currentViewId === 'view-maintenance') openEditTaskModal();
 };
 
@@ -676,95 +600,6 @@ function updateChart(eggs) {
     });
     eggsChartInstance.data.datasets[0].data = c;
     eggsChartInstance.update();
-}
-
-// ============================================================
-// FINANCE
-// ============================================================
-function renderFinance() {
-    const list = document.getElementById('finance-list');
-    if (!list) return;
-    list.innerHTML = '';
-    let total = 0;
-
-    localTransactions.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
-        total += (t.category === 'income' ? t.amount : -t.amount);
-        const li = document.createElement('li');
-        li.onclick = () => openTransactionModal(t.id);
-        li.innerHTML = `
-            <div><strong>${formatTransType(t.type)}</strong><br><small>${new Date(t.date).toLocaleDateString()}</small></div>
-            <div style="color:${t.category === 'income' ? 'var(--success)' : 'var(--text-dark)'}; font-weight:bold;">
-                ${t.category === 'income' ? '+' : '-'}${t.amount}€
-            </div>`;
-        list.appendChild(li);
-    });
-
-    const balanceEl = document.getElementById('balance-total');
-    if (balanceEl) {
-        balanceEl.innerText = total.toFixed(2) + ' EUR';
-        balanceEl.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
-    }
-}
-
-window.setTransactionType = (type) => {
-    document.getElementById('btn-expense').classList.remove('active');
-    document.getElementById('btn-income').classList.remove('active');
-    document.getElementById(type === 'expense' ? 'btn-expense' : 'btn-income').classList.add('active');
-    document.getElementById('trans-category').value = type;
-};
-
-window.openTransactionModal = (id = null) => {
-    document.getElementById('form-transaction').reset();
-    if (id) {
-        const t = localTransactions.find(x => x.id === id);
-        document.getElementById('trans-id').value = t.id;
-        document.getElementById('trans-amount').value = t.amount;
-        document.getElementById('trans-date').value = t.date;
-        document.getElementById('trans-type').value = t.type;
-        setTransactionType(t.category);
-        document.getElementById('btn-delete-trans').style.display = 'block';
-    } else {
-        document.getElementById('trans-id').value = "";
-        document.getElementById('trans-date').valueAsDate = new Date();
-        setTransactionType('expense');
-        document.getElementById('btn-delete-trans').style.display = 'none';
-    }
-    document.getElementById('modal-transaction').style.display = 'flex';
-};
-
-document.getElementById('form-transaction').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const id = document.getElementById('trans-id').value;
-    const data = {
-        amount: parseFloat(document.getElementById('trans-amount').value),
-        date: document.getElementById('trans-date').value,
-        type: document.getElementById('trans-type').value,
-        category: document.getElementById('trans-category').value,
-        updatedAt: new Date().toISOString()
-    };
-    if (id) {
-        const idx = localTransactions.findIndex(t => t.id === id);
-        if (idx > -1) localTransactions[idx] = { id, ...data };
-    } else {
-        localTransactions.push({ id: 't' + Date.now(), ...data });
-    }
-    saveData();
-    document.getElementById('modal-transaction').style.display = 'none';
-    renderFinance();
-});
-
-window.deleteTransaction = () => {
-    if (confirm("Supprimer cette transaction ?")) {
-        localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value);
-        saveData();
-        document.getElementById('modal-transaction').style.display = 'none';
-        renderFinance();
-    }
-};
-
-function formatTransType(t) {
-    const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Oeufs', 'soins': 'Veto/Soins', 'achat_poule': 'Achat Poule', 'paille': 'Litiere', 'materiel': 'Materiel' };
-    return map[t] || t;
 }
 
 // ============================================================
