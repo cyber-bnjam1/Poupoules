@@ -50,6 +50,9 @@ const statsViewHTML = `
             <span style="font-weight:bold;" id="stat-avg-eggs-2">0</span>
         </div>
     </div>
+    
+    <h3 class="section-title">Ponte individuelle</h3>
+    <ul id="stats-chicken-list" class="glass-list"></ul>
     <div style="height:100px;"></div>
 </section>
 `;
@@ -75,6 +78,42 @@ window.renderStatsView = () => {
     document.getElementById('stat-avg-eggs-2').innerText = stats.avgPerDay.toFixed(1);
 
     renderAnnualEggsChart(stats.monthlyEggs);
+
+    // NOUVEAU : Affichage des statistiques par poule
+    const list = document.getElementById('stats-chicken-list');
+    if (list) {
+        list.innerHTML = '';
+        const chickenStats = {};
+        
+        eggsData.forEach(e => {
+            if (new Date(e.date).getFullYear() === currentStatsYear && e.chickenId) {
+                chickenStats[e.chickenId] = (chickenStats[e.chickenId] || 0) + (e.count || 1);
+            }
+        });
+
+        const sortedChickens = Object.keys(chickenStats).sort((a,b) => chickenStats[b] - chickenStats[a]);
+        
+        if (sortedChickens.length === 0) {
+            list.innerHTML = '<li style="display:flex; justify-content:center; color:var(--text-grey);">Aucune ponte individuelle enregistrée pour cette année.</li>';
+        } else {
+            sortedChickens.forEach(id => {
+                const c = localChickens.find(x => x.id === id);
+                if (c) {
+                    list.innerHTML += `
+                        <li>
+                            <div style="display:flex; align-items:center; gap:15px;">
+                                <img src="${c.photo || 'icon.png'}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
+                                <div>
+                                    <strong>${c.name}</strong>
+                                    <div style="font-size:11px; color:var(--text-grey);">${c.breed || 'Inconnue'}</div>
+                                </div>
+                            </div>
+                            <div style="font-size:18px; font-weight:bold; color:var(--primary);">${chickenStats[id]} <i class="fas fa-egg" style="font-size:12px;"></i></div>
+                        </li>`;
+                }
+            });
+        }
+    }
 };
 
 function initYearSelector() {

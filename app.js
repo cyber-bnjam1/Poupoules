@@ -38,7 +38,6 @@ let extEggRecords = { heaviest: 0, lightest: 1000 };
 let currentUser = null, isDemoMode = true;
 let currentViewId = 'view-dashboard';
 let tempPhotoBase64 = null;
-let eggsChartInstance = null;
 let unsubscribeFirestore = null;
 
 // ============================================================
@@ -49,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('dark-mode');
         document.getElementById('dark-mode-toggle').checked = true;
     }
-    initEggsChart();
     updateFabVisibility('view-dashboard');
 
     loadLocalData();
@@ -81,11 +79,14 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const count = parseInt(document.getElementById('egg-count-input').value);
         const date = document.getElementById('egg-date-input').value;
+        const chickenId = document.getElementById('egg-chicken-input').value; 
+        
         if (count > 0 && date) {
             const newEgg = {
                 id: 'e' + Date.now(),
                 count: count,
                 date: new Date(date).toISOString(),
+                chickenId: chickenId || null, 
                 createdAt: new Date().toISOString()
             };
             localEggs.push(newEgg);
@@ -517,21 +518,23 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
 // ============================================================
 function renderDashboard() {
     const now = new Date();
-    let monthCount = 0, totalCount = 0;
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // Lundi
+    startOfWeek.setHours(0,0,0,0);
+
+    let monthCount = 0, weekCount = 0;
 
     localEggs.forEach(e => {
         const qty = e.count || 1;
-        totalCount += qty;
         const d = new Date(e.date);
         if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) monthCount += qty;
+        if (d >= startOfWeek && d <= now) weekCount += qty;
     });
 
-    const totalDisplay = document.getElementById('total-eggs-display');
     const monthDisplay = document.getElementById('eggs-month-count');
-    if (totalDisplay) totalDisplay.innerText = totalCount;
+    const weekDisplay = document.getElementById('eggs-week-count');
     if (monthDisplay) monthDisplay.innerText = monthCount;
-
-    updateChart(localEggs);
+    if (weekDisplay) weekDisplay.innerText = weekCount;
 
     const list = document.getElementById('recent-activity-list');
     if (!list) return;
@@ -539,11 +542,15 @@ function renderDashboard() {
 
     [...localEggs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5).forEach(e => {
         const qty = e.count || 1;
+        const chicken = localChickens.find(c => c.id === e.chickenId);
+        const author = chicken ? chicken.name : 'Général';
+        const iconColor = chicken ? 'var(--primary)' : '#ff9500';
+
         const li = document.createElement('li');
         li.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px;">
-                <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
-                <strong>Ramassage</strong>
+                <div style="background:${iconColor}; width:10px; height:10px; border-radius:50%;"></div>
+                <strong>${author}</strong>
             </div>
             <div style="text-align:right;">
                 <span style="display:block; font-weight:bold;">${qty} oeuf${qty > 1 ? 's' : ''}</span>
@@ -560,6 +567,13 @@ function renderDashboard() {
 window.openAddEggModal = () => {
     document.getElementById('egg-count-input').value = 1;
     document.getElementById('egg-date-input').valueAsDate = new Date();
+    
+    const select = document.getElementById('egg-chicken-input');
+    select.innerHTML = '<option value="">-- Non spécifié / Général --</option>';
+    localChickens.filter(c => (c.status || 'active') === 'active').forEach(c => {
+        select.innerHTML += `<option value="${c.id}">${c.name} (${c.breed || 'Inconnue'})</option>`;
+    });
+
     document.getElementById('modal-add-egg').style.display = 'flex';
 };
 
@@ -570,37 +584,6 @@ window.deleteEgg = (id) => {
         renderDashboard();
     }
 };
-
-// ============================================================
-// CHART
-// ============================================================
-function initEggsChart() {
-    const ctx = document.getElementById('eggsChart');
-    if (!ctx) return;
-    eggsChartInstance = new Chart(ctx.getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'],
-            datasets: [{ label: 'Oeufs', data: [], backgroundColor: '#007aff' }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
-        }
-    });
-}
-
-function updateChart(eggs) {
-    if (!eggsChartInstance) return;
-    const c = new Array(12).fill(0);
-    const y = new Date().getFullYear();
-    eggs.forEach(e => {
-        if (new Date(e.date).getFullYear() === y) c[new Date(e.date).getMonth()] += (e.count || 1);
-    });
-    eggsChartInstance.data.datasets[0].data = c;
-    eggsChartInstance.update();
-}
 
 // ============================================================
 // ENTRETIEN

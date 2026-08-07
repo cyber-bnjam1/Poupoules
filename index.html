@@ -58,23 +58,19 @@
         
         <section id="view-dashboard" class="active-view">
             <h1 class="big-title">Tableau de bord</h1>
+
+            <button class="btn-primary" onclick="openAddEggModal()" style="width: 100%; padding: 15px; margin-bottom: 20px; font-size: 16px; display:flex; align-items:center; justify-content:center; gap: 10px; border-radius:15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                <i class="fas fa-plus-circle" style="font-size:22px;"></i> Ajouter un ramassage
+            </button>
             
             <div class="status-row">
-                <div class="glass-card mini-status-card highlight-card" onclick="openAddEggModal()">
-                    <div class="icon-circle egg-color"><i class="fas fa-plus"></i></div>
-                    <div class="status-info"><span class="status-label">Ramassage</span><span class="status-value">Ajouter</span></div>
+                <div class="glass-card mini-status-card">
+                    <div class="icon-circle primary-color"><i class="fas fa-calendar-week"></i></div>
+                    <div class="status-info"><span class="status-label">Cette semaine</span><span class="status-value" id="eggs-week-count">0</span></div>
                 </div>
                 <div class="glass-card mini-status-card">
-                    <div class="icon-circle primary-color"><i class="fas fa-egg"></i></div>
+                    <div class="icon-circle primary-color"><i class="fas fa-calendar-alt"></i></div>
                     <div class="status-info"><span class="status-label">Ce mois-ci</span><span class="status-value" id="eggs-month-count">0</span></div>
-                </div>
-            </div>
-
-            <div class="glass-card chart-card">
-                <h3><i class="fas fa-chart-line"></i> Ponte mensuelle</h3>
-                <div class="chart-container"><canvas id="eggsChart"></canvas></div>
-                <div class="stats-summary-row">
-                    <span class="stat-pill"><span id="total-eggs-display">0</span> Œufs (Total)</span>
                 </div>
             </div>
 
@@ -250,6 +246,14 @@
                         <button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:var(--primary); color:white; border:none;">+</button>
                     </div>
                 </div>
+                
+                <div class="form-group">
+                    <label>Poule (Optionnel)</label>
+                    <select id="egg-chicken-input">
+                        <!-- Rempli dynamiquement en JS -->
+                    </select>
+                </div>
+
                 <div class="form-group"><label>Date</label><input type="date" id="egg-date-input" required></div>
                 <div class="modal-actions"><button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button><button type="submit" class="btn-primary" style="flex:1;">Valider</button></div>
             </form>

@@ -117,7 +117,7 @@ const BREED_MAX_LAYING_YEARS = {
 
 function getBreedEggsPerWeek(breed) {
     if (!breed) return BREED_EGGS_PER_WEEK['default'];
-    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const b = breed.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     for (const [key, val] of Object.entries(BREED_EGGS_PER_WEEK)) {
         if (key === 'default') continue;
         if (b.includes(key)) return val;
@@ -127,7 +127,7 @@ function getBreedEggsPerWeek(breed) {
 
 function getBreedMaxLayingYears(breed) {
     if (!breed) return BREED_MAX_LAYING_YEARS['default'];
-    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const b = breed.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     for (const [key, val] of Object.entries(BREED_MAX_LAYING_YEARS)) {
         if (key === 'default') continue;
         if (b.includes(key)) return val;
@@ -540,8 +540,8 @@ function renderAchievements() {
         const opacity = b.unlocked ? '1' : '0.4';
         const color   = b.unlocked ? 'var(--warning)' : 'var(--text-grey)';
         const bg      = b.unlocked ? 'rgba(255, 149, 0, 0.1)' : 'rgba(0,0,0,0.05)';
-        const safeTitle = b.title.replace(/'/g, "\\'");
-        const safeDesc  = b.desc.replace(/'/g, "\\'");
+        const safeTitle = b.title.replace(/'/g, "\'");
+        const safeDesc  = b.desc.replace(/'/g, "\'");
         html += `<div onclick="showBadgeInfo('${safeTitle}', '${safeDesc}', ${b.unlocked})" style="background:${bg}; border-radius:15px; padding:10px 5px; text-align:center; opacity:${opacity}; display:flex; flex-direction:column; align-items:center; cursor:pointer;"><div style="font-size:20px; color:${color}; margin-bottom:5px;"><i class="fas ${b.icon}"></i></div><div style="font-size:10px; font-weight:700; color:var(--text-dark);">${b.title}</div></div>`;
     });
     container.innerHTML = html + `</div>`;
@@ -560,7 +560,7 @@ window.renderExtensions = () => {
     renderWeatherTip();
     renderAlmanac();
     renderLayingRate();
-    renderSuppliesWidget();
+    // renderSuppliesWidget(); 
     renderJournalWidget();
     renderHallOfFame();
     renderHealthWidget();
