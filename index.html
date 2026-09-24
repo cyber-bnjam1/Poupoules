@@ -47,6 +47,7 @@
             <nav class="menu-nav">
                 <button class="menu-link active" onclick="navigate('view-dashboard')"><i class="fas fa-home"></i> Accueil</button>
                 <button class="menu-link" onclick="navigate('view-chickens')"><i class="fas fa-crow"></i> Poules</button>
+                <button class="menu-link" onclick="navigate('view-finance')"><i class="fas fa-coins"></i> Budget</button>
                 <button class="menu-link" onclick="navigate('view-maintenance')"><i class="fas fa-broom"></i> Entretien</button>
                 <button class="menu-link" onclick="navigate('view-stats')"><i class="fas fa-chart-pie"></i> Stat</button>
                 <button class="menu-link" onclick="navigate('view-settings')"><i class="fas fa-cog"></i> Réglages</button>
@@ -58,19 +59,23 @@
         
         <section id="view-dashboard" class="active-view">
             <h1 class="big-title">Tableau de bord</h1>
-
-            <button class="btn-primary" onclick="openAddEggModal()" style="width: 100%; padding: 15px; margin-bottom: 20px; font-size: 16px; display:flex; align-items:center; justify-content:center; gap: 10px; border-radius:15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-                <i class="fas fa-plus-circle" style="font-size:22px;"></i> Ajouter un ramassage
-            </button>
             
             <div class="status-row">
-                <div class="glass-card mini-status-card">
-                    <div class="icon-circle primary-color"><i class="fas fa-calendar-week"></i></div>
-                    <div class="status-info"><span class="status-label">Cette semaine</span><span class="status-value" id="eggs-week-count">0</span></div>
+                <div class="glass-card mini-status-card highlight-card" onclick="openAddEggModal()">
+                    <div class="icon-circle egg-color"><i class="fas fa-plus"></i></div>
+                    <div class="status-info"><span class="status-label">Ramassage</span><span class="status-value">Ajouter</span></div>
                 </div>
                 <div class="glass-card mini-status-card">
-                    <div class="icon-circle primary-color"><i class="fas fa-calendar-alt"></i></div>
+                    <div class="icon-circle primary-color"><i class="fas fa-egg"></i></div>
                     <div class="status-info"><span class="status-label">Ce mois-ci</span><span class="status-value" id="eggs-month-count">0</span></div>
+                </div>
+            </div>
+
+            <div class="glass-card chart-card">
+                <h3><i class="fas fa-chart-line"></i> Ponte mensuelle</h3>
+                <div class="chart-container"><canvas id="eggsChart"></canvas></div>
+                <div class="stats-summary-row">
+                    <span class="stat-pill"><span id="total-eggs-display">0</span> Œufs (Total)</span>
                 </div>
             </div>
 
@@ -87,6 +92,19 @@
                 <button id="btn-filter-archived" class="segment-btn" onclick="filterChickens('archived', this)">Archives</button>
             </div>
             <div id="chickens-grid" class="grid-container"></div>
+        </section>
+
+        <section id="view-finance">
+            <h1 class="big-title">Budget</h1>
+            <div class="glass-card balance-card">
+                <span class="balance-label">Bilan Global</span>
+                <h2 id="balance-total" class="balance-amount">0.00 €</h2>
+            </div>
+            
+            <div id="sales-register-container"></div>
+
+            <h3 class="section-title">Historique</h3>
+            <ul id="finance-list" class="glass-list"></ul>
         </section>
 
         <section id="view-maintenance">
@@ -130,7 +148,6 @@
         <button id="main-fab" class="fab-btn" onclick="handleFabClick()"><i class="fas fa-plus"></i></button>
     </div>
 
-    <!-- MODAL POULE -->
     <div id="modal-chicken" class="modal">
         <div class="modal-content glass-panel animate-pop">
             <h2 id="modal-chicken-title">Fiche Poule</h2>
@@ -215,7 +232,39 @@
         </div>
     </div>
 
-    <!-- MODAL TÂCHE -->
+    <div id="modal-transaction" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2>Transaction</h2>
+            <form id="form-transaction">
+                <input type="hidden" id="trans-id">
+                <div class="segment-control margin-bottom">
+                    <button type="button" class="segment-btn active" id="btn-expense" onclick="setTransactionType('expense')">Dépense</button>
+                    <button type="button" class="segment-btn" id="btn-income" onclick="setTransactionType('income')">Revenu</button>
+                </div>
+                <input type="hidden" id="trans-category" value="expense">
+                <div class="form-group"><label>Type</label>
+                    <select id="trans-type">
+                        <option value="graines">Alimentation</option>
+                        <option value="paille">Litière</option>
+                        <option value="soins">Soins</option>
+                        <option value="materiel">Matériel</option>
+                        <option value="achat_poule">Achat Poule</option>
+                        <option value="vente_oeufs">Vente Œufs</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Montant (€)</label><input type="number" id="trans-amount" step="0.01" required></div>
+                <div class="form-group"><label>Date</label><input type="date" id="trans-date" required></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-text-danger" id="btn-delete-trans" onclick="deleteTransaction()">Supprimer</button>
+                    <div style="flex:1"></div>
+                    <button type="button" class="btn-secondary close-modal">Annuler</button>
+                    <button type="submit" class="btn-primary">Valider</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modal-edit-task" class="modal">
         <div class="modal-content glass-panel animate-pop">
             <h2>Tâche</h2>
@@ -233,34 +282,59 @@
         </div>
     </div>
 
-    <!-- MODAL RAMASSAGE -->
-    <div id="modal-add-egg" class="modal">
+    <div id="modal-stock" class="modal">
         <div class="modal-content glass-panel animate-pop">
-            <h2 style="text-align:center; margin-bottom:20px;">🥚 Ramassage</h2>
-            <form id="form-add-egg" style="display:flex; flex-direction:column; gap:20px;">
-                <div style="text-align:center;">
-                    <label style="display:block; margin-bottom:10px; color:var(--text-grey);">Combien d'œufs ?</label>
-                    <div style="display:flex; align-items:center; justify-content:center; gap:20px;">
-                        <button type="button" onclick="adjustEggCount(-1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:rgba(0,0,0,0.05); border:none;">-</button>
-                        <input type="number" id="egg-count-input" value="1" min="1" max="50" style="width:80px; text-align:center; font-size:30px; border:none; background:transparent; font-weight:bold;">
-                        <button type="button" onclick="adjustEggCount(1)" class="glass-btn-round" style="width:50px; height:50px; border-radius:50%; font-size:20px; background:var(--primary); color:white; border:none;">+</button>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Poule (Optionnel)</label>
-                    <select id="egg-chicken-input">
-                        <!-- Rempli dynamiquement en JS -->
-                    </select>
-                </div>
-
-                <div class="form-group"><label>Date</label><input type="date" id="egg-date-input" required></div>
-                <div class="modal-actions"><button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button><button type="submit" class="btn-primary" style="flex:1;">Valider</button></div>
+            <h2>📦 Stock Graines</h2>
+            <form onsubmit="saveStock(event)">
+                <div class="form-group"><label>Quantité (kg)</label><input type="number" id="stock-qty" step="0.1" required></div>
+                <div class="modal-actions"><button type="button" class="btn-secondary close-modal">Fermer</button><button type="submit" class="btn-primary">OK</button></div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL SOIN -->
+    <div id="modal-add-egg" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2 style="text-align:center; margin-bottom:4px;">🥚 Ramassage</h2>
+
+            <!-- Total calculé automatiquement -->
+            <div style="text-align:center; margin-bottom:20px;">
+                <span style="font-size:13px; color:var(--text-grey);">Total</span>
+                <div style="font-size:42px; font-weight:800; color:var(--primary); line-height:1.1;" id="egg-total-display">0</div>
+                <span style="font-size:12px; color:var(--text-grey);">œuf(s)</span>
+            </div>
+
+            <form id="form-add-egg" style="display:flex; flex-direction:column; gap:16px;">
+
+                <!-- Poules à œufs reconnaissables (injecté dynamiquement) -->
+                <div id="special-hens-section" style="display:none;">
+                    <div style="font-size:11px; font-weight:700; color:var(--text-grey); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px;">Œufs reconnaissables</div>
+                    <div id="special-hens-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+
+                <!-- Autres œufs normaux -->
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:var(--text-grey); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px;" id="other-eggs-label">Œufs</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.04); border-radius:12px; padding:10px 14px;">
+                        <span style="font-weight:600; font-size:14px;">Autres œufs</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" onclick="adjustOtherEggs(-1)" style="width:28px; height:28px; border-radius:50%; border:none; background:rgba(0,0,0,0.08); font-size:16px; cursor:pointer;">-</button>
+                            <input type="number" id="egg-other-input" value="0" min="0" max="50"
+                                oninput="updateEggTotal()"
+                                style="width:36px; text-align:center; font-size:16px; font-weight:bold; border:none; background:transparent;">
+                            <button type="button" onclick="adjustOtherEggs(1)" style="width:28px; height:28px; border-radius:50%; border:none; background:var(--primary); color:white; font-size:16px; cursor:pointer;">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group"><label>Date</label><input type="date" id="egg-date-input" required></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal" style="flex:1;">Annuler</button>
+                    <button type="submit" class="btn-primary" style="flex:1;" id="egg-submit-btn" disabled>Valider</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modal-health-treatment" class="modal">
         <div class="modal-content glass-panel animate-pop">
             <h2>💉 Nouveau Soin</h2>
@@ -293,6 +367,41 @@
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary close-modal">Annuler</button>
                     <button type="submit" class="btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-client-sale" class="modal">
+        <div class="modal-content glass-panel animate-pop">
+            <h2>🤝 Vente Client</h2>
+            <form onsubmit="saveClientSale(event)">
+                <div class="form-group">
+                    <label>Nom du Client</label>
+                    <input type="text" id="client-name" required placeholder="Ex: Michel (Voisin)">
+                </div>
+                <div class="form-group">
+                    <label>Quantité d'œufs</label>
+                    <input type="number" id="client-qty" required value="6" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Prix Total (€)</label>
+                    <input type="number" id="client-price" required step="0.10">
+                </div>
+                <div class="form-group">
+                    <label>Statut Paiement</label>
+                    <select id="client-status">
+                        <option value="paid">✅ Payé</option>
+                        <option value="pending">⏳ En attente (Dette)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="client-date" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary close-modal">Annuler</button>
+                    <button type="submit" class="btn-primary">Valider Vente</button>
                 </div>
             </form>
         </div>

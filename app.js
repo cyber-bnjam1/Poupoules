@@ -25,19 +25,24 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 // ============================================================
-// STATE GLOBAL
+// STATE GLOBAL — toutes les données de l'app (core + extensions)
 // ============================================================
-let localChickens = [], localEggs = [], localTasks = [];
+let localChickens = [], localEggs = [], localTransactions = [], localTasks = [];
 
-// Données extensions conservées
+// Données extensions (anciennement localStorage uniquement)
+let extFridgeStock = 0;
+let extStockData = { quantity: 0, date: null };
+let extRecyclingHistory = [];
 let extNotes = [];
 let extHealth = [];
+let extSales = [];
 let extSuppliesState = {};
 let extEggRecords = { heaviest: 0, lightest: 1000 };
 
 let currentUser = null, isDemoMode = true;
 let currentViewId = 'view-dashboard';
 let tempPhotoBase64 = null;
+let eggsChartInstance = null;
 let unsubscribeFirestore = null;
 
 // ============================================================
@@ -48,10 +53,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('dark-mode');
         document.getElementById('dark-mode-toggle').checked = true;
     }
+    initEggsChart();
     updateFabVisibility('view-dashboard');
 
+    // Chargement initial depuis localStorage (mode invité par défaut)
     loadLocalData();
 
+    // Gestion de l'état d'authentification
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             currentUser = user;
@@ -71,25 +79,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Fermeture des modals
     document.querySelectorAll('.close-modal').forEach(b => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
     });
 
+    // Formulaire ajout d'oeufs
     document.getElementById('form-add-egg').addEventListener('submit', (e) => {
         e.preventDefault();
-        const count = parseInt(document.getElementById('egg-count-input').value);
         const date = document.getElementById('egg-date-input').value;
-        const chickenId = document.getElementById('egg-chicken-input').value; 
-        
+        // Total = spéciaux + autres
+        const specialCounts = {};
+        document.querySelectorAll('.special-hen-input').forEach(input => {
+            const val = parseInt(input.value) || 0;
+            if (val > 0) specialCounts[input.dataset.chickenId] = val;
+        });
+        const specialTotal = Object.values(specialCounts).reduce((s, v) => s + v, 0);
+        const otherCount   = parseInt(document.getElementById('egg-other-input').value) || 0;
+        const count = specialTotal + otherCount;
+
         if (count > 0 && date) {
             const newEgg = {
                 id: 'e' + Date.now(),
-                count: count,
+                count,
                 date: new Date(date).toISOString(),
-                chickenId: chickenId || null, 
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                ...(Object.keys(specialCounts).length > 0 && { specialCounts })
             };
             localEggs.push(newEgg);
+            extFridgeStock += count;
             saveData();
             renderDashboard();
             document.getElementById('modal-add-egg').style.display = 'none';
@@ -98,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// MIGRATION : LocalStorage vers Firebase à la première connexion
+// MIGRATION : LocalStorage vers Firebase a la premiere connexion
 // ============================================================
 async function checkAndMigrateLocalData(uid) {
     try {
@@ -110,29 +128,44 @@ async function checkAndMigrateLocalData(uid) {
             await db.collection('users').doc(uid).set({
                 chickens: coreData.chickens || [],
                 eggs: coreData.eggs || [],
+                transactions: coreData.transactions || [],
                 tasks: coreData.tasks || [],
                 ...extData,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log("Migration reussie !");
+        } else {
+            console.log("Donnees Firebase existantes, pas de migration necessaire.");
         }
     } catch (error) {
         console.error("Erreur lors de la migration:", error);
     }
 }
 
+// Lit toutes les cles localStorage des extensions et les retourne en objet plat
 function buildExtDataFromLocalStorage() {
+    // Migration legacy recycling
+    let recycling = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
+    if (localStorage.getItem('poupoules_recycled') && recycling.length === 0) {
+        const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
+        if (oldTotal > 0) recycling.push({ date: new Date().toISOString(), qty: oldTotal });
+    }
     return {
-        extNotes:         JSON.parse(localStorage.getItem('poupoules_notes') || '[]'),
-        extHealth:        JSON.parse(localStorage.getItem('poupoules_health') || '[]'),
-        extSuppliesState: JSON.parse(localStorage.getItem('poupoules_supplies') || '{}'),
-        extEggRecords:    JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}'),
+        extFridgeStock:     parseInt(localStorage.getItem('poupoules_fridge_qty') || '0'),
+        extStockData:       JSON.parse(localStorage.getItem('poupoules_stock') || '{"quantity":0,"date":null}'),
+        extRecyclingHistory: recycling,
+        extNotes:           JSON.parse(localStorage.getItem('poupoules_notes') || '[]'),
+        extHealth:          JSON.parse(localStorage.getItem('poupoules_health') || '[]'),
+        extSales:           JSON.parse(localStorage.getItem('poupoules_sales') || '[]'),
+        extSuppliesState:   JSON.parse(localStorage.getItem('poupoules_supplies') || '{}'),
+        extEggRecords:      JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}'),
     };
 }
 
 // ============================================================
-// SYNCHRONISATION TEMPS RÉEL
+// SYNCHRONISATION TEMPS REEL
 // ============================================================
+// Flag pour éviter la boucle infinie onSnapshot → saveData → onSnapshot
 let _syncInProgress = false;
 
 function setupRealtimeSync(uid) {
@@ -140,17 +173,20 @@ function setupRealtimeSync(uid) {
 
     updateSyncStatus('loading');
 
+    // Au premier chargement : vérifier si local plus récent, puis pousser UNE SEULE FOIS
     const localDateStr = localStorage.getItem('poupoules_last_update');
     const localDate = localDateStr ? new Date(localDateStr) : new Date(0);
     let initialPushDone = false;
 
     unsubscribeFirestore = db.collection('users').doc(uid)
         .onSnapshot({ includeMetadataChanges: false }, (doc) => {
+            // Ignorer les snapshots locaux (nos propres écritures en attente)
             if (doc.metadata.hasPendingWrites || doc.metadata.fromCache) return;
 
             if (doc.exists) {
                 const data = doc.data();
 
+                // Au premier snapshot : vérifier si le local est plus récent
                 if (!initialPushDone) {
                     initialPushDone = true;
                     const firebaseDate = data.lastLocalUpdate ? new Date(data.lastLocalUpdate) : new Date(0);
@@ -162,18 +198,25 @@ function setupRealtimeSync(uid) {
                     }
                 }
 
-                localChickens = data.chickens || [];
-                localEggs     = data.eggs     || [];
-                localTasks    = data.tasks    || [];
+                // Firebase confirmé par le serveur : charger les données
+                localChickens     = data.chickens      || [];
+                localEggs         = data.eggs           || [];
+                localTransactions = data.transactions   || [];
+                localTasks        = data.tasks          || [];
 
-                extNotes         = data.extNotes         || [];
-                extHealth        = data.extHealth        || [];
-                extSuppliesState = data.extSuppliesState || {};
-                extEggRecords    = data.extEggRecords    || { heaviest: 0, lightest: 1000 };
+                extFridgeStock      = data.extFridgeStock      ?? 0;
+                extStockData        = data.extStockData        || { quantity: 0, date: null };
+                extRecyclingHistory = data.extRecyclingHistory || [];
+                extNotes            = data.extNotes            || [];
+                extHealth           = data.extHealth           || [];
+                extSales            = data.extSales            || [];
+                extSuppliesState    = data.extSuppliesState    || {};
+                extEggRecords       = data.extEggRecords       || { heaviest: 0, lightest: 1000 };
 
                 persistToLocalStorage();
                 renderChickensList();
                 renderDashboard();
+                renderFinance();
                 renderMaintenance();
 
                 updateSyncStatus('ok');
@@ -182,7 +225,8 @@ function setupRealtimeSync(uid) {
                 initialPushDone = true;
                 console.log("[Firebase] Document absent, création depuis localStorage...");
                 db.collection('users').doc(uid).set({
-                    chickens: localChickens, eggs: localEggs, tasks: localTasks,
+                    chickens: localChickens, eggs: localEggs,
+                    transactions: localTransactions, tasks: localTasks,
                     ...buildExtDataFromLocalStorage(),
                     lastLocalUpdate: new Date().toISOString(),
                     lastSync: firebase.firestore.FieldValue.serverTimestamp()
@@ -195,6 +239,7 @@ function setupRealtimeSync(uid) {
         });
 }
 
+// Met a jour l'icone wifi du header selon l'etat de sync
 function updateSyncStatus(state) {
     const badge = document.getElementById('header-status');
     if (!badge) return;
@@ -215,26 +260,37 @@ function updateSyncStatus(state) {
     }
 }
 
+// Forcer une re-lecture depuis Firebase (bouton dans les reglages)
 window.forceSyncFromFirebase = async () => {
-    if (!currentUser) { alert("Vous devez etre connecte pour synchroniser."); return; }
+    if (!currentUser) {
+        alert("Vous devez etre connecte pour synchroniser.");
+        return;
+    }
     const btn = document.getElementById('btn-force-sync');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sync...'; }
     try {
         const doc = await db.collection('users').doc(currentUser.uid).get();
         if (doc.exists) {
             const data = doc.data();
-            localChickens = data.chickens || [];
-            localEggs     = data.eggs     || [];
-            localTasks    = data.tasks    || [];
-            extNotes         = data.extNotes         || [];
-            extHealth        = data.extHealth        || [];
-            extSuppliesState = data.extSuppliesState || {};
-            extEggRecords    = data.extEggRecords    || { heaviest: 0, lightest: 1000 };
+            localChickens     = data.chickens      || [];
+            localEggs         = data.eggs           || [];
+            localTransactions = data.transactions   || [];
+            localTasks        = data.tasks          || [];
+            extFridgeStock      = data.extFridgeStock      ?? 0;
+            extStockData        = data.extStockData        || { quantity: 0, date: null };
+            extRecyclingHistory = data.extRecyclingHistory || [];
+            extNotes            = data.extNotes            || [];
+            extHealth           = data.extHealth           || [];
+            extSales            = data.extSales            || [];
+            extSuppliesState    = data.extSuppliesState    || {};
+            extEggRecords       = data.extEggRecords       || { heaviest: 0, lightest: 1000 };
             persistToLocalStorage();
             renderChickensList();
             renderDashboard();
+            renderFinance();
             renderMaintenance();
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Synchronise !'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }, 2000); }
+            console.log("[Firebase] Sync forcee OK");
         } else {
             alert("Aucune donnee trouvee sur Firebase pour ce compte.");
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }
@@ -247,7 +303,7 @@ window.forceSyncFromFirebase = async () => {
 };
 
 // ============================================================
-// SAUVEGARDE UNIFIÉE
+// SAUVEGARDE UNIFIEE
 // ============================================================
 function saveData() {
     persistToLocalStorage();
@@ -265,55 +321,83 @@ function saveData() {
 
 function buildFullPayload() {
     return {
+        // Core
         chickens:        localChickens,
         eggs:            localEggs,
+        transactions:    localTransactions,
         tasks:           localTasks,
         lastLocalUpdate: new Date().toISOString(),
+        // Extensions
+        extFridgeStock,
+        extStockData,
+        extRecyclingHistory,
         extNotes,
         extHealth,
+        extSales,
         extSuppliesState,
         extEggRecords,
     };
 }
 
+// Persiste tout dans localStorage (cache offline)
 function persistToLocalStorage() {
     try {
         const now = new Date().toISOString();
         localStorage.setItem('poupoules_data', JSON.stringify({
-            chickens: localChickens, eggs: localEggs, tasks: localTasks,
+            chickens: localChickens, eggs: localEggs,
+            transactions: localTransactions, tasks: localTasks,
             lastLocalUpdate: now
         }));
         localStorage.setItem('poupoules_last_update', now);
-        localStorage.setItem('poupoules_notes',    JSON.stringify(extNotes));
-        localStorage.setItem('poupoules_health',   JSON.stringify(extHealth));
-        localStorage.setItem('poupoules_supplies', JSON.stringify(extSuppliesState));
-        localStorage.setItem('poupoules_records',  JSON.stringify(extEggRecords));
+        localStorage.setItem('poupoules_fridge_qty',         String(extFridgeStock));
+        localStorage.setItem('poupoules_stock',              JSON.stringify(extStockData));
+        localStorage.setItem('poupoules_recycling_history',  JSON.stringify(extRecyclingHistory));
+        localStorage.setItem('poupoules_notes',              JSON.stringify(extNotes));
+        localStorage.setItem('poupoules_health',             JSON.stringify(extHealth));
+        localStorage.setItem('poupoules_sales',              JSON.stringify(extSales));
+        localStorage.setItem('poupoules_supplies',           JSON.stringify(extSuppliesState));
+        localStorage.setItem('poupoules_records',            JSON.stringify(extEggRecords));
     } catch (e) {
         console.error("Erreur persistance localStorage:", e);
     }
 }
 
 // ============================================================
-// CHARGEMENT LOCAL
+// CHARGEMENT LOCAL (mode invite ou fallback offline)
 // ============================================================
 function loadLocalData() {
     try {
         const d = JSON.parse(localStorage.getItem('poupoules_data') || '{}');
-        localChickens = d.chickens || [];
-        localEggs     = d.eggs     || [];
-        localTasks    = d.tasks    || [];
+        localChickens     = d.chickens     || [];
+        localEggs         = d.eggs          || [];
+        localTransactions = d.transactions  || [];
+        localTasks        = d.tasks         || [];
 
-        extNotes         = JSON.parse(localStorage.getItem('poupoules_notes')    || '[]');
-        extHealth        = JSON.parse(localStorage.getItem('poupoules_health')   || '[]');
-        extSuppliesState = JSON.parse(localStorage.getItem('poupoules_supplies') || '{}');
-        extEggRecords    = JSON.parse(localStorage.getItem('poupoules_records')  || '{"heaviest":0,"lightest":1000}');
+        extFridgeStock      = parseInt(localStorage.getItem('poupoules_fridge_qty') || '0');
+        extStockData        = JSON.parse(localStorage.getItem('poupoules_stock') || '{"quantity":0,"date":null}');
+        extRecyclingHistory = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
+        extNotes            = JSON.parse(localStorage.getItem('poupoules_notes') || '[]');
+        extHealth           = JSON.parse(localStorage.getItem('poupoules_health') || '[]');
+        extSales            = JSON.parse(localStorage.getItem('poupoules_sales') || '[]');
+        extSuppliesState    = JSON.parse(localStorage.getItem('poupoules_supplies') || '{}');
+        extEggRecords       = JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}');
+
+        // Migration legacy recycling
+        if (localStorage.getItem('poupoules_recycled') && extRecyclingHistory.length === 0) {
+            const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
+            if (oldTotal > 0) {
+                extRecyclingHistory.push({ date: new Date().toISOString(), qty: oldTotal });
+                localStorage.removeItem('poupoules_recycled');
+            }
+        }
 
         renderChickensList();
         renderDashboard();
+        renderFinance();
         renderMaintenance();
     } catch (e) {
         console.error("Erreur chargement local:", e);
-        localChickens = []; localEggs = []; localTasks = [];
+        localChickens = []; localEggs = []; localTransactions = []; localTasks = [];
     }
 }
 
@@ -381,7 +465,7 @@ window.navigate = (targetId) => {
 
 function updateFabVisibility(viewId) {
     const fab = document.getElementById('main-fab');
-    if (['view-chickens', 'view-maintenance'].includes(viewId)) {
+    if (['view-chickens', 'view-finance', 'view-maintenance'].includes(viewId)) {
         fab.classList.remove('hidden');
     } else {
         fab.classList.add('hidden');
@@ -390,14 +474,41 @@ function updateFabVisibility(viewId) {
 
 window.handleFabClick = () => {
     if (currentViewId === 'view-chickens') openChickenModal();
+    if (currentViewId === 'view-finance') openTransactionModal();
     if (currentViewId === 'view-maintenance') openEditTaskModal();
 };
 
-window.adjustEggCount = (val) => {
-    const input = document.getElementById('egg-count-input');
-    let v = parseInt(input.value) + val;
-    if (v < 1) v = 1;
+// Races dont les oeufs sont visuellement reconnaissables
+const DISTINCTIVE_EGG_BREEDS = ['soie', 'silkie', 'araucana', 'ameraucana', 'cream legbar', 'padoue'];
+function hasDistinctiveEggs(breed) {
+    if (!breed) return false;
+    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return DISTINCTIVE_EGG_BREEDS.some(k => b.includes(k));
+}
+
+// Recalcule le total affiché = spéciaux + autres
+window.updateEggTotal = () => {
+    let total = parseInt(document.getElementById('egg-other-input').value) || 0;
+    document.querySelectorAll('.special-hen-input').forEach(i => { total += parseInt(i.value) || 0; });
+    document.getElementById('egg-total-display').innerText = total;
+    document.getElementById('egg-submit-btn').disabled = total === 0;
+};
+
+window.adjustOtherEggs = (delta) => {
+    const input = document.getElementById('egg-other-input');
+    let v = (parseInt(input.value) || 0) + delta;
+    if (v < 0) v = 0;
     input.value = v;
+    updateEggTotal();
+};
+
+window.adjustSpecialEgg = (chickenId, delta) => {
+    const input = document.querySelector(`.special-hen-input[data-chicken-id="${chickenId}"]`);
+    if (!input) return;
+    let v = (parseInt(input.value) || 0) + delta;
+    if (v < 0) v = 0;
+    input.value = v;
+    updateEggTotal();
 };
 
 // ============================================================
@@ -518,23 +629,21 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
 // ============================================================
 function renderDashboard() {
     const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // Lundi
-    startOfWeek.setHours(0,0,0,0);
-
-    let monthCount = 0, weekCount = 0;
+    let monthCount = 0, totalCount = 0;
 
     localEggs.forEach(e => {
         const qty = e.count || 1;
+        totalCount += qty;
         const d = new Date(e.date);
         if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) monthCount += qty;
-        if (d >= startOfWeek && d <= now) weekCount += qty;
     });
 
+    const totalDisplay = document.getElementById('total-eggs-display');
     const monthDisplay = document.getElementById('eggs-month-count');
-    const weekDisplay = document.getElementById('eggs-week-count');
+    if (totalDisplay) totalDisplay.innerText = totalCount;
     if (monthDisplay) monthDisplay.innerText = monthCount;
-    if (weekDisplay) weekDisplay.innerText = weekCount;
+
+    updateChart(localEggs);
 
     const list = document.getElementById('recent-activity-list');
     if (!list) return;
@@ -542,15 +651,11 @@ function renderDashboard() {
 
     [...localEggs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5).forEach(e => {
         const qty = e.count || 1;
-        const chicken = localChickens.find(c => c.id === e.chickenId);
-        const author = chicken ? chicken.name : 'Général';
-        const iconColor = chicken ? 'var(--primary)' : '#ff9500';
-
         const li = document.createElement('li');
         li.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px;">
-                <div style="background:${iconColor}; width:10px; height:10px; border-radius:50%;"></div>
-                <strong>${author}</strong>
+                <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
+                <strong>Ramassage</strong>
             </div>
             <div style="text-align:right;">
                 <span style="display:block; font-weight:bold;">${qty} oeuf${qty > 1 ? 's' : ''}</span>
@@ -565,15 +670,42 @@ function renderDashboard() {
 }
 
 window.openAddEggModal = () => {
-    document.getElementById('egg-count-input').value = 1;
+    document.getElementById('egg-other-input').value = 0;
     document.getElementById('egg-date-input').valueAsDate = new Date();
-    
-    const select = document.getElementById('egg-chicken-input');
-    select.innerHTML = '<option value="">-- Non spécifié / Général --</option>';
-    localChickens.filter(c => (c.status || 'active') === 'active').forEach(c => {
-        select.innerHTML += `<option value="${c.id}">${c.name} (${c.breed || 'Inconnue'})</option>`;
-    });
 
+    const specialSection = document.getElementById('special-hens-section');
+    const specialList    = document.getElementById('special-hens-list');
+    const otherLabel     = document.getElementById('other-eggs-label');
+    const specialHens    = (localChickens || []).filter(c =>
+        (c.status || 'active') === 'active' && hasDistinctiveEggs(c.breed)
+    );
+
+    if (specialHens.length > 0) {
+        specialList.innerHTML = specialHens.map(c => `
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <img src="${c.photo || 'icon.png'}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src='icon.png'">
+                    <div>
+                        <div style="font-weight:700;font-size:14px;">${c.name}</div>
+                        <div style="font-size:11px;color:var(--text-grey);">${c.breed}</div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button type="button" onclick="adjustSpecialEgg('${c.id}',-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);font-size:16px;cursor:pointer;">-</button>
+                    <input type="number" class="special-hen-input" data-chicken-id="${c.id}" value="0" min="0" max="5"
+                        oninput="updateEggTotal()"
+                        style="width:36px;text-align:center;font-size:16px;font-weight:bold;border:none;background:transparent;">
+                    <button type="button" onclick="adjustSpecialEgg('${c.id}',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--primary);color:white;font-size:16px;cursor:pointer;">+</button>
+                </div>
+            </div>`).join('');
+        specialSection.style.display = 'block';
+        if (otherLabel) otherLabel.innerText = 'Autres œufs normaux';
+    } else {
+        specialSection.style.display = 'none';
+        if (otherLabel) otherLabel.innerText = 'Œufs';
+    }
+
+    updateEggTotal();
     document.getElementById('modal-add-egg').style.display = 'flex';
 };
 
@@ -584,6 +716,126 @@ window.deleteEgg = (id) => {
         renderDashboard();
     }
 };
+
+// ============================================================
+// CHART
+// ============================================================
+function initEggsChart() {
+    const ctx = document.getElementById('eggsChart');
+    if (!ctx) return;
+    eggsChartInstance = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'],
+            datasets: [{ label: 'Oeufs', data: [], backgroundColor: '#007aff' }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+        }
+    });
+}
+
+function updateChart(eggs) {
+    if (!eggsChartInstance) return;
+    const c = new Array(12).fill(0);
+    const y = new Date().getFullYear();
+    eggs.forEach(e => {
+        if (new Date(e.date).getFullYear() === y) c[new Date(e.date).getMonth()] += (e.count || 1);
+    });
+    eggsChartInstance.data.datasets[0].data = c;
+    eggsChartInstance.update();
+}
+
+// ============================================================
+// FINANCE
+// ============================================================
+function renderFinance() {
+    const list = document.getElementById('finance-list');
+    if (!list) return;
+    list.innerHTML = '';
+    let total = 0;
+
+    localTransactions.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+        total += (t.category === 'income' ? t.amount : -t.amount);
+        const li = document.createElement('li');
+        li.onclick = () => openTransactionModal(t.id);
+        li.innerHTML = `
+            <div><strong>${formatTransType(t.type)}</strong><br><small>${new Date(t.date).toLocaleDateString()}</small></div>
+            <div style="color:${t.category === 'income' ? 'var(--success)' : 'var(--text-dark)'}; font-weight:bold;">
+                ${t.category === 'income' ? '+' : '-'}${t.amount}€
+            </div>`;
+        list.appendChild(li);
+    });
+
+    const balanceEl = document.getElementById('balance-total');
+    if (balanceEl) {
+        balanceEl.innerText = total.toFixed(2) + ' EUR';
+        balanceEl.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+}
+
+window.setTransactionType = (type) => {
+    document.getElementById('btn-expense').classList.remove('active');
+    document.getElementById('btn-income').classList.remove('active');
+    document.getElementById(type === 'expense' ? 'btn-expense' : 'btn-income').classList.add('active');
+    document.getElementById('trans-category').value = type;
+};
+
+window.openTransactionModal = (id = null) => {
+    document.getElementById('form-transaction').reset();
+    if (id) {
+        const t = localTransactions.find(x => x.id === id);
+        document.getElementById('trans-id').value = t.id;
+        document.getElementById('trans-amount').value = t.amount;
+        document.getElementById('trans-date').value = t.date;
+        document.getElementById('trans-type').value = t.type;
+        setTransactionType(t.category);
+        document.getElementById('btn-delete-trans').style.display = 'block';
+    } else {
+        document.getElementById('trans-id').value = "";
+        document.getElementById('trans-date').valueAsDate = new Date();
+        setTransactionType('expense');
+        document.getElementById('btn-delete-trans').style.display = 'none';
+    }
+    document.getElementById('modal-transaction').style.display = 'flex';
+};
+
+document.getElementById('form-transaction').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('trans-id').value;
+    const data = {
+        amount: parseFloat(document.getElementById('trans-amount').value),
+        date: document.getElementById('trans-date').value,
+        type: document.getElementById('trans-type').value,
+        category: document.getElementById('trans-category').value,
+        updatedAt: new Date().toISOString()
+    };
+    if (id) {
+        const idx = localTransactions.findIndex(t => t.id === id);
+        if (idx > -1) localTransactions[idx] = { id, ...data };
+    } else {
+        localTransactions.push({ id: 't' + Date.now(), ...data });
+    }
+    saveData();
+    document.getElementById('modal-transaction').style.display = 'none';
+    renderFinance();
+});
+
+window.deleteTransaction = () => {
+    if (confirm("Supprimer cette transaction ?")) {
+        localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value);
+        saveData();
+        document.getElementById('modal-transaction').style.display = 'none';
+        renderFinance();
+    }
+};
+
+function formatTransType(t) {
+    const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Oeufs', 'soins': 'Veto/Soins', 'achat_poule': 'Achat Poule', 'paille': 'Litiere', 'materiel': 'Materiel' };
+    return map[t] || t;
+}
 
 // ============================================================
 // ENTRETIEN
