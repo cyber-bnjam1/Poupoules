@@ -84,11 +84,13 @@ document.addEventListener('DOMContentLoaded', () => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
     });
 
-    // Formulaire ajout d'oeufs
+    // Formulaire ajout / édition d'oeufs
     document.getElementById('form-add-egg').addEventListener('submit', (e) => {
         e.preventDefault();
         const date = document.getElementById('egg-date-input').value;
-        // Total = spéciaux + autres
+        const note = document.getElementById('egg-note-input').value.trim();
+        const editId = document.getElementById('egg-edit-id').value;
+
         const specialCounts = {};
         document.querySelectorAll('.special-hen-input').forEach(input => {
             const val = parseInt(input.value) || 0;
@@ -99,15 +101,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const count = specialTotal + otherCount;
 
         if (count > 0 && date) {
-            const newEgg = {
-                id: 'e' + Date.now(),
+            const eggData = {
                 count,
                 date: new Date(date).toISOString(),
-                createdAt: new Date().toISOString(),
-                ...(Object.keys(specialCounts).length > 0 && { specialCounts })
+                ...(Object.keys(specialCounts).length > 0 && { specialCounts }),
+                ...(note && { note })
             };
-            localEggs.push(newEgg);
-            extFridgeStock += count;
+            if (editId) {
+                // Mode édition : ajuster le stock frigo en fonction du delta
+                const old = localEggs.find(e => e.id === editId);
+                if (old) extFridgeStock = Math.max(0, extFridgeStock - (old.count || 1) + count);
+                const idx = localEggs.findIndex(e => e.id === editId);
+                if (idx > -1) localEggs[idx] = { ...localEggs[idx], ...eggData };
+            } else {
+                // Mode ajout
+                localEggs.push({ id: 'e' + Date.now(), ...eggData, createdAt: new Date().toISOString() });
+                extFridgeStock += count;
+            }
             saveData();
             renderDashboard();
             document.getElementById('modal-add-egg').style.display = 'none';
@@ -478,22 +488,19 @@ window.handleFabClick = () => {
     if (currentViewId === 'view-maintenance') openEditTaskModal();
 };
 
-// Races dont les oeufs sont visuellement reconnaissables
+// ── Races à œufs visuellement reconnaissables ──────────────────
 const DISTINCTIVE_EGG_BREEDS = ['soie', 'silkie', 'araucana', 'ameraucana', 'cream legbar', 'padoue'];
 function hasDistinctiveEggs(breed) {
     if (!breed) return false;
     const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return DISTINCTIVE_EGG_BREEDS.some(k => b.includes(k));
 }
-
-// Recalcule le total affiché = spéciaux + autres
 window.updateEggTotal = () => {
     let total = parseInt(document.getElementById('egg-other-input').value) || 0;
     document.querySelectorAll('.special-hen-input').forEach(i => { total += parseInt(i.value) || 0; });
     document.getElementById('egg-total-display').innerText = total;
     document.getElementById('egg-submit-btn').disabled = total === 0;
 };
-
 window.adjustOtherEggs = (delta) => {
     const input = document.getElementById('egg-other-input');
     let v = (parseInt(input.value) || 0) + delta;
@@ -501,7 +508,6 @@ window.adjustOtherEggs = (delta) => {
     input.value = v;
     updateEggTotal();
 };
-
 window.adjustSpecialEgg = (chickenId, delta) => {
     const input = document.querySelector(`.special-hen-input[data-chicken-id="${chickenId}"]`);
     if (!input) return;
@@ -510,6 +516,41 @@ window.adjustSpecialEgg = (chickenId, delta) => {
     input.value = v;
     updateEggTotal();
 };
+function buildSpecialHensSection(initialCounts = {}) {
+    const specialSection = document.getElementById('special-hens-section');
+    const specialList    = document.getElementById('special-hens-list');
+    const otherLabel     = document.getElementById('other-eggs-label');
+    const specialHens    = (localChickens || []).filter(c =>
+        (c.status || 'active') === 'active' && hasDistinctiveEggs(c.breed)
+    );
+    if (specialHens.length > 0) {
+        specialList.innerHTML = specialHens.map(c => {
+            const val = initialCounts[c.id] || 0;
+            return `
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <img src="${c.photo || 'icon.png'}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src='icon.png'">
+                    <div>
+                        <div style="font-weight:700;font-size:14px;">${c.name}</div>
+                        <div style="font-size:11px;color:var(--text-grey);">${c.breed}</div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button type="button" onclick="adjustSpecialEgg('${c.id}',-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);font-size:16px;cursor:pointer;">-</button>
+                    <input type="number" class="special-hen-input" data-chicken-id="${c.id}" value="${val}" min="0" max="5"
+                        oninput="updateEggTotal()"
+                        style="width:36px;text-align:center;font-size:16px;font-weight:bold;border:none;background:transparent;">
+                    <button type="button" onclick="adjustSpecialEgg('${c.id}',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--primary);color:white;font-size:16px;cursor:pointer;">+</button>
+                </div>
+            </div>`;
+        }).join('');
+        specialSection.style.display = 'block';
+        if (otherLabel) otherLabel.innerText = 'Autres œufs normaux';
+    } else {
+        specialSection.style.display = 'none';
+        if (otherLabel) otherLabel.innerText = 'Œufs';
+    }
+}
 
 // ============================================================
 // POULES
@@ -649,19 +690,47 @@ function renderDashboard() {
     if (!list) return;
     list.innerHTML = '';
 
-    [...localEggs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5).forEach(e => {
+    const jours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    [...localEggs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).forEach(e => {
         const qty = e.count || 1;
+        const d   = new Date(e.date);
+        const isToday     = d.toDateString() === new Date().toDateString();
+        const isYesterday = d.toDateString() === new Date(Date.now() - 86400000).toDateString();
+        const dayLabel    = isToday ? 'Aujourd\'hui' : isYesterday ? 'Hier' : jours[d.getDay()];
+        const dateStr     = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+
+        // Détail des œufs spéciaux
+        let specialHtml = '';
+        if (e.specialCounts) {
+            Object.entries(e.specialCounts).forEach(([cid, cnt]) => {
+                const hen = (localChickens || []).find(c => c.id === cid);
+                if (hen && cnt > 0) {
+                    specialHtml += `<span style="font-size:10px;background:rgba(0,122,255,0.1);color:var(--primary);padding:2px 7px;border-radius:8px;white-space:nowrap;">${hen.name} ×${cnt}</span>`;
+                }
+            });
+        }
+
         const li = document.createElement('li');
+        li.style.cursor = 'pointer';
+        li.style.flexDirection = 'column';
+        li.style.alignItems = 'stretch';
+        li.style.gap = '6px';
+        li.onclick = () => openEditEggModal(e.id);
         li.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px;">
-                <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
-                <strong>Ramassage</strong>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="background:#ff9500;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
+                    <div>
+                        <div style="font-weight:700;font-size:14px;">${dayLabel} <span style="font-weight:400;color:var(--text-grey);font-size:12px;">${dateStr}</span></div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-weight:800;font-size:16px;color:var(--warning);">${qty} 🥚</span>
+                    <i class="fas fa-chevron-right" style="color:var(--text-grey);font-size:12px;"></i>
+                </div>
             </div>
-            <div style="text-align:right;">
-                <span style="display:block; font-weight:bold;">${qty} oeuf${qty > 1 ? 's' : ''}</span>
-                <span style="font-size:11px; color:gray;">${new Date(e.date).toLocaleDateString()}</span>
-            </div>
-            <button class="btn-text-danger" style="margin-left:10px;" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
+            ${specialHtml ? `<div style="display:flex;flex-wrap:wrap;gap:4px;padding-left:20px;">${specialHtml}</div>` : ''}
+            ${e.note ? `<div style="font-size:11px;color:var(--text-grey);padding-left:20px;font-style:italic;">${e.note}</div>` : ''}
         `;
         list.appendChild(li);
     });
@@ -670,50 +739,43 @@ function renderDashboard() {
 }
 
 window.openAddEggModal = () => {
+    document.getElementById('egg-edit-id').value = '';
+    document.getElementById('egg-modal-title').innerText = '🥚 Ramassage';
     document.getElementById('egg-other-input').value = 0;
+    document.getElementById('egg-note-input').value = '';
     document.getElementById('egg-date-input').valueAsDate = new Date();
-
-    const specialSection = document.getElementById('special-hens-section');
-    const specialList    = document.getElementById('special-hens-list');
-    const otherLabel     = document.getElementById('other-eggs-label');
-    const specialHens    = (localChickens || []).filter(c =>
-        (c.status || 'active') === 'active' && hasDistinctiveEggs(c.breed)
-    );
-
-    if (specialHens.length > 0) {
-        specialList.innerHTML = specialHens.map(c => `
-            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <img src="${c.photo || 'icon.png'}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src='icon.png'">
-                    <div>
-                        <div style="font-weight:700;font-size:14px;">${c.name}</div>
-                        <div style="font-size:11px;color:var(--text-grey);">${c.breed}</div>
-                    </div>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <button type="button" onclick="adjustSpecialEgg('${c.id}',-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);font-size:16px;cursor:pointer;">-</button>
-                    <input type="number" class="special-hen-input" data-chicken-id="${c.id}" value="0" min="0" max="5"
-                        oninput="updateEggTotal()"
-                        style="width:36px;text-align:center;font-size:16px;font-weight:bold;border:none;background:transparent;">
-                    <button type="button" onclick="adjustSpecialEgg('${c.id}',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--primary);color:white;font-size:16px;cursor:pointer;">+</button>
-                </div>
-            </div>`).join('');
-        specialSection.style.display = 'block';
-        if (otherLabel) otherLabel.innerText = 'Autres œufs normaux';
-    } else {
-        specialSection.style.display = 'none';
-        if (otherLabel) otherLabel.innerText = 'Œufs';
-    }
-
+    document.getElementById('egg-delete-btn').style.display = 'none';
+    buildSpecialHensSection();
     updateEggTotal();
     document.getElementById('modal-add-egg').style.display = 'flex';
 };
 
-window.deleteEgg = (id) => {
+window.openEditEggModal = (id) => {
+    const egg = localEggs.find(e => e.id === id);
+    if (!egg) return;
+    const specialCounts = egg.specialCounts || {};
+    const specialTotal  = Object.values(specialCounts).reduce((s, v) => s + v, 0);
+    const otherCount    = Math.max(0, (egg.count || 1) - specialTotal);
+    document.getElementById('egg-edit-id').value        = id;
+    document.getElementById('egg-modal-title').innerText = '✏️ Modifier le ramassage';
+    document.getElementById('egg-other-input').value    = otherCount;
+    document.getElementById('egg-note-input').value     = egg.note || '';
+    document.getElementById('egg-date-input').value     = new Date(egg.date).toISOString().split('T')[0];
+    document.getElementById('egg-delete-btn').style.display = 'block';
+    buildSpecialHensSection(specialCounts);
+    updateEggTotal();
+    document.getElementById('modal-add-egg').style.display = 'flex';
+};
+
+window.deleteCurrentEgg = () => {
+    const id = document.getElementById('egg-edit-id').value;
+    if (!id) return;
     if (confirm("Supprimer ce ramassage ?")) {
+        const egg = localEggs.find(e => e.id === id);
+        if (egg) extFridgeStock = Math.max(0, extFridgeStock - (egg.count || 1));
         localEggs = localEggs.filter(e => e.id !== id);
-        saveData();
-        renderDashboard();
+        saveData(); renderDashboard();
+        document.getElementById('modal-add-egg').style.display = 'none';
     }
 };
 
