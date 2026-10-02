@@ -79,53 +79,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Service Worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').then(function(reg) {
-            reg.addEventListener('updatefound', function() {
-                var nw = reg.installing;
-                nw.addEventListener('statechange', function() {
-                    if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                        document.getElementById('update-banner').style.display = 'flex';
-                    }
-                });
-            });
-        });
-        navigator.serviceWorker.addEventListener('controllerchange', function() { window.location.reload(); });
-    }
     // Fermeture des modals
     document.querySelectorAll('.close-modal').forEach(b => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
     });
 
-    // Formulaire ajout / edition d'oeufs
-    document.getElementById('form-add-egg').addEventListener('submit', function(e) {
+    // Formulaire ajout d'oeufs
+    document.getElementById('form-add-egg').addEventListener('submit', (e) => {
         e.preventDefault();
-        var date   = document.getElementById('egg-date-input').value;
-        var note   = (document.getElementById('egg-note-input').value || '').trim();
-        var editId = document.getElementById('egg-edit-id').value;
-        var specialCounts = {};
-        document.querySelectorAll('.special-hen-input').forEach(function(input) {
-            var val = parseInt(input.value) || 0;
-            if (val > 0) specialCounts[input.dataset.chickenId] = val;
-        });
-        var specialTotal = Object.values(specialCounts).reduce(function(s,v){return s+v;}, 0);
-        var otherCount   = parseInt(document.getElementById('egg-other-input').value) || 0;
-        var count = specialTotal + otherCount;
+        const count = parseInt(document.getElementById('egg-count-input').value);
+        const date = document.getElementById('egg-date-input').value;
         if (count > 0 && date) {
-            var eggData = { count: count, date: new Date(date).toISOString() };
-            if (Object.keys(specialCounts).length > 0) eggData.specialCounts = specialCounts;
-            if (note) eggData.note = note;
-            if (editId) {
-                var old = localEggs.find(function(e){return e.id===editId;});
-                if (old) extFridgeStock = Math.max(0, extFridgeStock - (old.count||1) + count);
-                var idx = localEggs.findIndex(function(e){return e.id===editId;});
-                if (idx > -1) localEggs[idx] = Object.assign({}, localEggs[idx], eggData);
-            } else {
-                eggData.id = 'e' + Date.now(); eggData.createdAt = new Date().toISOString();
-                localEggs.push(eggData); extFridgeStock += count;
-            }
-            saveData(); renderDashboard();
+            const newEgg = {
+                id: 'e' + Date.now(),
+                count: count,
+                date: new Date(date).toISOString(),
+                createdAt: new Date().toISOString()
+            };
+            localEggs.push(newEgg);
+            extFridgeStock += count;
+            saveData();
+            renderDashboard();
             document.getElementById('modal-add-egg').style.display = 'none';
         }
     });
@@ -494,47 +468,12 @@ window.handleFabClick = () => {
     if (currentViewId === 'view-maintenance') openEditTaskModal();
 };
 
-var DISTINCTIVE_EGG_BREEDS = ['soie','silkie','araucana','ameraucana','cream legbar','padoue'];
-function hasDistinctiveEggs(breed) {
-    if (!breed) return false;
-    var b = breed.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
-    return DISTINCTIVE_EGG_BREEDS.some(function(k){return b.includes(k);});
-}
-window.updateEggTotal = function() {
-    var t = parseInt(document.getElementById('egg-other-input').value)||0;
-    document.querySelectorAll('.special-hen-input').forEach(function(i){t+=parseInt(i.value)||0;});
-    document.getElementById('egg-total-display').innerText = t;
-    document.getElementById('egg-submit-btn').disabled = t===0;
+window.adjustEggCount = (val) => {
+    const input = document.getElementById('egg-count-input');
+    let v = parseInt(input.value) + val;
+    if (v < 1) v = 1;
+    input.value = v;
 };
-window.adjustOtherEggs = function(d) {
-    var inp=document.getElementById('egg-other-input');
-    var v=(parseInt(inp.value)||0)+d; if(v<0)v=0; inp.value=v; updateEggTotal();
-};
-window.adjustSpecialEgg = function(cid,d) {
-    var inp=document.querySelector('.special-hen-input[data-chicken-id="'+cid+'"]');
-    if(!inp)return; var v=(parseInt(inp.value)||0)+d; if(v<0)v=0; inp.value=v; updateEggTotal();
-};
-function buildSpecialHensSection(ic) {
-    ic=ic||{};
-    var ss=document.getElementById('special-hens-section');
-    var sl=document.getElementById('special-hens-list');
-    var ol=document.getElementById('other-eggs-label');
-    var sh=(localChickens||[]).filter(function(c){return (c.status||'active')==='active'&&hasDistinctiveEggs(c.breed);});
-    if(sh.length>0){
-        sl.innerHTML=sh.map(function(c){
-            var v=ic[c.id]||0,p=c.photo||'icon.png';
-            return '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;">'
-                +'<div style="display:flex;align-items:center;gap:10px;"><img src="'+p+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src=\'icon.png\'">'
-                +'<div><div style="font-weight:700;font-size:14px;">'+c.name+'</div><div style="font-size:11px;color:var(--text-grey);">'+c.breed+'</div></div></div>'
-                +'<div style="display:flex;align-items:center;gap:8px;">'
-                +'<button type="button" onclick="adjustSpecialEgg(\''+c.id+'\',-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);font-size:16px;cursor:pointer;">-</button>'
-                +'<input type="number" class="special-hen-input" data-chicken-id="'+c.id+'" value="'+v+'" min="0" max="5" oninput="updateEggTotal()" style="width:36px;text-align:center;font-size:16px;font-weight:bold;border:none;background:transparent;">'
-                +'<button type="button" onclick="adjustSpecialEgg(\''+c.id+'\',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--primary);color:white;font-size:16px;cursor:pointer;">+</button>'
-                +'</div></div>';
-        }).join('');
-        ss.style.display='block'; if(ol) ol.innerText='Autres oeufs normaux';
-    } else { ss.style.display='none'; if(ol) ol.innerText='Oeufs'; }
-}
 
 // ============================================================
 // POULES
@@ -653,73 +592,58 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-    var now = new Date(), weekAgo = new Date(); weekAgo.setDate(now.getDate()-7);
-    var monthCount=0, weekCount=0, totalCount=0;
-    localEggs.forEach(function(e){
-        var qty=e.count||1; totalCount+=qty;
-        var d=new Date(e.date);
-        if(d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()) monthCount+=qty;
-        if(d>=weekAgo) weekCount+=qty;
+    const now = new Date();
+    let monthCount = 0, totalCount = 0;
+
+    localEggs.forEach(e => {
+        const qty = e.count || 1;
+        totalCount += qty;
+        const d = new Date(e.date);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) monthCount += qty;
     });
-    if(document.getElementById('total-eggs-display')) document.getElementById('total-eggs-display').innerText=totalCount;
-    if(document.getElementById('eggs-month-count'))   document.getElementById('eggs-month-count').innerText=monthCount;
-    if(document.getElementById('eggs-week-count'))    document.getElementById('eggs-week-count').innerText=weekCount;
+
+    const totalDisplay = document.getElementById('total-eggs-display');
+    const monthDisplay = document.getElementById('eggs-month-count');
+    if (totalDisplay) totalDisplay.innerText = totalCount;
+    if (monthDisplay) monthDisplay.innerText = monthCount;
+
     updateChart(localEggs);
-    var list=document.getElementById('recent-activity-list');
-    if(!list) return;
-    list.innerHTML='';
-    var _j=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-    [...localEggs].sort(function(a,b){return new Date(b.date)-new Date(a.date);}).slice(0,10).forEach(function(e){
-        var qty=e.count||1, d=new Date(e.date);
-        var isT=d.toDateString()===new Date().toDateString();
-        var isY=d.toDateString()===new Date(Date.now()-86400000).toDateString();
-        var dl=isT?"Aujourd'hui":isY?'Hier':_j[d.getDay()];
-        var ds=d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
-        var sh='';
-        if(e.specialCounts) Object.entries(e.specialCounts).forEach(function(en){
-            var hen=(localChickens||[]).find(function(c){return c.id===en[0];});
-            if(hen&&en[1]>0) sh+='<span style="font-size:10px;background:rgba(0,122,255,0.1);color:var(--primary);padding:2px 7px;border-radius:8px;white-space:nowrap;">'+hen.name+' x'+en[1]+'</span>';
-        });
-        var li=document.createElement('li');
-        li.style.cursor='pointer'; li.style.flexDirection='column'; li.style.alignItems='stretch'; li.style.gap='6px';
-        li.onclick=(function(eid){return function(){openEditEggModal(eid);};})(e.id);
-        li.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;"><div style="display:flex;align-items:center;gap:10px;"><div style="background:#ff9500;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div><div style="font-weight:700;font-size:14px;">'+dl+' <span style="font-weight:400;color:var(--text-grey);font-size:12px;">'+ds+'</span></div></div><div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:800;font-size:16px;color:var(--warning);">'+qty+' 🥚</span><i class="fas fa-chevron-right" style="color:var(--text-grey);font-size:12px;"></i></div></div>'+(sh?'<div style="display:flex;flex-wrap:wrap;gap:4px;padding-left:20px;">'+sh+'</div>':'')+(e.note?'<div style="font-size:11px;color:var(--text-grey);padding-left:20px;font-style:italic;">'+e.note+'</div>':'');
+
+    const list = document.getElementById('recent-activity-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    [...localEggs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5).forEach(e => {
+        const qty = e.count || 1;
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="background:#ff9500; width:10px; height:10px; border-radius:50%;"></div>
+                <strong>Ramassage</strong>
+            </div>
+            <div style="text-align:right;">
+                <span style="display:block; font-weight:bold;">${qty} oeuf${qty > 1 ? 's' : ''}</span>
+                <span style="font-size:11px; color:gray;">${new Date(e.date).toLocaleDateString()}</span>
+            </div>
+            <button class="btn-text-danger" style="margin-left:10px;" onclick="deleteEgg('${e.id}')"><i class="fas fa-trash"></i></button>
+        `;
         list.appendChild(li);
     });
-    if(window.renderExtensions) window.renderExtensions();
+
+    if (window.renderExtensions) window.renderExtensions();
 }
 
-window.openAddEggModal = function() {
-    document.getElementById('egg-edit-id').value='';
-    document.getElementById('egg-modal-title').innerText='Ramassage';
-    document.getElementById('egg-other-input').value=0;
-    document.getElementById('egg-note-input').value='';
-    document.getElementById('egg-date-input').valueAsDate=new Date();
-    document.getElementById('egg-delete-btn').style.display='none';
-    buildSpecialHensSection(); updateEggTotal();
-    document.getElementById('modal-add-egg').style.display='flex';
+window.openAddEggModal = () => {
+    document.getElementById('egg-count-input').value = 1;
+    document.getElementById('egg-date-input').valueAsDate = new Date();
+    document.getElementById('modal-add-egg').style.display = 'flex';
 };
-window.openEditEggModal = function(id) {
-    var egg=localEggs.find(function(e){return e.id===id;}); if(!egg)return;
-    var sc=egg.specialCounts||{};
-    var st=Object.values(sc).reduce(function(s,v){return s+v;},0);
-    document.getElementById('egg-edit-id').value=id;
-    document.getElementById('egg-modal-title').innerText='Modifier le ramassage';
-    document.getElementById('egg-other-input').value=Math.max(0,(egg.count||1)-st);
-    document.getElementById('egg-note-input').value=egg.note||'';
-    document.getElementById('egg-date-input').value=new Date(egg.date).toISOString().split('T')[0];
-    document.getElementById('egg-delete-btn').style.display='block';
-    buildSpecialHensSection(sc); updateEggTotal();
-    document.getElementById('modal-add-egg').style.display='flex';
-};
-window.deleteCurrentEgg = function() {
-    var id=document.getElementById('egg-edit-id').value; if(!id)return;
-    if(confirm("Supprimer ce ramassage ?")){
-        var egg=localEggs.find(function(e){return e.id===id;});
-        if(egg) extFridgeStock=Math.max(0,extFridgeStock-(egg.count||1));
-        localEggs=localEggs.filter(function(e){return e.id!==id;});
-        saveData(); renderDashboard();
-        document.getElementById('modal-add-egg').style.display='none';
+
+window.deleteEgg = (id) => {
+    if (confirm("Supprimer ce ramassage ?")) {
+        localEggs = localEggs.filter(e => e.id !== id);
+        saveData();
+        renderDashboard();
     }
 };
 
@@ -995,64 +919,33 @@ window.login = () => {
     });
 };
 
-window.exportData = function() {
-    var data = Object.assign({}, buildFullPayload(), { exportDate: new Date().toISOString() });
-    var json = JSON.stringify(data, null, 2);
-    var blob = new Blob([json], { type: 'application/json' });
-    var url  = URL.createObjectURL(blob);
-    var filename = 'poulettes-backup-' + new Date().toISOString().split('T')[0] + '.json';
-    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    if (isIOS) {
-        var w = window.open('', '_blank');
-        if (w) { w.document.title = filename; w.document.write('<pre style="word-wrap:break-word;white-space:pre-wrap;">' + json.replace(/</g,'&lt;') + '</pre><p style="font-family:sans-serif;color:gray;padding:20px;">Appuyez sur le bouton Partage puis "Enregistrer dans Fichiers" pour sauvegarder.</p>'); }
-        else alert('Autorisez les pop-ups pour exporter.');
-        return;
+window.exportData = async () => {
+    const data = { ...buildFullPayload(), exportDate: new Date().toISOString() };
+    const json = JSON.stringify(data, null, 2);
+    const filename = 'poulettes-backup-' + new Date().toISOString().split('T')[0] + '.json';
+    const blob = new Blob([json], { type: 'application/json' });
+    const file = new File([blob], filename, { type: 'application/json' });
+
+    // iOS PWA : Web Share API avec fichier (partage natif -> "Enregistrer dans Fichiers")
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({ files: [file], title: filename });
+            return;
+        } catch (err) {
+            if (err.name !== 'AbortError') console.warn('Share failed:', err);
+            return; // annulé par l'utilisateur
+        }
     }
-    var a = document.createElement('a'); a.href = url; a.download = filename;
+
+    // Desktop / Android : téléchargement classique
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-};
-window.importData = function() {
-    var input = document.createElement('input');
-    input.type = 'file'; input.accept = '.json,application/json';
-    input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;';
-    document.body.appendChild(input);
-    input.addEventListener('change', function() {
-        var file = input.files && input.files[0];
-        document.body.removeChild(input);
-        if (!file) return;
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-            try {
-                var d = JSON.parse(ev.target.result);
-                if (d.chickens)        localChickens     = d.chickens;
-                if (d.eggs)            localEggs         = d.eggs;
-                if (d.transactions)    localTransactions = d.transactions;
-                if (d.tasks)           localTasks        = d.tasks;
-                if (d.extFridgeStock  !== undefined) extFridgeStock      = d.extFridgeStock;
-                if (d.extStockData)                  extStockData        = d.extStockData;
-                if (d.extRecyclingHistory)           extRecyclingHistory = d.extRecyclingHistory;
-                if (d.extNotes)                      extNotes            = d.extNotes;
-                if (d.extHealth)                     extHealth           = d.extHealth;
-                if (d.extSales)                      extSales            = d.extSales;
-                if (d.extSuppliesState)              extSuppliesState    = d.extSuppliesState;
-                if (d.extEggRecords)                 extEggRecords       = d.extEggRecords;
-                saveData(); renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
-                alert('Import reussi !');
-            } catch(err) { alert('Fichier invalide : ' + err.message); }
-        };
-        reader.readAsText(file);
-    });
-    input.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-window.toggleDarkMode = function() {
+window.toggleDarkMode = () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-};
-window.applyUpdate = function() {
-    navigator.serviceWorker.getRegistration().then(function(reg) {
-        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        else window.location.reload();
-    });
 };
