@@ -79,45 +79,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').then(function(reg) {
+            reg.addEventListener('updatefound', function() {
+                var nw = reg.installing;
+                nw.addEventListener('statechange', function() {
+                    if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                        document.getElementById('update-banner').style.display = 'flex';
+                    }
+                });
+            });
+        });
+        navigator.serviceWorker.addEventListener('controllerchange', function() { window.location.reload(); });
+    }
     // Fermeture des modals
     document.querySelectorAll('.close-modal').forEach(b => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
     });
 
-    // Formulaire ajout / édition d'oeufs
-    document.getElementById('form-add-egg').addEventListener('submit', (e) => {
+    // Formulaire ajout / edition d'oeufs
+    document.getElementById('form-add-egg').addEventListener('submit', function(e) {
         e.preventDefault();
-        const date   = document.getElementById('egg-date-input').value;
-        const note   = (document.getElementById('egg-note-input').value || '').trim();
-        const editId = document.getElementById('egg-edit-id').value;
-
-        const specialCounts = {};
-        document.querySelectorAll('.special-hen-input').forEach(input => {
-            const val = parseInt(input.value) || 0;
+        var date   = document.getElementById('egg-date-input').value;
+        var note   = (document.getElementById('egg-note-input').value || '').trim();
+        var editId = document.getElementById('egg-edit-id').value;
+        var specialCounts = {};
+        document.querySelectorAll('.special-hen-input').forEach(function(input) {
+            var val = parseInt(input.value) || 0;
             if (val > 0) specialCounts[input.dataset.chickenId] = val;
         });
-        const specialTotal = Object.values(specialCounts).reduce((s, v) => s + v, 0);
-        const otherCount   = parseInt(document.getElementById('egg-other-input').value) || 0;
-        const count = specialTotal + otherCount;
-
+        var specialTotal = Object.values(specialCounts).reduce(function(s,v){return s+v;}, 0);
+        var otherCount   = parseInt(document.getElementById('egg-other-input').value) || 0;
+        var count = specialTotal + otherCount;
         if (count > 0 && date) {
-            const eggData = {
-                count,
-                date: new Date(date).toISOString(),
-                ...(Object.keys(specialCounts).length > 0 && { specialCounts }),
-                ...(note && { note })
-            };
+            var eggData = { count: count, date: new Date(date).toISOString() };
+            if (Object.keys(specialCounts).length > 0) eggData.specialCounts = specialCounts;
+            if (note) eggData.note = note;
             if (editId) {
-                const old = localEggs.find(e => e.id === editId);
-                if (old) extFridgeStock = Math.max(0, extFridgeStock - (old.count || 1) + count);
-                const idx = localEggs.findIndex(e => e.id === editId);
-                if (idx > -1) localEggs[idx] = { ...localEggs[idx], ...eggData };
+                var old = localEggs.find(function(e){return e.id===editId;});
+                if (old) extFridgeStock = Math.max(0, extFridgeStock - (old.count||1) + count);
+                var idx = localEggs.findIndex(function(e){return e.id===editId;});
+                if (idx > -1) localEggs[idx] = Object.assign({}, localEggs[idx], eggData);
             } else {
-                localEggs.push({ id: 'e' + Date.now(), ...eggData, createdAt: new Date().toISOString() });
-                extFridgeStock += count;
+                eggData.id = 'e' + Date.now(); eggData.createdAt = new Date().toISOString();
+                localEggs.push(eggData); extFridgeStock += count;
             }
-            saveData();
-            renderDashboard();
+            saveData(); renderDashboard();
             document.getElementById('modal-add-egg').style.display = 'none';
         }
     });
@@ -486,52 +494,46 @@ window.handleFabClick = () => {
     if (currentViewId === 'view-maintenance') openEditTaskModal();
 };
 
-// ── Races à œufs reconnaissables ───────────────────────────────
-const DISTINCTIVE_EGG_BREEDS = ['soie', 'silkie', 'araucana', 'ameraucana', 'cream legbar', 'padoue'];
+var DISTINCTIVE_EGG_BREEDS = ['soie','silkie','araucana','ameraucana','cream legbar','padoue'];
 function hasDistinctiveEggs(breed) {
     if (!breed) return false;
-    const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return DISTINCTIVE_EGG_BREEDS.some(k => b.includes(k));
+    var b = breed.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+    return DISTINCTIVE_EGG_BREEDS.some(function(k){return b.includes(k);});
 }
-window.updateEggTotal = () => {
-    let total = parseInt(document.getElementById('egg-other-input').value) || 0;
-    document.querySelectorAll('.special-hen-input').forEach(i => { total += parseInt(i.value) || 0; });
-    document.getElementById('egg-total-display').innerText = total;
-    document.getElementById('egg-submit-btn').disabled = total === 0;
+window.updateEggTotal = function() {
+    var t = parseInt(document.getElementById('egg-other-input').value)||0;
+    document.querySelectorAll('.special-hen-input').forEach(function(i){t+=parseInt(i.value)||0;});
+    document.getElementById('egg-total-display').innerText = t;
+    document.getElementById('egg-submit-btn').disabled = t===0;
 };
-window.adjustOtherEggs = (delta) => {
-    const input = document.getElementById('egg-other-input');
-    let v = (parseInt(input.value) || 0) + delta;
-    if (v < 0) v = 0;
-    input.value = v;
-    updateEggTotal();
+window.adjustOtherEggs = function(d) {
+    var inp=document.getElementById('egg-other-input');
+    var v=(parseInt(inp.value)||0)+d; if(v<0)v=0; inp.value=v; updateEggTotal();
 };
-window.adjustSpecialEgg = (chickenId, delta) => {
-    const input = document.querySelector(`.special-hen-input[data-chicken-id="${chickenId}"]`);
-    if (!input) return;
-    let v = (parseInt(input.value) || 0) + delta;
-    if (v < 0) v = 0;
-    input.value = v;
-    updateEggTotal();
+window.adjustSpecialEgg = function(cid,d) {
+    var inp=document.querySelector('.special-hen-input[data-chicken-id="'+cid+'"]');
+    if(!inp)return; var v=(parseInt(inp.value)||0)+d; if(v<0)v=0; inp.value=v; updateEggTotal();
 };
-function buildSpecialHensSection(initialCounts = {}) {
-    const specialSection = document.getElementById('special-hens-section');
-    const specialList    = document.getElementById('special-hens-list');
-    const otherLabel     = document.getElementById('other-eggs-label');
-    const specialHens    = (localChickens || []).filter(c =>
-        (c.status || 'active') === 'active' && hasDistinctiveEggs(c.breed)
-    );
-    if (specialHens.length > 0) {
-        specialList.innerHTML = specialHens.map(c => {
-            const val = initialCounts[c.id] || 0;
-            return `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;"><div style="display:flex;align-items:center;gap:10px;"><img src="${c.photo || 'icon.png'}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src='icon.png'"><div><div style="font-weight:700;font-size:14px;">${c.name}</div><div style="font-size:11px;color:var(--text-grey);">${c.breed}</div></div></div><div style="display:flex;align-items:center;gap:8px;"><button type="button" onclick="adjustSpecialEgg('${c.id}',-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);font-size:16px;cursor:pointer;">-</button><input type="number" class="special-hen-input" data-chicken-id="${c.id}" value="${val}" min="0" max="5" oninput="updateEggTotal()" style="width:36px;text-align:center;font-size:16px;font-weight:bold;border:none;background:transparent;"><button type="button" onclick="adjustSpecialEgg('${c.id}',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--primary);color:white;font-size:16px;cursor:pointer;">+</button></div></div>`;
+function buildSpecialHensSection(ic) {
+    ic=ic||{};
+    var ss=document.getElementById('special-hens-section');
+    var sl=document.getElementById('special-hens-list');
+    var ol=document.getElementById('other-eggs-label');
+    var sh=(localChickens||[]).filter(function(c){return (c.status||'active')==='active'&&hasDistinctiveEggs(c.breed);});
+    if(sh.length>0){
+        sl.innerHTML=sh.map(function(c){
+            var v=ic[c.id]||0,p=c.photo||'icon.png';
+            return '<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;">'
+                +'<div style="display:flex;align-items:center;gap:10px;"><img src="'+p+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src=\'icon.png\'">'
+                +'<div><div style="font-weight:700;font-size:14px;">'+c.name+'</div><div style="font-size:11px;color:var(--text-grey);">'+c.breed+'</div></div></div>'
+                +'<div style="display:flex;align-items:center;gap:8px;">'
+                +'<button type="button" onclick="adjustSpecialEgg(\''+c.id+'\',-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);font-size:16px;cursor:pointer;">-</button>'
+                +'<input type="number" class="special-hen-input" data-chicken-id="'+c.id+'" value="'+v+'" min="0" max="5" oninput="updateEggTotal()" style="width:36px;text-align:center;font-size:16px;font-weight:bold;border:none;background:transparent;">'
+                +'<button type="button" onclick="adjustSpecialEgg(\''+c.id+'\',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--primary);color:white;font-size:16px;cursor:pointer;">+</button>'
+                +'</div></div>';
         }).join('');
-        specialSection.style.display = 'block';
-        if (otherLabel) otherLabel.innerText = 'Autres \u0153ufs normaux';
-    } else {
-        specialSection.style.display = 'none';
-        if (otherLabel) otherLabel.innerText = '\u0152ufs';
-    }
+        ss.style.display='block'; if(ol) ol.innerText='Autres oeufs normaux';
+    } else { ss.style.display='none'; if(ol) ol.innerText='Oeufs'; }
 }
 
 // ============================================================
@@ -651,103 +653,73 @@ document.getElementById('form-chicken').addEventListener('submit', (e) => {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-    const now = new Date();
-    let monthCount = 0, totalCount = 0;
-
-    localEggs.forEach(e => {
-        const qty = e.count || 1;
-        totalCount += qty;
-        const d = new Date(e.date);
-        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) monthCount += qty;
+    var now = new Date(), weekAgo = new Date(); weekAgo.setDate(now.getDate()-7);
+    var monthCount=0, weekCount=0, totalCount=0;
+    localEggs.forEach(function(e){
+        var qty=e.count||1; totalCount+=qty;
+        var d=new Date(e.date);
+        if(d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()) monthCount+=qty;
+        if(d>=weekAgo) weekCount+=qty;
     });
-
-    const totalDisplay = document.getElementById('total-eggs-display');
-    const monthDisplay = document.getElementById('eggs-month-count');
-    if (totalDisplay) totalDisplay.innerText = totalCount;
-    if (monthDisplay) monthDisplay.innerText = monthCount;
-
+    if(document.getElementById('total-eggs-display')) document.getElementById('total-eggs-display').innerText=totalCount;
+    if(document.getElementById('eggs-month-count'))   document.getElementById('eggs-month-count').innerText=monthCount;
+    if(document.getElementById('eggs-week-count'))    document.getElementById('eggs-week-count').innerText=weekCount;
     updateChart(localEggs);
-
-    const list = document.getElementById('recent-activity-list');
-    if (!list) return;
-    list.innerHTML = '';
-
-    const _jours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-    [...localEggs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).forEach(e => {
-        const qty = e.count || 1;
-        const d   = new Date(e.date);
-        const isToday     = d.toDateString() === new Date().toDateString();
-        const isYesterday = d.toDateString() === new Date(Date.now() - 86400000).toDateString();
-        const dayLabel    = isToday ? "Aujourd'hui" : isYesterday ? 'Hier' : _jours[d.getDay()];
-        const dateStr     = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-        let specialHtml = '';
-        if (e.specialCounts) {
-            Object.entries(e.specialCounts).forEach(([cid, cnt]) => {
-                const hen = (localChickens || []).find(c => c.id === cid);
-                if (hen && cnt > 0) specialHtml += '<span style="font-size:10px;background:rgba(0,122,255,0.1);color:var(--primary);padding:2px 7px;border-radius:8px;white-space:nowrap;">' + hen.name + ' x' + cnt + '</span>';
-            });
-        }
-        const li = document.createElement('li');
-        li.style.cursor = 'pointer';
-        li.style.flexDirection = 'column';
-        li.style.alignItems = 'stretch';
-        li.style.gap = '6px';
-        li.onclick = () => openEditEggModal(e.id);
-        li.innerHTML =
-            '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                '<div style="display:flex;align-items:center;gap:10px;">' +
-                    '<div style="background:#ff9500;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>' +
-                    '<div style="font-weight:700;font-size:14px;">' + dayLabel + ' <span style="font-weight:400;color:var(--text-grey);font-size:12px;">' + dateStr + '</span></div>' +
-                '</div>' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                    '<span style="font-weight:800;font-size:16px;color:var(--warning);">' + qty + ' \uD83E\uDD5A</span>' +
-                    '<i class="fas fa-chevron-right" style="color:var(--text-grey);font-size:12px;"></i>' +
-                '</div>' +
-            '</div>' +
-            (specialHtml ? '<div style="display:flex;flex-wrap:wrap;gap:4px;padding-left:20px;">' + specialHtml + '</div>' : '') +
-            (e.note ? '<div style="font-size:11px;color:var(--text-grey);padding-left:20px;font-style:italic;">' + e.note + '</div>' : '');
+    var list=document.getElementById('recent-activity-list');
+    if(!list) return;
+    list.innerHTML='';
+    var _j=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    [...localEggs].sort(function(a,b){return new Date(b.date)-new Date(a.date);}).slice(0,10).forEach(function(e){
+        var qty=e.count||1, d=new Date(e.date);
+        var isT=d.toDateString()===new Date().toDateString();
+        var isY=d.toDateString()===new Date(Date.now()-86400000).toDateString();
+        var dl=isT?"Aujourd'hui":isY?'Hier':_j[d.getDay()];
+        var ds=d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+        var sh='';
+        if(e.specialCounts) Object.entries(e.specialCounts).forEach(function(en){
+            var hen=(localChickens||[]).find(function(c){return c.id===en[0];});
+            if(hen&&en[1]>0) sh+='<span style="font-size:10px;background:rgba(0,122,255,0.1);color:var(--primary);padding:2px 7px;border-radius:8px;white-space:nowrap;">'+hen.name+' x'+en[1]+'</span>';
+        });
+        var li=document.createElement('li');
+        li.style.cursor='pointer'; li.style.flexDirection='column'; li.style.alignItems='stretch'; li.style.gap='6px';
+        li.onclick=(function(eid){return function(){openEditEggModal(eid);};})(e.id);
+        li.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;"><div style="display:flex;align-items:center;gap:10px;"><div style="background:#ff9500;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div><div style="font-weight:700;font-size:14px;">'+dl+' <span style="font-weight:400;color:var(--text-grey);font-size:12px;">'+ds+'</span></div></div><div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:800;font-size:16px;color:var(--warning);">'+qty+' 🥚</span><i class="fas fa-chevron-right" style="color:var(--text-grey);font-size:12px;"></i></div></div>'+(sh?'<div style="display:flex;flex-wrap:wrap;gap:4px;padding-left:20px;">'+sh+'</div>':'')+(e.note?'<div style="font-size:11px;color:var(--text-grey);padding-left:20px;font-style:italic;">'+e.note+'</div>':'');
         list.appendChild(li);
     });
-
-    if (window.renderExtensions) window.renderExtensions();
+    if(window.renderExtensions) window.renderExtensions();
 }
 
-window.openAddEggModal = () => {
-    document.getElementById('egg-edit-id').value = '';
-    document.getElementById('egg-modal-title').innerText = '\u{1F95A} Ramassage';
-    document.getElementById('egg-other-input').value = 0;
-    document.getElementById('egg-note-input').value = '';
-    document.getElementById('egg-date-input').valueAsDate = new Date();
-    document.getElementById('egg-delete-btn').style.display = 'none';
-    buildSpecialHensSection();
-    updateEggTotal();
-    document.getElementById('modal-add-egg').style.display = 'flex';
+window.openAddEggModal = function() {
+    document.getElementById('egg-edit-id').value='';
+    document.getElementById('egg-modal-title').innerText='Ramassage';
+    document.getElementById('egg-other-input').value=0;
+    document.getElementById('egg-note-input').value='';
+    document.getElementById('egg-date-input').valueAsDate=new Date();
+    document.getElementById('egg-delete-btn').style.display='none';
+    buildSpecialHensSection(); updateEggTotal();
+    document.getElementById('modal-add-egg').style.display='flex';
 };
-window.openEditEggModal = (id) => {
-    const egg = localEggs.find(e => e.id === id);
-    if (!egg) return;
-    const specialCounts = egg.specialCounts || {};
-    const specialTotal  = Object.values(specialCounts).reduce((s, v) => s + v, 0);
-    const otherCount    = Math.max(0, (egg.count || 1) - specialTotal);
-    document.getElementById('egg-edit-id').value         = id;
-    document.getElementById('egg-modal-title').innerText = '\u270F\uFE0F Modifier le ramassage';
-    document.getElementById('egg-other-input').value     = otherCount;
-    document.getElementById('egg-note-input').value      = egg.note || '';
-    document.getElementById('egg-date-input').value      = new Date(egg.date).toISOString().split('T')[0];
-    document.getElementById('egg-delete-btn').style.display = 'block';
-    buildSpecialHensSection(specialCounts);
-    updateEggTotal();
-    document.getElementById('modal-add-egg').style.display = 'flex';
+window.openEditEggModal = function(id) {
+    var egg=localEggs.find(function(e){return e.id===id;}); if(!egg)return;
+    var sc=egg.specialCounts||{};
+    var st=Object.values(sc).reduce(function(s,v){return s+v;},0);
+    document.getElementById('egg-edit-id').value=id;
+    document.getElementById('egg-modal-title').innerText='Modifier le ramassage';
+    document.getElementById('egg-other-input').value=Math.max(0,(egg.count||1)-st);
+    document.getElementById('egg-note-input').value=egg.note||'';
+    document.getElementById('egg-date-input').value=new Date(egg.date).toISOString().split('T')[0];
+    document.getElementById('egg-delete-btn').style.display='block';
+    buildSpecialHensSection(sc); updateEggTotal();
+    document.getElementById('modal-add-egg').style.display='flex';
 };
-window.deleteCurrentEgg = () => {
-    const id = document.getElementById('egg-edit-id').value;
-    if (!id) return;
-    if (confirm("Supprimer ce ramassage ?")) {
-        const egg = localEggs.find(e => e.id === id);
-        if (egg) extFridgeStock = Math.max(0, extFridgeStock - (egg.count || 1));
-        localEggs = localEggs.filter(e => e.id !== id);
+window.deleteCurrentEgg = function() {
+    var id=document.getElementById('egg-edit-id').value; if(!id)return;
+    if(confirm("Supprimer ce ramassage ?")){
+        var egg=localEggs.find(function(e){return e.id===id;});
+        if(egg) extFridgeStock=Math.max(0,extFridgeStock-(egg.count||1));
+        localEggs=localEggs.filter(function(e){return e.id!==id;});
         saveData(); renderDashboard();
-        document.getElementById('modal-add-egg').style.display = 'none';
+        document.getElementById('modal-add-egg').style.display='none';
     }
 };
 
@@ -1023,15 +995,64 @@ window.login = () => {
     });
 };
 
-window.exportData = () => {
-    const data = { ...buildFullPayload(), exportDate: new Date().toISOString() };
-    const a = document.createElement('a');
-    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    a.download = `poulettes-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
+window.exportData = function() {
+    var data = Object.assign({}, buildFullPayload(), { exportDate: new Date().toISOString() });
+    var json = JSON.stringify(data, null, 2);
+    var blob = new Blob([json], { type: 'application/json' });
+    var url  = URL.createObjectURL(blob);
+    var filename = 'poulettes-backup-' + new Date().toISOString().split('T')[0] + '.json';
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS) {
+        var w = window.open('', '_blank');
+        if (w) { w.document.title = filename; w.document.write('<pre style="word-wrap:break-word;white-space:pre-wrap;">' + json.replace(/</g,'&lt;') + '</pre><p style="font-family:sans-serif;color:gray;padding:20px;">Appuyez sur le bouton Partage puis "Enregistrer dans Fichiers" pour sauvegarder.</p>'); }
+        else alert('Autorisez les pop-ups pour exporter.');
+        return;
+    }
+    var a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+};
+window.importData = function() {
+    var input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json,application/json';
+    input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;';
+    document.body.appendChild(input);
+    input.addEventListener('change', function() {
+        var file = input.files && input.files[0];
+        document.body.removeChild(input);
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                var d = JSON.parse(ev.target.result);
+                if (d.chickens)        localChickens     = d.chickens;
+                if (d.eggs)            localEggs         = d.eggs;
+                if (d.transactions)    localTransactions = d.transactions;
+                if (d.tasks)           localTasks        = d.tasks;
+                if (d.extFridgeStock  !== undefined) extFridgeStock      = d.extFridgeStock;
+                if (d.extStockData)                  extStockData        = d.extStockData;
+                if (d.extRecyclingHistory)           extRecyclingHistory = d.extRecyclingHistory;
+                if (d.extNotes)                      extNotes            = d.extNotes;
+                if (d.extHealth)                     extHealth           = d.extHealth;
+                if (d.extSales)                      extSales            = d.extSales;
+                if (d.extSuppliesState)              extSuppliesState    = d.extSuppliesState;
+                if (d.extEggRecords)                 extEggRecords       = d.extEggRecords;
+                saveData(); renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
+                alert('Import reussi !');
+            } catch(err) { alert('Fichier invalide : ' + err.message); }
+        };
+        reader.readAsText(file);
+    });
+    input.click();
 };
 
-window.toggleDarkMode = () => {
+window.toggleDarkMode = function() {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+};
+window.applyUpdate = function() {
+    navigator.serviceWorker.getRegistration().then(function(reg) {
+        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        else window.location.reload();
+    });
 };
