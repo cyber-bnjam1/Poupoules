@@ -79,6 +79,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Service Worker — mise à jour PWA
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').then(reg => {
+            reg.addEventListener('updatefound', () => {
+                const nw = reg.installing;
+                nw.addEventListener('statechange', () => {
+                    if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                        const banner = document.getElementById('update-banner');
+                        if (banner) banner.style.display = 'flex';
+                    }
+                });
+            });
+        }).catch(err => console.warn('SW non enregistré :', err));
+        // Rechargement automatique quand le nouveau SW prend la main
+        navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+    }
+
     // Fermeture des modals
     document.querySelectorAll('.close-modal').forEach(b => {
         b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
@@ -1051,15 +1068,80 @@ window.login = () => {
     });
 };
 
-window.exportData = () => {
+window.exportData = async () => {
     const data = { ...buildFullPayload(), exportDate: new Date().toISOString() };
+    const json = JSON.stringify(data, null, 2);
+    const filename = 'poulettes-backup-' + new Date().toISOString().split('T')[0] + '.json';
+    const blob = new Blob([json], { type: 'application/json' });
+
+    // iOS PWA : Web Share API — ouvre la feuille de partage native (Enregistrer dans Fichiers, AirDrop…)
+    try {
+        const file = new File([blob], filename, { type: 'application/json' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename });
+            return;
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') return; // annulé par l'utilisateur
+        console.warn('Web Share non disponible, fallback téléchargement', err);
+    }
+
+    // Desktop / Android : téléchargement classique
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    a.download = `poulettes-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+window.importData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    // Doit être dans le DOM sur iOS avant le click()
+    input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        document.body.removeChild(input);
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const d = JSON.parse(ev.target.result);
+                if (d.chickens)                              localChickens       = d.chickens;
+                if (d.eggs)                                  localEggs           = d.eggs;
+                if (d.transactions)                          localTransactions   = d.transactions;
+                if (d.tasks)                                 localTasks          = d.tasks;
+                if (d.extFridgeStock      !== undefined)     extFridgeStock      = d.extFridgeStock;
+                if (d.extStockData)                          extStockData        = d.extStockData;
+                if (d.extRecyclingHistory)                   extRecyclingHistory = d.extRecyclingHistory;
+                if (d.extNotes)                              extNotes            = d.extNotes;
+                if (d.extHealth)                             extHealth           = d.extHealth;
+                if (d.extSales)                              extSales            = d.extSales;
+                if (d.extSuppliesState)                      extSuppliesState    = d.extSuppliesState;
+                if (d.extEggRecords)                         extEggRecords       = d.extEggRecords;
+                saveData();
+                renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
+                alert('✅ Import réussi — ' + (d.chickens?.length || 0) + ' poules, ' + (d.eggs?.length || 0) + ' ramassages.');
+            } catch (err) {
+                alert('❌ Fichier invalide : ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    });
+    input.click();
 };
 
 window.toggleDarkMode = () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+};
+
+window.applyUpdate = () => {
+    navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        else window.location.reload();
+    });
 };
