@@ -448,6 +448,9 @@ window.navigate = (targetId) => {
 
     currentViewId = targetId;
     updateFabVisibility(targetId);
+    document.querySelectorAll('.bottom-nav-item').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === targetId);
+    });
 
     const sc = document.getElementById('scroll-container');
     if (sc) sc.scrollTop = 0;
