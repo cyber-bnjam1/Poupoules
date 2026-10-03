@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Poupoules</title>
+    <title>Mes Poulettes</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -36,15 +36,12 @@
     </div>
 
     <header id="app-header">
-        <button id="brand-button" onclick="navigate('view-dashboard')" aria-label="Accueil">
-            <span class="brand-mark"><i class="fas fa-feather-pointed"></i></span>
-            <span class="brand-name">Poupoules</span>
-        </button>
+        <button id="burger-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
         <div id="header-right">
-            <div id="maintenance-badge" class="header-badge" onclick="navigate('view-maintenance')" title="État de l'entretien">
+            <div id="maintenance-badge" class="header-badge" onclick="navigate('view-maintenance')">
                 <i class="fas fa-check"></i>
             </div>
-            <div id="header-status" class="header-badge status-badge demo" title="Synchronisation">
+            <div id="header-status" class="header-badge status-badge demo">
                 <i class="fas fa-wifi"></i>
             </div>
         </div>
@@ -68,7 +65,7 @@
     <main id="scroll-container">
         
         <section id="view-dashboard" class="active-view">
-            <h1 class="big-title home-title">Tableau de bord</h1>
+            <h1 class="big-title">Tableau de bord</h1>
             
             <div class="status-row">
                 <div class="glass-card mini-status-card highlight-card" onclick="openAddEggModal()">
@@ -76,18 +73,17 @@
                     <div class="status-info"><span class="status-label">Ramassage</span><span class="status-value">Ajouter</span></div>
                 </div>
                 <div class="glass-card mini-status-card">
-                    <div class="icon-circle primary-color"><i class="fas fa-calendar-days"></i></div>
-                    <div class="status-info"><span class="status-label">Ce mois-ci</span><span class="status-value" id="eggs-month-count">0</span></div>
-                </div>
-                <div class="glass-card mini-status-card">
                     <div class="icon-circle primary-color"><i class="fas fa-egg"></i></div>
-                    <div class="status-info"><span class="status-label">Au total</span><span class="status-value" id="total-eggs-display">0</span></div>
+                    <div class="status-info"><span class="status-label">Ce mois-ci</span><span class="status-value" id="eggs-month-count">0</span></div>
                 </div>
             </div>
 
             <div class="glass-card chart-card">
                 <h3><i class="fas fa-chart-line"></i> Ponte mensuelle</h3>
                 <div class="chart-container"><canvas id="eggsChart"></canvas></div>
+                <div class="stats-summary-row">
+                    <span class="stat-pill"><span id="total-eggs-display">0</span> Œufs (Total)</span>
+                </div>
             </div>
 
             <div id="journal-widget-container"></div>
@@ -426,13 +422,5 @@
     <script src="app.js"></script>
     <script src="extensions.js"></script>
     <script src="stats.js"></script>
-
-    <nav id="bottom-nav" aria-label="Navigation principale">
-        <button class="bottom-nav-item active" data-view="view-dashboard" onclick="navigate('view-dashboard')"><i class="fas fa-house"></i><span>Accueil</span></button>
-        <button class="bottom-nav-item" data-view="view-chickens" onclick="navigate('view-chickens')"><i class="fas fa-dove"></i><span>Poules</span></button>
-        <button class="bottom-nav-item" data-view="view-maintenance" onclick="navigate('view-maintenance')"><i class="fas fa-kit-medical"></i><span>Soins</span><b id="nav-maintenance-count"></b></button>
-        <button class="bottom-nav-item" data-view="view-finance" onclick="navigate('view-finance')"><i class="fas fa-euro-sign"></i><span>Budget</span></button>
-        <button class="bottom-nav-item" data-view="view-settings" onclick="navigate('view-settings')"><i class="fas fa-gear"></i><span>Réglages</span></button>
-    </nav>
 </body>
 </html>
