@@ -1,6 +1,6 @@
 // sw.js — Service Worker Poupoules
 // Incrémente CACHE_VERSION à chaque déploiement pour déclencher la popup de mise à jour
-const CACHE_VERSION = 'poupoules-v8.1';
+const CACHE_VERSION = 'poupoules-v8.2';
 const ASSETS = [
     './',
     './index.html',
