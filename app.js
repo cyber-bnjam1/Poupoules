@@ -306,10 +306,14 @@ function setupRealtimeSync(uid) {
                 extEggRecords        = data.extEggRecords         || { heaviest: 0, lightest: 1000 };
 
                 persistToLocalStorage();
-                renderChickensList();
-                renderDashboard();
-                renderFinance();
-                renderMaintenance();
+                // Charger les photos (sous-document séparé) puis rafraîchir l'UI
+                loadPhotos().then(() => {
+                    persistToLocalStorage();
+                    renderChickensList();
+                    renderDashboard();
+                    renderFinance();
+                    renderMaintenance();
+                });
                 updateSyncStatus('ok');
                 console.log(`[Sync] OK — ${localChickens.length} poules, ${localEggs.length} ramassages`);
             } else {
@@ -368,6 +372,8 @@ window.forceSyncFromFirebase = async () => {
             extSuppliesState    = data.extSuppliesState     || {};
             extEggRecords       = data.extEggRecords        || { heaviest: 0, lightest: 1000 };
             persistToLocalStorage();
+            await loadPhotos();
+            persistToLocalStorage();
             renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Synchronisé !'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }, 2000); }
         } else {
@@ -399,7 +405,10 @@ function saveData() {
             ...payload,
             lastSync: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true })
-        .then(() => updateSyncStatus('ok'))
+        .then(() => {
+            updateSyncStatus('ok');
+            savePhotos(); // photos dans sous-document séparé
+        })
         .catch(err => {
             console.error("[Save] Erreur Firebase:", err);
             updateSyncStatus('error');
@@ -408,8 +417,14 @@ function saveData() {
 }
 
 function buildFullPayload() {
+    // ⚠️ Les photos base64 sont exclues du document principal (limite 1MB Firestore)
+    // Elles sont stockées dans un sous-document séparé via savePhotos()
+    const chickensWithoutPhotos = localChickens.map(c => {
+        const { photo, ...rest } = c;
+        return rest;
+    });
     return {
-        chickens:            localChickens,
+        chickens:            chickensWithoutPhotos,
         eggs:                localEggs,
         transactions:        localTransactions,
         tasks:               localTasks,
@@ -423,6 +438,39 @@ function buildFullPayload() {
         extSuppliesState,
         extEggRecords,
     };
+}
+
+// Sauvegarde les photos dans un sous-document séparé
+async function savePhotos() {
+    if (!currentUser) return;
+    const photos = {};
+    localChickens.forEach(c => {
+        if (c.photo && c.photo.startsWith('data:')) photos[c.id] = c.photo;
+    });
+    try {
+        await db.collection('users').doc(currentUser.uid)
+            .collection('data').doc('photos').set(photos, { merge: true });
+    } catch (err) {
+        console.warn('[Photos] Erreur sauvegarde photos:', err);
+    }
+}
+
+// Charge les photos depuis le sous-document et les réinjecte dans localChickens
+async function loadPhotos() {
+    if (!currentUser) return;
+    try {
+        const doc = await db.collection('users').doc(currentUser.uid)
+            .collection('data').doc('photos').get();
+        if (doc.exists) {
+            const photos = doc.data();
+            localChickens = localChickens.map(c => ({
+                ...c,
+                photo: photos[c.id] || c.photo || 'icon.png'
+            }));
+        }
+    } catch (err) {
+        console.warn('[Photos] Erreur chargement photos:', err);
+    }
 }
 
 function persistToLocalStorage() {
@@ -1091,7 +1139,7 @@ window.deleteCurrentTask = () => {
 // ============================================================
 window.handlePhotoUpload = input => {
     if (input.files && input.files[0]) {
-        compressImage(input.files[0], 150, 0.4)
+        compressImage(input.files[0], 120, 0.3)
             .then(b => { document.getElementById('preview-photo').src = b; tempPhotoBase64 = b; })
             .catch(err => console.error("Compression image:", err));
     }
