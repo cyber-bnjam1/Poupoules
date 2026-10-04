@@ -68,23 +68,21 @@
             <h1 class="big-title">Tableau de bord</h1>
             
             <div class="status-row">
-                <div class="glass-card mini-status-card highlight-card" onclick="openAddEggModal()">
-                    <div class="icon-circle egg-color"><i class="fas fa-plus"></i></div>
-                    <div class="status-info"><span class="status-label">Ramassage</span><span class="status-value">Ajouter</span></div>
+                <div class="glass-card mini-status-card">
+                    <div class="icon-circle egg-color"><i class="fas fa-egg"></i></div>
+                    <div class="status-info"><span class="status-label">Cette semaine</span><span class="status-value" id="eggs-week-count">0</span></div>
                 </div>
                 <div class="glass-card mini-status-card">
-                    <div class="icon-circle primary-color"><i class="fas fa-egg"></i></div>
+                    <div class="icon-circle primary-color"><i class="fas fa-calendar"></i></div>
                     <div class="status-info"><span class="status-label">Ce mois-ci</span><span class="status-value" id="eggs-month-count">0</span></div>
                 </div>
             </div>
 
-            <div class="glass-card chart-card">
-                <h3><i class="fas fa-chart-line"></i> Ponte mensuelle</h3>
-                <div class="chart-container"><canvas id="eggsChart"></canvas></div>
-                <div class="stats-summary-row">
-                    <span class="stat-pill"><span id="total-eggs-display">0</span> Œufs (Total)</span>
-                </div>
-            </div>
+            <button class="glass-card" onclick="openAddEggModal()" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:15px 20px;margin-bottom:20px;box-sizing:border-box;">
+                <div class="icon-circle egg-color" style="flex-shrink:0;"><i class="fas fa-plus"></i></div>
+                <div class="status-info"><span class="status-label">Ramassage du jour</span><span class="status-value" style="font-size:15px;">Enregistrer des œufs</span></div>
+                <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-grey);"></i>
+            </button>
 
             <div id="journal-widget-container"></div>
 

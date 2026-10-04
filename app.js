@@ -1,4 +1,6 @@
-// CONFIG
+// ============================================================
+// CONFIG FIREBASE
+// ============================================================
 const firebaseConfig = {
     apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEtJ0SqA",
     authDomain: "poulettes-75fb5.firebaseapp.com",
@@ -8,28 +10,19 @@ const firebaseConfig = {
     appId: "1:479553710488:web:8cb5ec0285f330c51e23ed"
 };
 
-// Initialisation Firebase avec persistance offline
 if (!firebase.apps || !firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
     firebase.firestore().enablePersistence({ synchronizeTabs: true })
-        .catch((err) => {
-            if (err.code == 'failed-precondition') {
-                console.warn("Persistance offline impossible : plusieurs onglets ouverts");
-            } else if (err.code == 'unimplemented') {
-                console.warn("Persistance offline non supportée par ce navigateur");
-            }
-        });
+        .catch(err => console.warn("Persistance offline:", err.code));
 }
 
 const auth = firebase.auth();
-const db = firebase.firestore();
+const db   = firebase.firestore();
 
 // ============================================================
-// STATE GLOBAL — toutes les données de l'app (core + extensions)
+// STATE GLOBAL
 // ============================================================
 let localChickens = [], localEggs = [], localTransactions = [], localTasks = [];
-
-// Données extensions (anciennement localStorage uniquement)
 let extFridgeStock = 0;
 let extStockData = { quantity: 0, date: null };
 let extRecyclingHistory = [];
@@ -46,40 +39,46 @@ let eggsChartInstance = null;
 let unsubscribeFirestore = null;
 
 // ============================================================
+// PROTECTION DONNÉES — fonctions de validation
+// ============================================================
+
+// Retourne true si le payload contient des données réelles (non vide)
+function payloadHasData(payload) {
+    return (
+        (payload.chickens      && payload.chickens.length      > 0) ||
+        (payload.eggs          && payload.eggs.length          > 0) ||
+        (payload.transactions  && payload.transactions.length  > 0) ||
+        (payload.tasks         && payload.tasks.length         > 0) ||
+        (payload.extHealth     && payload.extHealth.length     > 0) ||
+        (payload.extNotes      && payload.extNotes.length      > 0)
+    );
+}
+
+// Retourne true si l'état local actuel contient des données
+function localHasData() {
+    return payloadHasData({
+        chickens: localChickens, eggs: localEggs,
+        transactions: localTransactions, tasks: localTasks,
+        extHealth, extNotes
+    });
+}
+
+// ============================================================
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Dark mode
     if (localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');
-        document.getElementById('dark-mode-toggle').checked = true;
+        const toggle = document.getElementById('dark-mode-toggle');
+        if (toggle) toggle.checked = true;
     }
+
     initEggsChart();
     updateFabVisibility('view-dashboard');
-
-    // Chargement initial depuis localStorage (mode invité par défaut)
     loadLocalData();
 
-    // Gestion de l'état d'authentification
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            currentUser = user;
-            isDemoMode = false;
-            await checkAndMigrateLocalData(user.uid);
-            setupRealtimeSync(user.uid);
-            updateUIForConnectedUser(user);
-        } else {
-            currentUser = null;
-            isDemoMode = true;
-            if (unsubscribeFirestore) {
-                unsubscribeFirestore();
-                unsubscribeFirestore = null;
-            }
-            loadLocalData();
-            updateUIForGuestUser();
-        }
-    });
-
-    // Service Worker — mise à jour PWA
+    // Service Worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').then(reg => {
             reg.addEventListener('updatefound', () => {
@@ -91,21 +90,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             });
-        }).catch(err => console.warn('SW non enregistré :', err));
-        // Rechargement automatique quand le nouveau SW prend la main
+        }).catch(err => console.warn('SW:', err));
         navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
     }
 
-    // Fermeture des modals
-    document.querySelectorAll('.close-modal').forEach(b => {
-        b.addEventListener('click', (e) => e.target.closest('.modal').style.display = 'none');
+    // Auth Firebase
+    auth.onAuthStateChanged(async user => {
+        if (user) {
+            currentUser = user;
+            isDemoMode = false;
+            await checkAndMigrateLocalData(user.uid);
+            setupRealtimeSync(user.uid);
+            updateUIForConnectedUser(user);
+        } else {
+            currentUser = null;
+            isDemoMode = true;
+            if (unsubscribeFirestore) { unsubscribeFirestore(); unsubscribeFirestore = null; }
+            loadLocalData();
+            updateUIForGuestUser();
+        }
     });
 
-    // Formulaire ajout / édition d'oeufs
-    document.getElementById('form-add-egg').addEventListener('submit', (e) => {
+    // Fermeture des modals
+    document.querySelectorAll('.close-modal').forEach(b => {
+        b.addEventListener('click', e => e.target.closest('.modal').style.display = 'none');
+    });
+
+    // Formulaire œufs
+    document.getElementById('form-add-egg').addEventListener('submit', e => {
         e.preventDefault();
-        const date = document.getElementById('egg-date-input').value;
-        const note = document.getElementById('egg-note-input').value.trim();
+        const date   = document.getElementById('egg-date-input').value;
+        const note   = document.getElementById('egg-note-input').value.trim();
         const editId = document.getElementById('egg-edit-id').value;
 
         const specialCounts = {};
@@ -125,13 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ...(note && { note })
             };
             if (editId) {
-                // Mode édition : ajuster le stock frigo en fonction du delta
                 const old = localEggs.find(e => e.id === editId);
                 if (old) extFridgeStock = Math.max(0, extFridgeStock - (old.count || 1) + count);
                 const idx = localEggs.findIndex(e => e.id === editId);
                 if (idx > -1) localEggs[idx] = { ...localEggs[idx], ...eggData };
             } else {
-                // Mode ajout
                 localEggs.push({ id: 'e' + Date.now(), ...eggData, createdAt: new Date().toISOString() });
                 extFridgeStock += count;
             }
@@ -140,221 +153,262 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('modal-add-egg').style.display = 'none';
         }
     });
+
+    // Formulaire poule
+    document.getElementById('form-chicken').addEventListener('submit', e => {
+        e.preventDefault();
+        const id = document.getElementById('chicken-id').value;
+        const data = {
+            name:   document.getElementById('chicken-name').value,
+            breed:  document.getElementById('chicken-breed').value,
+            date:   document.getElementById('chicken-date').value,
+            health: document.getElementById('chicken-health').value,
+            photo:  tempPhotoBase64 || document.getElementById('preview-photo').src
+        };
+        if (id) {
+            const idx = localChickens.findIndex(c => c.id === id);
+            if (idx > -1) localChickens[idx] = { ...localChickens[idx], ...data };
+        } else {
+            localChickens.push({ id: 'c' + Date.now(), ...data, status: 'active', isFavorite: false, createdAt: new Date().toISOString() });
+        }
+        saveData();
+        document.getElementById('modal-chicken').style.display = 'none';
+        renderChickensList();
+    });
+
+    // Formulaire transaction
+    document.getElementById('form-transaction').addEventListener('submit', e => {
+        e.preventDefault();
+        const id = document.getElementById('trans-id').value;
+        const data = {
+            amount:   parseFloat(document.getElementById('trans-amount').value),
+            date:     document.getElementById('trans-date').value,
+            type:     document.getElementById('trans-type').value,
+            category: document.getElementById('trans-category').value,
+            updatedAt: new Date().toISOString()
+        };
+        if (id) {
+            const idx = localTransactions.findIndex(t => t.id === id);
+            if (idx > -1) localTransactions[idx] = { id, ...data };
+        } else {
+            localTransactions.push({ id: 't' + Date.now(), ...data });
+        }
+        saveData();
+        document.getElementById('modal-transaction').style.display = 'none';
+        renderFinance();
+    });
+
+    // Formulaire tâche
+    document.getElementById('form-task').addEventListener('submit', e => {
+        e.preventDefault();
+        const id = document.getElementById('task-id').value;
+        const data = {
+            title:     document.getElementById('task-title').value,
+            frequency: parseInt(document.getElementById('task-freq').value)
+        };
+        if (id) {
+            const idx = localTasks.findIndex(t => t.id === id);
+            if (idx > -1) localTasks[idx] = { ...localTasks[idx], ...data };
+        } else {
+            localTasks.push({ id: 'task' + Date.now(), ...data, lastDone: new Date().toISOString(), createdAt: new Date().toISOString() });
+        }
+        saveData();
+        document.getElementById('modal-edit-task').style.display = 'none';
+        renderMaintenance();
+    });
 });
 
 // ============================================================
-// MIGRATION : LocalStorage vers Firebase a la premiere connexion
+// MIGRATION localStorage → Firebase (première connexion)
 // ============================================================
 async function checkAndMigrateLocalData(uid) {
     try {
         const doc = await db.collection('users').doc(uid).get();
         if (!doc.exists) {
-            console.log("Migration des donnees locales vers Firebase...");
+            console.log("[Migration] Création du document Firebase depuis localStorage");
             const coreData = JSON.parse(localStorage.getItem('poupoules_data') || '{}');
-            const extData = buildExtDataFromLocalStorage();
-            await db.collection('users').doc(uid).set({
-                chickens: coreData.chickens || [],
-                eggs: coreData.eggs || [],
-                transactions: coreData.transactions || [],
-                tasks: coreData.tasks || [],
+            const extData  = buildExtDataFromLocalStorage();
+            const payload  = {
+                chickens:     coreData.chickens     || [],
+                eggs:         coreData.eggs          || [],
+                transactions: coreData.transactions  || [],
+                tasks:        coreData.tasks         || [],
                 ...extData,
                 lastSync: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            console.log("Migration reussie !");
-        } else {
-            console.log("Donnees Firebase existantes, pas de migration necessaire.");
+            };
+            await db.collection('users').doc(uid).set(payload);
+            console.log("[Migration] OK");
         }
-    } catch (error) {
-        console.error("Erreur lors de la migration:", error);
+    } catch (err) {
+        console.error("[Migration] Erreur:", err);
     }
 }
 
-// Lit toutes les cles localStorage des extensions et les retourne en objet plat
 function buildExtDataFromLocalStorage() {
-    // Migration legacy recycling
     let recycling = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
     if (localStorage.getItem('poupoules_recycled') && recycling.length === 0) {
         const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
         if (oldTotal > 0) recycling.push({ date: new Date().toISOString(), qty: oldTotal });
     }
     return {
-        extFridgeStock:     parseInt(localStorage.getItem('poupoules_fridge_qty') || '0'),
-        extStockData:       JSON.parse(localStorage.getItem('poupoules_stock') || '{"quantity":0,"date":null}'),
+        extFridgeStock:      parseInt(localStorage.getItem('poupoules_fridge_qty') || '0'),
+        extStockData:        JSON.parse(localStorage.getItem('poupoules_stock') || '{"quantity":0,"date":null}'),
         extRecyclingHistory: recycling,
-        extNotes:           JSON.parse(localStorage.getItem('poupoules_notes') || '[]'),
-        extHealth:          JSON.parse(localStorage.getItem('poupoules_health') || '[]'),
-        extSales:           JSON.parse(localStorage.getItem('poupoules_sales') || '[]'),
-        extSuppliesState:   JSON.parse(localStorage.getItem('poupoules_supplies') || '{}'),
-        extEggRecords:      JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}'),
+        extNotes:            JSON.parse(localStorage.getItem('poupoules_notes')    || '[]'),
+        extHealth:           JSON.parse(localStorage.getItem('poupoules_health')   || '[]'),
+        extSales:            JSON.parse(localStorage.getItem('poupoules_sales')    || '[]'),
+        extSuppliesState:    JSON.parse(localStorage.getItem('poupoules_supplies') || '{}'),
+        extEggRecords:       JSON.parse(localStorage.getItem('poupoules_records')  || '{"heaviest":0,"lightest":1000}'),
     };
 }
 
 // ============================================================
-// SYNCHRONISATION TEMPS REEL
+// SYNC TEMPS RÉEL FIREBASE
 // ============================================================
-// Flag pour éviter la boucle infinie onSnapshot → saveData → onSnapshot
-let _syncInProgress = false;
-
 function setupRealtimeSync(uid) {
     if (unsubscribeFirestore) unsubscribeFirestore();
-
     updateSyncStatus('loading');
 
-    // Au premier chargement : vérifier si local plus récent, puis pousser UNE SEULE FOIS
-    const localDateStr = localStorage.getItem('poupoules_last_update');
-    const localDate = localDateStr ? new Date(localDateStr) : new Date(0);
-    let initialPushDone = false;
-
     unsubscribeFirestore = db.collection('users').doc(uid)
-        .onSnapshot({ includeMetadataChanges: false }, (doc) => {
-            // Ignorer les snapshots locaux (nos propres écritures en attente)
+        .onSnapshot({ includeMetadataChanges: false }, doc => {
+            // Ignorer les écritures locales en attente
             if (doc.metadata.hasPendingWrites || doc.metadata.fromCache) return;
 
             if (doc.exists) {
                 const data = doc.data();
 
-                // Au premier snapshot : vérifier si le local est plus récent
-                if (!initialPushDone) {
-                    initialPushDone = true;
-                    const firebaseDate = data.lastLocalUpdate ? new Date(data.lastLocalUpdate) : new Date(0);
-                    if (localDate > firebaseDate) {
-                        console.log('[Firebase] Local plus récent, push initial vers Firebase');
-                        saveData();
-                        updateSyncStatus('ok');
-                        return;
-                    }
+                // ⚠️ PROTECTION ANTI-ÉCRASEMENT :
+                // Si Firebase a des données ET que le local est vide → charger Firebase
+                // Si Firebase est vide ET que le local a des données → ne pas écraser
+                if (!payloadHasData(data) && localHasData()) {
+                    console.warn("[Sync] Firebase vide mais local a des données — push local vers Firebase");
+                    saveData();
+                    updateSyncStatus('ok');
+                    return;
                 }
 
-                // Firebase confirmé par le serveur : charger les données
-                localChickens     = data.chickens      || [];
-                localEggs         = data.eggs           || [];
-                localTransactions = data.transactions   || [];
-                localTasks        = data.tasks          || [];
-
-                extFridgeStock      = data.extFridgeStock      ?? 0;
-                extStockData        = data.extStockData        || { quantity: 0, date: null };
-                extRecyclingHistory = data.extRecyclingHistory || [];
-                extNotes            = data.extNotes            || [];
-                extHealth           = data.extHealth           || [];
-                extSales            = data.extSales            || [];
-                extSuppliesState    = data.extSuppliesState    || {};
-                extEggRecords       = data.extEggRecords       || { heaviest: 0, lightest: 1000 };
+                localChickens        = data.chickens             || [];
+                localEggs            = data.eggs                  || [];
+                localTransactions    = data.transactions          || [];
+                localTasks           = data.tasks                 || [];
+                extFridgeStock       = data.extFridgeStock        ?? 0;
+                extStockData         = data.extStockData          || { quantity: 0, date: null };
+                extRecyclingHistory  = data.extRecyclingHistory   || [];
+                extNotes             = data.extNotes              || [];
+                extHealth            = data.extHealth             || [];
+                extSales             = data.extSales              || [];
+                extSuppliesState     = data.extSuppliesState      || {};
+                extEggRecords        = data.extEggRecords         || { heaviest: 0, lightest: 1000 };
 
                 persistToLocalStorage();
                 renderChickensList();
                 renderDashboard();
                 renderFinance();
                 renderMaintenance();
-
                 updateSyncStatus('ok');
-                console.log(`[Firebase] Sync OK — ${localChickens.length} poules, ${localEggs.length} oeufs`);
+                console.log(`[Sync] OK — ${localChickens.length} poules, ${localEggs.length} ramassages`);
             } else {
-                initialPushDone = true;
-                console.log("[Firebase] Document absent, création depuis localStorage...");
-                db.collection('users').doc(uid).set({
-                    chickens: localChickens, eggs: localEggs,
-                    transactions: localTransactions, tasks: localTasks,
-                    ...buildExtDataFromLocalStorage(),
-                    lastLocalUpdate: new Date().toISOString(),
-                    lastSync: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                // Document absent → créer depuis local si on a des données
+                if (localHasData()) {
+                    console.log("[Sync] Document absent, création depuis local");
+                    saveData();
+                } else {
+                    console.log("[Sync] Document absent et local vide — rien à faire");
+                }
             }
-        }, (error) => {
-            console.error("[Firebase] Erreur de synchronisation:", error);
+        }, err => {
+            console.error("[Sync] Erreur:", err);
             updateSyncStatus('error');
             loadLocalData();
         });
 }
 
-// Met a jour l'icone wifi du header selon l'etat de sync
 function updateSyncStatus(state) {
     const badge = document.getElementById('header-status');
     if (!badge) return;
     if (state === 'loading') {
-        badge.classList.remove('status-green', 'status-red', 'status-orange', 'demo');
+        badge.classList.remove('status-green', 'status-red', 'demo');
         badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        badge.title = 'Synchronisation en cours...';
     } else if (state === 'ok') {
-        badge.classList.remove('status-orange', 'status-red', 'demo');
+        badge.classList.remove('status-red', 'demo');
         badge.classList.add('status-green');
         badge.innerHTML = '<i class="fas fa-wifi"></i>';
-        badge.title = 'Synchronise avec Firebase';
-    } else if (state === 'error') {
-        badge.classList.remove('status-green', 'status-orange', 'demo');
+        badge.title = 'Synchronisé';
+    } else {
+        badge.classList.remove('status-green', 'demo');
         badge.classList.add('status-red');
         badge.innerHTML = '<i class="fas fa-wifi"></i>';
-        badge.title = 'Erreur de synchronisation — donnees locales';
+        badge.title = 'Hors ligne';
     }
 }
 
-// Forcer une re-lecture depuis Firebase (bouton dans les reglages)
 window.forceSyncFromFirebase = async () => {
-    if (!currentUser) {
-        alert("Vous devez etre connecte pour synchroniser.");
-        return;
-    }
+    if (!currentUser) { alert("Connectez-vous d'abord."); return; }
     const btn = document.getElementById('btn-force-sync');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sync...'; }
     try {
         const doc = await db.collection('users').doc(currentUser.uid).get();
         if (doc.exists) {
             const data = doc.data();
-            localChickens     = data.chickens      || [];
-            localEggs         = data.eggs           || [];
-            localTransactions = data.transactions   || [];
-            localTasks        = data.tasks          || [];
-            extFridgeStock      = data.extFridgeStock      ?? 0;
-            extStockData        = data.extStockData        || { quantity: 0, date: null };
-            extRecyclingHistory = data.extRecyclingHistory || [];
-            extNotes            = data.extNotes            || [];
-            extHealth           = data.extHealth           || [];
-            extSales            = data.extSales            || [];
-            extSuppliesState    = data.extSuppliesState    || {};
-            extEggRecords       = data.extEggRecords       || { heaviest: 0, lightest: 1000 };
+            localChickens       = data.chickens            || [];
+            localEggs           = data.eggs                 || [];
+            localTransactions   = data.transactions         || [];
+            localTasks          = data.tasks                || [];
+            extFridgeStock      = data.extFridgeStock       ?? 0;
+            extStockData        = data.extStockData         || { quantity: 0, date: null };
+            extRecyclingHistory = data.extRecyclingHistory  || [];
+            extNotes            = data.extNotes             || [];
+            extHealth           = data.extHealth            || [];
+            extSales            = data.extSales             || [];
+            extSuppliesState    = data.extSuppliesState     || {};
+            extEggRecords       = data.extEggRecords        || { heaviest: 0, lightest: 1000 };
             persistToLocalStorage();
-            renderChickensList();
-            renderDashboard();
-            renderFinance();
-            renderMaintenance();
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Synchronise !'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }, 2000); }
-            console.log("[Firebase] Sync forcee OK");
+            renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Synchronisé !'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }, 2000); }
         } else {
-            alert("Aucune donnee trouvee sur Firebase pour ce compte.");
+            alert("Aucune donnée trouvée sur Firebase.");
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }
         }
     } catch (err) {
-        console.error("[Firebase] Erreur sync forcee:", err);
         alert("Erreur : " + err.message);
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Forcer la synchronisation'; }
     }
 };
 
 // ============================================================
-// SAUVEGARDE UNIFIEE
+// SAUVEGARDE UNIFIÉE
 // ============================================================
 function saveData() {
     persistToLocalStorage();
 
     if (!isDemoMode && currentUser) {
+        const payload = buildFullPayload();
+
+        // ⚠️ PROTECTION : ne jamais écraser Firebase avec un payload vide
+        if (!payloadHasData(payload)) {
+            console.warn("[Save] Payload vide — sauvegarde Firebase annulée pour éviter la perte de données");
+            return;
+        }
+
         db.collection('users').doc(currentUser.uid).set({
-            ...buildFullPayload(),
+            ...payload,
             lastSync: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true })
+        .then(() => updateSyncStatus('ok'))
         .catch(err => {
-            console.error("Erreur sauvegarde Firebase:", err);
+            console.error("[Save] Erreur Firebase:", err);
+            updateSyncStatus('error');
         });
     }
 }
 
 function buildFullPayload() {
     return {
-        // Core
-        chickens:        localChickens,
-        eggs:            localEggs,
-        transactions:    localTransactions,
-        tasks:           localTasks,
-        lastLocalUpdate: new Date().toISOString(),
-        // Extensions
+        chickens:            localChickens,
+        eggs:                localEggs,
+        transactions:        localTransactions,
+        tasks:               localTasks,
+        lastLocalUpdate:     new Date().toISOString(),
         extFridgeStock,
         extStockData,
         extRecyclingHistory,
@@ -366,7 +420,6 @@ function buildFullPayload() {
     };
 }
 
-// Persiste tout dans localStorage (cache offline)
 function persistToLocalStorage() {
     try {
         const now = new Date().toISOString();
@@ -375,7 +428,7 @@ function persistToLocalStorage() {
             transactions: localTransactions, tasks: localTasks,
             lastLocalUpdate: now
         }));
-        localStorage.setItem('poupoules_last_update', now);
+        localStorage.setItem('poupoules_last_update',        now);
         localStorage.setItem('poupoules_fridge_qty',         String(extFridgeStock));
         localStorage.setItem('poupoules_stock',              JSON.stringify(extStockData));
         localStorage.setItem('poupoules_recycling_history',  JSON.stringify(extRecyclingHistory));
@@ -385,12 +438,12 @@ function persistToLocalStorage() {
         localStorage.setItem('poupoules_supplies',           JSON.stringify(extSuppliesState));
         localStorage.setItem('poupoules_records',            JSON.stringify(extEggRecords));
     } catch (e) {
-        console.error("Erreur persistance localStorage:", e);
+        console.error("[LocalStorage] Erreur:", e);
     }
 }
 
 // ============================================================
-// CHARGEMENT LOCAL (mode invite ou fallback offline)
+// CHARGEMENT LOCAL
 // ============================================================
 function loadLocalData() {
     try {
@@ -401,70 +454,169 @@ function loadLocalData() {
         localTasks        = d.tasks         || [];
 
         extFridgeStock      = parseInt(localStorage.getItem('poupoules_fridge_qty') || '0');
-        extStockData        = JSON.parse(localStorage.getItem('poupoules_stock') || '{"quantity":0,"date":null}');
-        extRecyclingHistory = JSON.parse(localStorage.getItem('poupoules_recycling_history') || '[]');
-        extNotes            = JSON.parse(localStorage.getItem('poupoules_notes') || '[]');
-        extHealth           = JSON.parse(localStorage.getItem('poupoules_health') || '[]');
-        extSales            = JSON.parse(localStorage.getItem('poupoules_sales') || '[]');
-        extSuppliesState    = JSON.parse(localStorage.getItem('poupoules_supplies') || '{}');
-        extEggRecords       = JSON.parse(localStorage.getItem('poupoules_records') || '{"heaviest":0,"lightest":1000}');
-
-        // Migration legacy recycling
-        if (localStorage.getItem('poupoules_recycled') && extRecyclingHistory.length === 0) {
-            const oldTotal = parseFloat(localStorage.getItem('poupoules_recycled'));
-            if (oldTotal > 0) {
-                extRecyclingHistory.push({ date: new Date().toISOString(), qty: oldTotal });
-                localStorage.removeItem('poupoules_recycled');
-            }
-        }
+        extStockData        = JSON.parse(localStorage.getItem('poupoules_stock')              || '{"quantity":0,"date":null}');
+        extRecyclingHistory = JSON.parse(localStorage.getItem('poupoules_recycling_history')  || '[]');
+        extNotes            = JSON.parse(localStorage.getItem('poupoules_notes')              || '[]');
+        extHealth           = JSON.parse(localStorage.getItem('poupoules_health')             || '[]');
+        extSales            = JSON.parse(localStorage.getItem('poupoules_sales')              || '[]');
+        extSuppliesState    = JSON.parse(localStorage.getItem('poupoules_supplies')           || '{}');
+        extEggRecords       = JSON.parse(localStorage.getItem('poupoules_records')            || '{"heaviest":0,"lightest":1000}');
 
         renderChickensList();
         renderDashboard();
         renderFinance();
         renderMaintenance();
     } catch (e) {
-        console.error("Erreur chargement local:", e);
+        console.error("[LoadLocal] Erreur:", e);
         localChickens = []; localEggs = []; localTransactions = []; localTasks = [];
     }
 }
 
 // ============================================================
-// UI CONNEXION
+// EXPORT / IMPORT
 // ============================================================
-function updateUIForConnectedUser(user) {
-    const statusBadge = document.getElementById('header-status');
-    if (statusBadge) {
-        statusBadge.classList.remove('demo', 'status-orange', 'status-red');
-        statusBadge.classList.add('status-green');
-        statusBadge.innerHTML = '<i class="fas fa-wifi"></i>';
-        statusBadge.title = 'Synchronise avec Firebase';
+window.exportData = async () => {
+    const payload = buildFullPayload();
+
+    // ⚠️ Avertissement si export vide
+    if (!payloadHasData(payload)) {
+        const ok = confirm("⚠️ Attention : vos données semblent vides (0 poule, 0 ramassage).\nExporter quand même ?");
+        if (!ok) return;
     }
-    document.getElementById('auth-container').innerHTML = `
-        <img src="${user.photoURL || 'icon.png'}" style="width:80px; height:80px; border-radius:50%; margin-bottom:10px;">
+
+    const data = { ...payload, exportDate: new Date().toISOString() };
+    const json = JSON.stringify(data, null, 2);
+    const filename = 'poulettes-backup-' + new Date().toISOString().split('T')[0] + '.json';
+    const blob = new Blob([json], { type: 'application/json' });
+
+    // iOS PWA : Web Share API
+    try {
+        const file = new File([blob], filename, { type: 'application/json' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename });
+            return;
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn('Web Share indisponible, fallback téléchargement', err);
+    }
+
+    // Desktop / Android
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+window.importData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        document.body.removeChild(input);
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                const d = JSON.parse(ev.target.result);
+
+                // ⚠️ Validation du fichier importé
+                if (!payloadHasData(d)) {
+                    alert("❌ Ce fichier de sauvegarde est vide ou invalide.\nImport annulé pour protéger vos données.");
+                    return;
+                }
+
+                const nbPoules    = d.chickens?.length || 0;
+                const nbRamassages = d.eggs?.length || 0;
+                const ok = confirm(`📥 Importer cette sauvegarde ?\n\n• ${nbPoules} poule(s)\n• ${nbRamassages} ramassage(s)\n\n⚠️ Cela remplacera toutes vos données actuelles.`);
+                if (!ok) return;
+
+                if (d.chickens)             localChickens       = d.chickens;
+                if (d.eggs)                 localEggs           = d.eggs;
+                if (d.transactions)         localTransactions   = d.transactions;
+                if (d.tasks)                localTasks          = d.tasks;
+                if (d.extFridgeStock  !== undefined) extFridgeStock      = d.extFridgeStock;
+                if (d.extStockData)          extStockData        = d.extStockData;
+                if (d.extRecyclingHistory)   extRecyclingHistory = d.extRecyclingHistory;
+                if (d.extNotes)              extNotes            = d.extNotes;
+                if (d.extHealth)             extHealth           = d.extHealth;
+                if (d.extSales)              extSales            = d.extSales;
+                if (d.extSuppliesState)      extSuppliesState    = d.extSuppliesState;
+                if (d.extEggRecords)         extEggRecords       = d.extEggRecords;
+
+                saveData();
+                renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
+                alert(`✅ Import réussi !\n${nbPoules} poule(s) et ${nbRamassages} ramassage(s) restaurés.`);
+            } catch (err) {
+                alert('❌ Fichier invalide : ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    });
+    input.click();
+};
+
+// ============================================================
+// MISE À JOUR PWA
+// ============================================================
+window.applyUpdate = () => {
+    navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        else window.location.reload();
+    });
+};
+
+// ============================================================
+// AUTH
+// ============================================================
+window.login = () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err => alert("Erreur connexion : " + err.message));
+};
+
+function updateUIForConnectedUser(user) {
+    const badge = document.getElementById('header-status');
+    if (badge) {
+        badge.classList.remove('demo', 'status-orange', 'status-red');
+        badge.classList.add('status-green');
+        badge.innerHTML = '<i class="fas fa-wifi"></i>';
+        badge.title = 'Synchronisé';
+    }
+    const authContainer = document.getElementById('auth-container');
+    if (authContainer) authContainer.innerHTML = `
+        <img src="${user.photoURL || 'icon.png'}" style="width:80px;height:80px;border-radius:50%;margin-bottom:10px;">
         <h3>${user.displayName || 'Utilisateur'}</h3>
-        <p style="color:gray; margin-bottom:15px;">${user.email}</p>
-        <button class="btn-text-danger" onclick="auth.signOut()">Se deconnecter</button>
-        <div style="margin-top:10px; font-size:12px; color:var(--success);">
-            <i class="fas fa-cloud"></i> Toutes les donnees synchronisees
-        </div>`;
+        <p style="color:gray;margin-bottom:15px;">${user.email}</p>
+        <button class="btn-text-danger" onclick="auth.signOut()">Se déconnecter</button>
+        <div style="margin-top:20px;">
+            <button id="btn-force-sync" class="btn-secondary" style="width:100%;" onclick="forceSyncFromFirebase()">
+                <i class="fas fa-sync-alt"></i> Forcer la synchronisation
+            </button>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--success);"><i class="fas fa-cloud"></i> Données synchronisées</div>`;
 }
 
 function updateUIForGuestUser() {
-    const statusBadge = document.getElementById('header-status');
-    if (statusBadge) {
-        statusBadge.classList.remove('status-green', 'status-orange', 'status-red');
-        statusBadge.classList.add('demo', 'status-orange');
-        statusBadge.innerHTML = '<i class="fas fa-wifi"></i>';
-        statusBadge.title = 'Mode invite - donnees locales uniquement';
+    const badge = document.getElementById('header-status');
+    if (badge) {
+        badge.classList.remove('status-green', 'status-red');
+        badge.classList.add('demo');
+        badge.innerHTML = '<i class="fas fa-wifi"></i>';
+        badge.title = 'Mode invité — données locales';
     }
-    document.getElementById('auth-container').innerHTML = `
-        <div style="width:80px; height:80px; background:#ddd; border-radius:50%; margin:0 auto 10px auto; display:flex; align-items:center; justify-content:center; font-size:30px; color:white;"><i class="fas fa-user"></i></div>
-        <h3>Mode Invite</h3>
-        <p style="color:gray; margin-bottom:15px;">Sauvegarde locale uniquement</p>
+    const authContainer = document.getElementById('auth-container');
+    if (authContainer) authContainer.innerHTML = `
+        <div style="width:80px;height:80px;background:#ddd;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:30px;color:white;"><i class="fas fa-user"></i></div>
+        <h3>Mode Invité</h3>
+        <p style="color:gray;margin-bottom:15px;">Sauvegarde locale uniquement</p>
         <button class="btn-primary" onclick="login()">Connexion Google</button>
-        <div style="margin-top:10px; font-size:12px; color:var(--warning);">
-            <i class="fas fa-exclamation-triangle"></i> Risque de perte de donnees
-        </div>`;
+        <div style="margin-top:10px;font-size:12px;color:var(--warning);"><i class="fas fa-exclamation-triangle"></i> Risque de perte de données</div>`;
 }
 
 // ============================================================
@@ -472,81 +624,78 @@ function updateUIForGuestUser() {
 // ============================================================
 window.toggleMenu = () => document.getElementById('menu-overlay').classList.toggle('open');
 
-window.navigate = (targetId) => {
+window.navigate = targetId => {
     document.getElementById('menu-overlay').classList.remove('open');
     document.querySelectorAll('section').forEach(s => s.classList.remove('active-view'));
-
-    if (targetId === 'view-stats' && window.renderStatsView) {
-        window.renderStatsView();
-    }
-
+    if (targetId === 'view-stats' && window.renderStatsView) window.renderStatsView();
     const target = document.getElementById(targetId);
     if (target) target.classList.add('active-view');
-
     currentViewId = targetId;
     updateFabVisibility(targetId);
-
     const sc = document.getElementById('scroll-container');
     if (sc) sc.scrollTop = 0;
 };
 
 function updateFabVisibility(viewId) {
     const fab = document.getElementById('main-fab');
-    if (['view-chickens', 'view-finance', 'view-maintenance'].includes(viewId)) {
-        fab.classList.remove('hidden');
-    } else {
-        fab.classList.add('hidden');
-    }
+    if (!fab) return;
+    if (['view-chickens', 'view-finance', 'view-maintenance'].includes(viewId)) fab.classList.remove('hidden');
+    else fab.classList.add('hidden');
 }
 
 window.handleFabClick = () => {
-    if (currentViewId === 'view-chickens') openChickenModal();
-    if (currentViewId === 'view-finance') openTransactionModal();
+    if (currentViewId === 'view-chickens')    openChickenModal();
+    if (currentViewId === 'view-finance')     openTransactionModal();
     if (currentViewId === 'view-maintenance') openEditTaskModal();
 };
 
-// ── Races à œufs visuellement reconnaissables ──────────────────
+// ============================================================
+// MODAL ŒUFS — helpers
+// ============================================================
 const DISTINCTIVE_EGG_BREEDS = ['soie', 'silkie', 'araucana', 'ameraucana', 'cream legbar', 'padoue'];
 function hasDistinctiveEggs(breed) {
     if (!breed) return false;
     const b = breed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return DISTINCTIVE_EGG_BREEDS.some(k => b.includes(k));
 }
+
 window.updateEggTotal = () => {
     let total = parseInt(document.getElementById('egg-other-input').value) || 0;
     document.querySelectorAll('.special-hen-input').forEach(i => { total += parseInt(i.value) || 0; });
     document.getElementById('egg-total-display').innerText = total;
     document.getElementById('egg-submit-btn').disabled = total === 0;
 };
-window.adjustOtherEggs = (delta) => {
-    const input = document.getElementById('egg-other-input');
-    let v = (parseInt(input.value) || 0) + delta;
+
+window.adjustOtherEggs = delta => {
+    const inp = document.getElementById('egg-other-input');
+    let v = (parseInt(inp.value) || 0) + delta;
     if (v < 0) v = 0;
-    input.value = v;
+    inp.value = v;
     updateEggTotal();
 };
+
 window.adjustSpecialEgg = (chickenId, delta) => {
-    const input = document.querySelector(`.special-hen-input[data-chicken-id="${chickenId}"]`);
-    if (!input) return;
-    let v = (parseInt(input.value) || 0) + delta;
+    const inp = document.querySelector(`.special-hen-input[data-chicken-id="${chickenId}"]`);
+    if (!inp) return;
+    let v = (parseInt(inp.value) || 0) + delta;
     if (v < 0) v = 0;
-    input.value = v;
+    inp.value = v;
     updateEggTotal();
 };
+
 function buildSpecialHensSection(initialCounts = {}) {
     const specialSection = document.getElementById('special-hens-section');
     const specialList    = document.getElementById('special-hens-list');
     const otherLabel     = document.getElementById('other-eggs-label');
-    const specialHens    = (localChickens || []).filter(c =>
-        (c.status || 'active') === 'active' && hasDistinctiveEggs(c.breed)
-    );
+    const specialHens    = (localChickens || []).filter(c => (c.status || 'active') === 'active' && hasDistinctiveEggs(c.breed));
+
     if (specialHens.length > 0) {
         specialList.innerHTML = specialHens.map(c => {
             const val = initialCounts[c.id] || 0;
-            return `
-            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;">
+            const photo = c.photo || 'icon.png';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.04);border-radius:12px;padding:10px 14px;">
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <img src="${c.photo || 'icon.png'}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src='icon.png'">
+                    <img src="${photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.src='icon.png'">
                     <div>
                         <div style="font-weight:700;font-size:14px;">${c.name}</div>
                         <div style="font-size:11px;color:var(--text-grey);">${c.breed}</div>
@@ -569,6 +718,48 @@ function buildSpecialHensSection(initialCounts = {}) {
     }
 }
 
+window.openAddEggModal = () => {
+    document.getElementById('egg-edit-id').value = '';
+    document.getElementById('egg-modal-title').innerText = '🥚 Ramassage';
+    document.getElementById('egg-other-input').value = 0;
+    document.getElementById('egg-note-input').value = '';
+    document.getElementById('egg-date-input').valueAsDate = new Date();
+    document.getElementById('egg-delete-btn').style.display = 'none';
+    buildSpecialHensSection();
+    updateEggTotal();
+    document.getElementById('modal-add-egg').style.display = 'flex';
+};
+
+window.openEditEggModal = id => {
+    const egg = localEggs.find(e => e.id === id);
+    if (!egg) return;
+    const specialCounts = egg.specialCounts || {};
+    const specialTotal  = Object.values(specialCounts).reduce((s, v) => s + v, 0);
+    const otherCount    = Math.max(0, (egg.count || 1) - specialTotal);
+    document.getElementById('egg-edit-id').value         = id;
+    document.getElementById('egg-modal-title').innerText = '✏️ Modifier le ramassage';
+    document.getElementById('egg-other-input').value     = otherCount;
+    document.getElementById('egg-note-input').value      = egg.note || '';
+    document.getElementById('egg-date-input').value      = new Date(egg.date).toISOString().split('T')[0];
+    document.getElementById('egg-delete-btn').style.display = 'block';
+    buildSpecialHensSection(specialCounts);
+    updateEggTotal();
+    document.getElementById('modal-add-egg').style.display = 'flex';
+};
+
+window.deleteCurrentEgg = () => {
+    const id = document.getElementById('egg-edit-id').value;
+    if (!id) return;
+    if (confirm("Supprimer ce ramassage ?")) {
+        const egg = localEggs.find(e => e.id === id);
+        if (egg) extFridgeStock = Math.max(0, extFridgeStock - (egg.count || 1));
+        localEggs = localEggs.filter(e => e.id !== id);
+        saveData();
+        renderDashboard();
+        document.getElementById('modal-add-egg').style.display = 'none';
+    }
+};
+
 // ============================================================
 // POULES
 // ============================================================
@@ -576,8 +767,7 @@ function renderChickensList() {
     const grid = document.getElementById('chickens-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    const filter = document.querySelector('#btn-filter-active').classList.contains('active') ? 'active' : 'archived';
-
+    const filter = document.querySelector('#btn-filter-active.active') ? 'active' : 'archived';
     const list = localChickens
         .filter(c => (c.status || 'active') === filter)
         .sort((a, b) => (b.isFavorite === true) - (a.isFavorite === true));
@@ -586,10 +776,9 @@ function renderChickensList() {
     if (title) title.innerText = `Mon Cheptel (${list.length})`;
 
     if (list.length === 0) {
-        grid.innerHTML = '<p style="text-align:center; width:100%; color:grey;">Aucune poule.</p>';
+        grid.innerHTML = '<p style="text-align:center;width:100%;color:grey;">Aucune poule.</p>';
         return;
     }
-
     list.forEach(c => {
         const div = document.createElement('div');
         div.className = 'chicken-card';
@@ -599,19 +788,14 @@ function renderChickensList() {
             <img class="chicken-photo" src="${c.photo || 'icon.png'}" onerror="this.src='icon.png'">
             <div class="chicken-name">${c.name}</div>
             <div class="chicken-breed">${c.breed || ''}</div>
-            <div class="chicken-age">${getAge(c.date)}</div>
-        `;
+            <div class="chicken-age">${getAge(c.date)}</div>`;
         grid.appendChild(div);
     });
 }
 
-window.toggleFavorite = (id) => {
+window.toggleFavorite = id => {
     const idx = localChickens.findIndex(c => c.id === id);
-    if (idx > -1) {
-        localChickens[idx].isFavorite = !localChickens[idx].isFavorite;
-        saveData();
-        renderChickensList();
-    }
+    if (idx > -1) { localChickens[idx].isFavorite = !localChickens[idx].isFavorite; saveData(); renderChickensList(); }
 };
 
 window.archiveChicken = () => {
@@ -619,7 +803,7 @@ window.archiveChicken = () => {
     const idx = localChickens.findIndex(c => c.id === id);
     if (idx > -1) {
         if (localChickens[idx].status === 'archived') {
-            if (confirm("Supprimer definitivement cette poule ?")) localChickens.splice(idx, 1);
+            if (confirm("Supprimer définitivement cette poule ?")) localChickens.splice(idx, 1);
         } else {
             if (confirm("Archiver cette poule ?")) localChickens[idx].status = 'archived';
             else return;
@@ -638,17 +822,17 @@ window.filterChickens = (type, btn) => {
 };
 
 window.openChickenModal = (id = null) => {
-    const modal = document.getElementById('modal-chicken');
     document.getElementById('form-chicken').reset();
     document.getElementById('preview-photo').src = 'icon.png';
     tempPhotoBase64 = null;
     if (id) {
         const c = localChickens.find(x => x.id === id);
+        if (!c) return;
         document.getElementById('modal-chicken-title').innerText = "Modifier";
-        document.getElementById('chicken-id').value = c.id;
-        document.getElementById('chicken-name').value = c.name;
-        document.getElementById('chicken-breed').value = c.breed;
-        document.getElementById('chicken-date').value = c.date;
+        document.getElementById('chicken-id').value     = c.id;
+        document.getElementById('chicken-name').value   = c.name;
+        document.getElementById('chicken-breed').value  = c.breed;
+        document.getElementById('chicken-date').value   = c.date;
         document.getElementById('chicken-health').value = c.health;
         if (c.photo) document.getElementById('preview-photo').src = c.photo;
         document.getElementById('btn-archive-chicken').style.display = 'block';
@@ -658,52 +842,33 @@ window.openChickenModal = (id = null) => {
         document.getElementById('chicken-date').valueAsDate = new Date();
         document.getElementById('btn-archive-chicken').style.display = 'none';
     }
-    modal.style.display = 'flex';
+    document.getElementById('modal-chicken').style.display = 'flex';
 };
-
-document.getElementById('form-chicken').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const id = document.getElementById('chicken-id').value;
-    const data = {
-        name:   document.getElementById('chicken-name').value,
-        breed:  document.getElementById('chicken-breed').value,
-        date:   document.getElementById('chicken-date').value,
-        health: document.getElementById('chicken-health').value,
-        photo:  tempPhotoBase64 || document.getElementById('preview-photo').src
-    };
-    if (id) {
-        const idx = localChickens.findIndex(c => c.id === id);
-        if (idx > -1) localChickens[idx] = { ...localChickens[idx], ...data };
-    } else {
-        localChickens.push({ id: 'c' + Date.now(), ...data, status: 'active', isFavorite: false, createdAt: new Date().toISOString() });
-    }
-    saveData();
-    document.getElementById('modal-chicken').style.display = 'none';
-    renderChickensList();
-});
 
 // ============================================================
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
     const now = new Date();
-    let monthCount = 0, totalCount = 0;
+    const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7);
+    let monthCount = 0, weekCount = 0, totalCount = 0;
 
     localEggs.forEach(e => {
         const qty = e.count || 1;
         totalCount += qty;
         const d = new Date(e.date);
         if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) monthCount += qty;
+        if (d >= weekAgo) weekCount += qty;
     });
 
-    const totalDisplay = document.getElementById('total-eggs-display');
-    const monthDisplay = document.getElementById('eggs-month-count');
-    if (totalDisplay) totalDisplay.innerText = totalCount;
-    if (monthDisplay) monthDisplay.innerText = monthCount;
+    const el = id => document.getElementById(id);
+    if (el('total-eggs-display')) el('total-eggs-display').innerText = totalCount;
+    if (el('eggs-month-count'))   el('eggs-month-count').innerText   = monthCount;
+    if (el('eggs-week-count'))    el('eggs-week-count').innerText    = weekCount;
 
     updateChart(localEggs);
 
-    const list = document.getElementById('recent-activity-list');
+    const list = el('recent-activity-list');
     if (!list) return;
     list.innerHTML = '';
 
@@ -713,17 +878,14 @@ function renderDashboard() {
         const d   = new Date(e.date);
         const isToday     = d.toDateString() === new Date().toDateString();
         const isYesterday = d.toDateString() === new Date(Date.now() - 86400000).toDateString();
-        const dayLabel    = isToday ? 'Aujourd\'hui' : isYesterday ? 'Hier' : jours[d.getDay()];
+        const dayLabel    = isToday ? "Aujourd'hui" : isYesterday ? 'Hier' : jours[d.getDay()];
         const dateStr     = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
-        // Détail des œufs spéciaux
         let specialHtml = '';
         if (e.specialCounts) {
             Object.entries(e.specialCounts).forEach(([cid, cnt]) => {
                 const hen = (localChickens || []).find(c => c.id === cid);
-                if (hen && cnt > 0) {
-                    specialHtml += `<span style="font-size:10px;background:rgba(0,122,255,0.1);color:var(--primary);padding:2px 7px;border-radius:8px;white-space:nowrap;">${hen.name} ×${cnt}</span>`;
-                }
+                if (hen && cnt > 0) specialHtml += `<span style="font-size:10px;background:rgba(0,122,255,0.1);color:var(--primary);padding:2px 7px;border-radius:8px;white-space:nowrap;">${hen.name} ×${cnt}</span>`;
             });
         }
 
@@ -737,9 +899,7 @@ function renderDashboard() {
             <div style="display:flex;align-items:center;justify-content:space-between;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <div style="background:#ff9500;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
-                    <div>
-                        <div style="font-weight:700;font-size:14px;">${dayLabel} <span style="font-weight:400;color:var(--text-grey);font-size:12px;">${dateStr}</span></div>
-                    </div>
+                    <div style="font-weight:700;font-size:14px;">${dayLabel} <span style="font-weight:400;color:var(--text-grey);font-size:12px;">${dateStr}</span></div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="font-weight:800;font-size:16px;color:var(--warning);">${qty} 🥚</span>
@@ -747,54 +907,12 @@ function renderDashboard() {
                 </div>
             </div>
             ${specialHtml ? `<div style="display:flex;flex-wrap:wrap;gap:4px;padding-left:20px;">${specialHtml}</div>` : ''}
-            ${e.note ? `<div style="font-size:11px;color:var(--text-grey);padding-left:20px;font-style:italic;">${e.note}</div>` : ''}
-        `;
+            ${e.note ? `<div style="font-size:11px;color:var(--text-grey);padding-left:20px;font-style:italic;">${e.note}</div>` : ''}`;
         list.appendChild(li);
     });
 
     if (window.renderExtensions) window.renderExtensions();
 }
-
-window.openAddEggModal = () => {
-    document.getElementById('egg-edit-id').value = '';
-    document.getElementById('egg-modal-title').innerText = '🥚 Ramassage';
-    document.getElementById('egg-other-input').value = 0;
-    document.getElementById('egg-note-input').value = '';
-    document.getElementById('egg-date-input').valueAsDate = new Date();
-    document.getElementById('egg-delete-btn').style.display = 'none';
-    buildSpecialHensSection();
-    updateEggTotal();
-    document.getElementById('modal-add-egg').style.display = 'flex';
-};
-
-window.openEditEggModal = (id) => {
-    const egg = localEggs.find(e => e.id === id);
-    if (!egg) return;
-    const specialCounts = egg.specialCounts || {};
-    const specialTotal  = Object.values(specialCounts).reduce((s, v) => s + v, 0);
-    const otherCount    = Math.max(0, (egg.count || 1) - specialTotal);
-    document.getElementById('egg-edit-id').value        = id;
-    document.getElementById('egg-modal-title').innerText = '✏️ Modifier le ramassage';
-    document.getElementById('egg-other-input').value    = otherCount;
-    document.getElementById('egg-note-input').value     = egg.note || '';
-    document.getElementById('egg-date-input').value     = new Date(egg.date).toISOString().split('T')[0];
-    document.getElementById('egg-delete-btn').style.display = 'block';
-    buildSpecialHensSection(specialCounts);
-    updateEggTotal();
-    document.getElementById('modal-add-egg').style.display = 'flex';
-};
-
-window.deleteCurrentEgg = () => {
-    const id = document.getElementById('egg-edit-id').value;
-    if (!id) return;
-    if (confirm("Supprimer ce ramassage ?")) {
-        const egg = localEggs.find(e => e.id === id);
-        if (egg) extFridgeStock = Math.max(0, extFridgeStock - (egg.count || 1));
-        localEggs = localEggs.filter(e => e.id !== id);
-        saveData(); renderDashboard();
-        document.getElementById('modal-add-egg').style.display = 'none';
-    }
-};
 
 // ============================================================
 // CHART
@@ -805,7 +923,7 @@ function initEggsChart() {
     eggsChartInstance = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: {
-            labels: ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'],
+            labels: ['J','F','M','A','M','J','J','A','S','O','N','D'],
             datasets: [{ label: 'Oeufs', data: [], backgroundColor: '#007aff' }]
         },
         options: {
@@ -835,27 +953,25 @@ function renderFinance() {
     if (!list) return;
     list.innerHTML = '';
     let total = 0;
-
     localTransactions.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
         total += (t.category === 'income' ? t.amount : -t.amount);
         const li = document.createElement('li');
         li.onclick = () => openTransactionModal(t.id);
         li.innerHTML = `
             <div><strong>${formatTransType(t.type)}</strong><br><small>${new Date(t.date).toLocaleDateString()}</small></div>
-            <div style="color:${t.category === 'income' ? 'var(--success)' : 'var(--text-dark)'}; font-weight:bold;">
+            <div style="color:${t.category === 'income' ? 'var(--success)' : 'var(--text-dark)'};font-weight:bold;">
                 ${t.category === 'income' ? '+' : '-'}${t.amount}€
             </div>`;
         list.appendChild(li);
     });
-
     const balanceEl = document.getElementById('balance-total');
     if (balanceEl) {
-        balanceEl.innerText = total.toFixed(2) + ' EUR';
+        balanceEl.innerText = total.toFixed(2) + ' €';
         balanceEl.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
     }
 }
 
-window.setTransactionType = (type) => {
+window.setTransactionType = type => {
     document.getElementById('btn-expense').classList.remove('active');
     document.getElementById('btn-income').classList.remove('active');
     document.getElementById(type === 'expense' ? 'btn-expense' : 'btn-income').classList.add('active');
@@ -866,10 +982,11 @@ window.openTransactionModal = (id = null) => {
     document.getElementById('form-transaction').reset();
     if (id) {
         const t = localTransactions.find(x => x.id === id);
-        document.getElementById('trans-id').value = t.id;
+        if (!t) return;
+        document.getElementById('trans-id').value     = t.id;
         document.getElementById('trans-amount').value = t.amount;
-        document.getElementById('trans-date').value = t.date;
-        document.getElementById('trans-type').value = t.type;
+        document.getElementById('trans-date').value   = t.date;
+        document.getElementById('trans-type').value   = t.type;
         setTransactionType(t.category);
         document.getElementById('btn-delete-trans').style.display = 'block';
     } else {
@@ -881,27 +998,6 @@ window.openTransactionModal = (id = null) => {
     document.getElementById('modal-transaction').style.display = 'flex';
 };
 
-document.getElementById('form-transaction').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const id = document.getElementById('trans-id').value;
-    const data = {
-        amount: parseFloat(document.getElementById('trans-amount').value),
-        date: document.getElementById('trans-date').value,
-        type: document.getElementById('trans-type').value,
-        category: document.getElementById('trans-category').value,
-        updatedAt: new Date().toISOString()
-    };
-    if (id) {
-        const idx = localTransactions.findIndex(t => t.id === id);
-        if (idx > -1) localTransactions[idx] = { id, ...data };
-    } else {
-        localTransactions.push({ id: 't' + Date.now(), ...data });
-    }
-    saveData();
-    document.getElementById('modal-transaction').style.display = 'none';
-    renderFinance();
-});
-
 window.deleteTransaction = () => {
     if (confirm("Supprimer cette transaction ?")) {
         localTransactions = localTransactions.filter(t => t.id !== document.getElementById('trans-id').value);
@@ -912,7 +1008,7 @@ window.deleteTransaction = () => {
 };
 
 function formatTransType(t) {
-    const map = { 'graines': 'Alimentation', 'vente_oeufs': 'Vente Oeufs', 'soins': 'Veto/Soins', 'achat_poule': 'Achat Poule', 'paille': 'Litiere', 'materiel': 'Materiel' };
+    const map = { graines: 'Alimentation', vente_oeufs: 'Vente Œufs', soins: 'Veto/Soins', achat_poule: 'Achat Poule', paille: 'Litière', materiel: 'Matériel' };
     return map[t] || t;
 }
 
@@ -927,35 +1023,35 @@ function renderMaintenance() {
 
     localTasks.sort((a, b) => getDaysDiff(b.lastDone) - getDaysDiff(a.lastDone)).forEach(t => {
         const diff = getDaysDiff(t.lastDone);
-        let percent = Math.max(0, 100 - ((diff / t.frequency) * 100));
+        const percent = Math.max(0, 100 - ((diff / t.frequency) * 100));
         const barColor = percent < 20 ? 'var(--danger)' : (percent < 50 ? 'var(--warning)' : 'var(--success)');
 
         const li = document.createElement('li');
-        li.style.cssText = "display:flex; align-items:center; gap:15px;";
+        li.style.cssText = "display:flex;align-items:center;gap:15px;";
         li.innerHTML = `
-            <div style="flex:1; cursor:pointer;" onclick="openEditTaskModal('${t.id}')">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <div style="flex:1;cursor:pointer;" onclick="openEditTaskModal('${t.id}')">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                     <strong>${t.title}</strong>
                     <small style="color:${diff >= t.frequency ? 'var(--danger)' : 'var(--text-grey)'}">
                         ${diff >= t.frequency ? 'En retard' : (t.frequency - diff) + 'j restants'}
                     </small>
                 </div>
-                <div style="width:100%; height:6px; background:rgba(0,0,0,0.05); border-radius:3px; overflow:hidden;">
-                    <div style="width:${percent}%; height:100%; background:${barColor}; transition:width 0.5s ease;"></div>
+                <div style="width:100%;height:6px;background:rgba(0,0,0,0.05);border-radius:3px;overflow:hidden;">
+                    <div style="width:${percent}%;height:100%;background:${barColor};transition:width 0.5s ease;"></div>
                 </div>
-                <div style="margin-top:5px; font-size:11px; color:var(--text-grey); display:flex; justify-content:space-between;">
+                <div style="margin-top:5px;font-size:11px;color:var(--text-grey);display:flex;justify-content:space-between;">
                     <span>Fait il y a ${diff}j</span><span>Freq: ${t.frequency}j</span>
                 </div>
             </div>
-            <button style="width:40px; height:40px; border-radius:50%; border:none; background:${diff >= t.frequency ? 'var(--danger)' : 'rgba(0,0,0,0.05)'}; color:${diff >= t.frequency ? 'white' : 'var(--primary)'}; display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer;" onclick="event.stopPropagation(); completeTask('${t.id}')">
+            <button style="width:40px;height:40px;border-radius:50%;border:none;background:${diff >= t.frequency ? 'var(--danger)' : 'rgba(0,0,0,0.05)'};color:${diff >= t.frequency ? 'white' : 'var(--primary)'};display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;"
+                onclick="event.stopPropagation();completeTask('${t.id}')">
                 <i class="fas fa-check"></i>
-            </button>
-        `;
+            </button>`;
         list.appendChild(li);
     });
 }
 
-window.completeTask = (id) => {
+window.completeTask = id => {
     const t = localTasks.find(x => x.id === id);
     if (t) { t.lastDone = new Date().toISOString(); saveData(); renderMaintenance(); }
 };
@@ -964,9 +1060,10 @@ window.openEditTaskModal = (id = null) => {
     document.getElementById('form-task').reset();
     if (id) {
         const t = localTasks.find(x => x.id === id);
-        document.getElementById('task-id').value = t.id;
+        if (!t) return;
+        document.getElementById('task-id').value    = t.id;
         document.getElementById('task-title').value = t.title;
-        document.getElementById('task-freq').value = t.frequency;
+        document.getElementById('task-freq').value  = t.frequency;
         document.getElementById('btn-delete-task').style.display = 'block';
     } else {
         document.getElementById('task-id').value = "";
@@ -975,23 +1072,8 @@ window.openEditTaskModal = (id = null) => {
     document.getElementById('modal-edit-task').style.display = 'flex';
 };
 
-document.getElementById('form-task').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const id = document.getElementById('task-id').value;
-    const data = { title: document.getElementById('task-title').value, frequency: parseInt(document.getElementById('task-freq').value) };
-    if (id) {
-        const idx = localTasks.findIndex(t => t.id === id);
-        if (idx > -1) localTasks[idx] = { ...localTasks[idx], ...data };
-    } else {
-        localTasks.push({ id: 'task' + Date.now(), ...data, lastDone: new Date().toISOString(), createdAt: new Date().toISOString() });
-    }
-    saveData();
-    document.getElementById('modal-edit-task').style.display = 'none';
-    renderMaintenance();
-});
-
 window.deleteCurrentTask = () => {
-    if (confirm("Supprimer cette tache ?")) {
+    if (confirm("Supprimer cette tâche ?")) {
         localTasks = localTasks.filter(t => t.id !== document.getElementById('task-id').value);
         saveData();
         document.getElementById('modal-edit-task').style.display = 'none';
@@ -1002,11 +1084,11 @@ window.deleteCurrentTask = () => {
 // ============================================================
 // UTILS
 // ============================================================
-window.handlePhotoUpload = (input) => {
+window.handlePhotoUpload = input => {
     if (input.files && input.files[0]) {
         compressImage(input.files[0], 150, 0.4)
             .then(b => { document.getElementById('preview-photo').src = b; tempPhotoBase64 = b; })
-            .catch(err => console.error("Erreur compression image:", err));
+            .catch(err => console.error("Compression image:", err));
     }
 };
 
@@ -1057,91 +1139,7 @@ function getDaysDiff(d) {
     return Math.floor((new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
 }
 
-// ============================================================
-// AUTH & EXPORT
-// ============================================================
-window.login = () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(err => {
-        console.error("Erreur connexion:", err);
-        alert("Erreur de connexion : " + err.message);
-    });
-};
-
-window.exportData = async () => {
-    const data = { ...buildFullPayload(), exportDate: new Date().toISOString() };
-    const json = JSON.stringify(data, null, 2);
-    const filename = 'poulettes-backup-' + new Date().toISOString().split('T')[0] + '.json';
-    const blob = new Blob([json], { type: 'application/json' });
-
-    // iOS PWA : Web Share API — ouvre la feuille de partage native (Enregistrer dans Fichiers, AirDrop…)
-    try {
-        const file = new File([blob], filename, { type: 'application/json' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: filename });
-            return;
-        }
-    } catch (err) {
-        if (err.name === 'AbortError') return; // annulé par l'utilisateur
-        console.warn('Web Share non disponible, fallback téléchargement', err);
-    }
-
-    // Desktop / Android : téléchargement classique
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
-
-window.importData = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,application/json';
-    // Doit être dans le DOM sur iOS avant le click()
-    input.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;';
-    document.body.appendChild(input);
-
-    input.addEventListener('change', () => {
-        const file = input.files && input.files[0];
-        document.body.removeChild(input);
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const d = JSON.parse(ev.target.result);
-                if (d.chickens)                              localChickens       = d.chickens;
-                if (d.eggs)                                  localEggs           = d.eggs;
-                if (d.transactions)                          localTransactions   = d.transactions;
-                if (d.tasks)                                 localTasks          = d.tasks;
-                if (d.extFridgeStock      !== undefined)     extFridgeStock      = d.extFridgeStock;
-                if (d.extStockData)                          extStockData        = d.extStockData;
-                if (d.extRecyclingHistory)                   extRecyclingHistory = d.extRecyclingHistory;
-                if (d.extNotes)                              extNotes            = d.extNotes;
-                if (d.extHealth)                             extHealth           = d.extHealth;
-                if (d.extSales)                              extSales            = d.extSales;
-                if (d.extSuppliesState)                      extSuppliesState    = d.extSuppliesState;
-                if (d.extEggRecords)                         extEggRecords       = d.extEggRecords;
-                saveData();
-                renderChickensList(); renderDashboard(); renderFinance(); renderMaintenance();
-                alert('✅ Import réussi — ' + (d.chickens?.length || 0) + ' poules, ' + (d.eggs?.length || 0) + ' ramassages.');
-            } catch (err) {
-                alert('❌ Fichier invalide : ' + err.message);
-            }
-        };
-        reader.readAsText(file);
-    });
-    input.click();
-};
-
 window.toggleDarkMode = () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-};
-
-window.applyUpdate = () => {
-    navigator.serviceWorker.getRegistration().then(reg => {
-        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        else window.location.reload();
-    });
 };
