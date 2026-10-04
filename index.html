@@ -9,44 +9,33 @@
   <meta name="apple-mobile-web-app-title" content="Poupoules" />
   <title>Poupoules — Le carnet de votre poulailler</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="icon.png" onerror="this.remove()" />
+  <link rel="apple-touch-icon" href="icon.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand"><div class="brand-mark">🐔</div><div><span class="eyebrow">MON POULAILLER</span><h1>Poupoules</h1></div></div>
-      <button class="icon-button" id="settings-button" aria-label="Ouvrir les réglages">⚙︎</button>
+      <div class="top-actions"><button class="profile-button" id="profile-button" aria-label="Ouvrir le profil"><span id="profile-avatar">É</span></button><button class="icon-button" id="settings-button" aria-label="Ouvrir les réglages">⚙︎</button></div>
     </header>
-
     <main>
-      <section class="hero-card">
-        <div class="hero-copy"><span class="eyebrow light">SAMEDI 4 OCTOBRE 2026</span><h2>Bonjour, <em>éleveur.</em></h2><p>Votre basse-cour se porte bien aujourd’hui.</p></div>
-        <div class="hero-chicken">🐔<span class="sun">✦</span></div>
-      </section>
-
+      <section class="hero-card"><div class="hero-copy"><span class="eyebrow light">SAMEDI 4 OCTOBRE 2026</span><h2>Bonjour, <em>éleveur.</em></h2><p>Votre basse-cour se porte bien aujourd’hui.</p></div><div class="hero-chicken">🐔<span class="sun">✦</span></div></section>
       <section class="section-heading"><div><span class="eyebrow">AUJOURD’HUI</span><h2>Le tableau de bord</h2></div><span class="sync-pill" id="sync-status"><i></i> Mode démo</span></section>
-      <section class="metrics-grid">
-        <article class="metric-card eggs"><div class="metric-icon">🥚</div><span class="metric-label">Œufs ramassés</span><strong id="today-eggs">8</strong><small><span class="positive">+14%</span> vs. hier</small></article>
-        <article class="metric-card flock"><div class="metric-icon">🐔</div><span class="metric-label">Poules actives</span><strong id="active-hens">6</strong><small>sur <span id="total-hens">6</span> dans le poulailler</small></article>
-        <article class="metric-card temp"><div class="metric-icon">☼</div><span class="metric-label">Température</span><strong>18°<sup>C</sup></strong><small>Douce et agréable</small></article>
-      </section>
-
+      <section class="metrics-grid"><article class="metric-card eggs"><div class="metric-icon">🥚</div><span class="metric-label">Œufs ramassés</span><strong id="today-eggs">8</strong><small><span class="positive">+14%</span> vs. hier</small></article><article class="metric-card flock"><div class="metric-icon">🐔</div><span class="metric-label">Poules actives</span><strong id="active-hens">6</strong><small>sur <span id="total-hens">6</span> dans le poulailler</small></article><article class="metric-card temp"><div class="metric-icon">☼</div><span class="metric-label">Température</span><strong>18°<sup>C</sup></strong><small>Douce et agréable</small></article></section>
       <section class="section-heading compact"><div><span class="eyebrow">SUIVI</span><h2>Production d’œufs</h2></div><div class="chart-actions"><button class="add-button" id="add-egg">＋ Récolte</button><select id="period-select" aria-label="Période du graphique"><option value="7">7 jours</option><option value="14">14 jours</option></select></div></section>
       <section class="chart-card"><div class="chart-summary"><div><span class="muted">Moyenne quotidienne</span><strong id="avg-eggs">7,1 <small>œufs</small></strong></div><div class="trend-up">↗ <span>+8,4%</span></div></div><div class="chart-wrap"><div class="y-labels"><span>10</span><span>5</span><span>0</span></div><svg id="egg-chart" viewBox="0 0 600 190" role="img" aria-label="Graphique de production des œufs"><defs><linearGradient id="chart-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e3ad35" stop-opacity=".35"/><stop offset="1" stop-color="#e3ad35" stop-opacity="0"/></linearGradient></defs><path class="gridline" d="M0 20H600 M0 90H600 M0 160H600"/><path id="chart-area" class="chart-area"/><path id="chart-line" class="chart-line"/><g id="chart-dots"></g></svg></div><div class="chart-days" id="chart-days"></div></section>
-
-      <section class="section-heading compact"><div><span class="eyebrow">ACTIVITÉ RÉCENTE</span><h2>Les dernières nouvelles</h2></div><button class="text-button" id="see-all">Tout voir</button></section>
-      <section class="activity-card" id="activity-list"></section>
-
-      <section class="section-heading compact flock-head"><div><span class="eyebrow">VOTRE ÉQUIPE</span><h2>Les poules</h2></div><button class="add-button" id="add-hen">＋ Ajouter</button></section>
-      <section class="hens-grid" id="hens-grid"></section>
+      <section class="section-heading compact" id="flock-section"><div><span class="eyebrow">VOTRE ÉQUIPE</span><h2>Les poules</h2></div><button class="add-button" id="add-hen">＋ Ajouter</button></section><section class="hens-grid" id="hens-grid"></section>
+      <section class="section-heading compact"><div><span class="eyebrow">ANALYSE</span><h2>Statistiques avancées</h2></div><span class="tag">30 jours</span></section>
+      <section class="advanced-stats" id="advanced-stats"><div class="stats-kpis"><article><span class="metric-icon small">◉</span><span class="muted">Taux de ponte moyen</span><strong id="stat-rate">81%</strong><small>œufs / poule / jour</small></article><article><span class="metric-icon small green-icon">↗</span><span class="muted">Revenus estimés</span><strong id="stat-revenue">67,20 €</strong><small>sur la période choisie</small></article><article><span class="metric-icon small blue-icon">⌁</span><span class="muted">Résultat net</span><strong id="stat-profit" class="profit-positive">24,00 €</strong><small id="profit-detail">216 œufs estimés · 30 jours</small></article></div><div class="stats-columns"><div class="stats-panel"><div class="panel-title"><div><span class="eyebrow">COMPARATIF</span><h3>Taux de ponte par race</h3></div><span class="info-dot">i</span></div><div id="breed-stats"></div></div><div class="stats-panel economy-panel"><div class="panel-title"><div><span class="eyebrow">ÉCONOMIE</span><h3>Rentabilité du poulailler</h3></div></div><form id="economics-form"><div class="input-grid"><label>Aliment / poule / jour<input id="feed-cost" type="number" min="0" step="0.01"></label><label>Prix d’un œuf<input id="egg-price" type="number" min="0" step="0.01"></label><label>Autres coûts / mois<input id="other-costs" type="number" min="0" step="0.50"></label><label>Période d’analyse<input id="period-days" type="number" min="1" step="1"></label></div><button class="primary-button" type="submit">Recalculer la rentabilité</button></form><div class="cost-line"><span>Coûts estimés totaux</span><strong id="stat-cost">43,20 €</strong></div></div></div></section>
+      <section class="section-heading compact"><div><span class="eyebrow">ACTIVITÉ RÉCENTE</span><h2>Les dernières nouvelles</h2></div><button class="text-button" id="see-all">Tout voir</button></section><section class="activity-card" id="activity-list"></section>
     </main>
-
     <nav class="tabbar" aria-label="Navigation principale"><button class="tab active"><span>⌂</span>Accueil</button><button class="tab" id="journal-tab"><span>◷</span>Journal</button><button class="tab" id="flock-tab"><span>♧</span>Poules</button><button class="tab" id="stats-tab"><span>⌁</span>Stats</button></nav>
   </div>
   <div class="toast" id="toast"></div>
   <dialog id="egg-dialog"><form method="dialog" class="dialog-card"><button class="close-button" value="cancel">×</button><span class="eyebrow">NOUVELLE ENTRÉE</span><h2>Ajouter une récolte</h2><label>Nombre d’œufs<input id="egg-count" type="number" min="0" max="99" value="1" autofocus /></label><label>Note (optionnelle)<textarea id="egg-note" rows="3" placeholder="Ex. ramassés dans le pondoir nord…"></textarea></label><button class="primary-button" id="save-eggs" value="default">Enregistrer la récolte</button></form></dialog>
-  <dialog id="settings-dialog"><form method="dialog" class="dialog-card"><button class="close-button" value="cancel">×</button><span class="eyebrow">RÉGLAGES</span><h2>Votre poulailler</h2><p class="dialog-intro">Poupoules fonctionne immédiatement en mode démo et bascule sur Firestore dès que la connexion est disponible.</p><div class="setting-row"><span>Synchronisation Firebase</span><span class="switch on" id="firebase-switch">●</span></div><div class="setting-row"><span>Notifications de ponte</span><span class="switch" id="notification-switch">○</span></div><button class="secondary-button" id="export-data" value="default">Exporter mes données</button></form></dialog>
+  <dialog id="auth-dialog"><form method="dialog" class="dialog-card auth-card" id="auth-form"><button class="close-button" value="cancel">×</button><div class="auth-mark">🐔</div><span class="eyebrow">ESPACE ÉLEVEUR</span><h2 id="auth-title">Ravi de vous revoir</h2><p class="dialog-intro">Retrouvez vos poules et vos statistiques sur tous vos appareils.</p><label id="auth-name-field" hidden>Votre prénom<input id="auth-name" type="text" autocomplete="name" placeholder="Benjamin"></label><label>Adresse e-mail<input id="auth-email" type="email" autocomplete="email" placeholder="vous@exemple.fr" required></label><label>Mot de passe<input id="auth-password" type="password" autocomplete="current-password" placeholder="6 caractères minimum" required></label><p class="form-error" id="auth-error"></p><button class="primary-button" id="auth-submit" data-mode="login" value="default">Se connecter</button><button class="link-button" id="auth-toggle" type="button">Créer un compte</button></form></dialog>
+  <dialog id="profile-dialog"><form method="dialog" class="dialog-card profile-card"><button class="close-button" value="cancel">×</button><div class="profile-large-avatar" id="profile-avatar">É</div><h2 id="profile-name">Éleveur</h2><p id="profile-email" class="dialog-intro">Mode démo local</p><span class="profile-status" id="auth-state">Mode démo local</span><button class="primary-button" id="open-auth" type="button">Se connecter ou créer un compte</button><button class="secondary-button" id="signout-button" type="button" hidden>Se déconnecter</button></form></dialog>
+  <dialog id="settings-dialog"><form method="dialog" class="dialog-card"><button class="close-button" value="cancel">×</button><span class="eyebrow">RÉGLAGES</span><h2>Votre poulailler</h2><p class="dialog-intro">Les réglages économiques alimentent les statistiques de rentabilité. La synchronisation est liée à votre compte Firebase.</p><div class="setting-row"><span>Synchronisation Firebase</span><span class="switch on">●</span></div><div class="setting-row"><span>Notifications de ponte</span><span class="switch">○</span></div><button class="secondary-button" id="export-data" value="default">Exporter mes données</button></form></dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>
