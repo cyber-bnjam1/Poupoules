@@ -1,10 +1,10 @@
-// Configuration client Firebase fournie par le propriétaire de Poupoules.
-// Ces valeurs sont destinées à être utilisées côté client ; la sécurité repose sur les règles Firestore.
+// Configuration client Firebase Web du projet Poupoules.
+// La sécurité repose sur Authentication et les règles Firestore, jamais sur cette clé publique.
 export const firebaseConfig = {
-  apiKey: "AIzaSyDpVKRam-7sldEss93zRTh8At3pEt3J0SqA",
+  apiKey: "AIzaSyAnXvownvYSVbLW0DicU44Jgq1t_EYvZU8",
   authDomain: "poulettes-75fb5.firebaseapp.com",
   projectId: "poulettes-75fb5",
   storageBucket: "poulettes-75fb5.firebasestorage.app",
   messagingSenderId: "479553710488",
-  appId: "1:479553710488:web:8cb5ec0285f330c51e23ed"
+  appId: "1:479553710488:web:c37dad658309e0ca1e23ed"
 };

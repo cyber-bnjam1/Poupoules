@@ -19,7 +19,7 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 - Ajout d’une récolte d’œufs, sauvegarde locale et export JSON.
 - Pages séparées Accueil, Journal, Poules et Statistiques avec navigation persistante.
 - Journal fonctionnel avec ajout de récoltes depuis sa propre page.
-- Authentification Firebase par e-mail / mot de passe, création de compte, profil et déconnexion.
+- Authentification Firebase par e-mail / mot de passe, connexion Google, création de compte, profil et déconnexion.
 - Mode démo local activable depuis l’écran de connexion si Email/Password n’est pas encore activé.
 - Synchronisation Firestore sécurisée par `userId` sur `egg_entries`, avec bascule automatique en mode démo si Firebase n’est pas accessible.
 - Statistiques avancées : taux de ponte moyen, comparaison par race, revenus, coûts d’alimentation, autres coûts et résultat net paramétrable.
@@ -27,7 +27,7 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 
 ## Firebase
 
-La configuration client fournie se trouve dans `firebase-config.js`. Il faut activer **Authentication → Sign-in method → Email/Password** dans Firebase, puis publier des règles Firestore avant un usage multi-utilisateur. Si ce fournisseur n’est pas encore activé, l’écran affiche maintenant l’erreur exacte et propose le mode démo local. La webapp filtre les récoltes par `userId`. La clé API web n’est pas un secret ; la protection doit être faite par les règles Firestore et l’authentification.
+La configuration client Web à jour se trouve dans `firebase-config.js`. Il faut activer **Authentication → Sign-in method → Google** et, si souhaité, **Email/Password** dans Firebase, puis publier des règles Firestore avant un usage multi-utilisateur. Si ce fournisseur n’est pas encore activé, l’écran affiche maintenant l’erreur exacte et propose le mode démo local. La webapp filtre les récoltes par `userId`. La clé API web n’est pas un secret ; la protection doit être faite par les règles Firestore et l’authentification.
 
 L’icône `icon.png` existante du dépôt est conservée et utilisée par la PWA.
 
