@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (count > 0 && date) {
             const eggData = {
                 count,
-                date: new Date(date).toISOString(),
+                date: new Date(date + 'T12:00:00').toISOString(), // midi local pour éviter décalage UTC
                 ...(Object.keys(specialCounts).length > 0 && { specialCounts }),
                 ...(note && { note })
             };
@@ -278,11 +278,16 @@ function setupRealtimeSync(uid) {
                 const data = doc.data();
 
                 // ⚠️ PROTECTION ANTI-ÉCRASEMENT :
-                // Si Firebase a des données ET que le local est vide → charger Firebase
-                // Si Firebase est vide ET que le local a des données → ne pas écraser
+                // Si Firebase est vide ET que le local a des données → pousser le local
                 if (!payloadHasData(data) && localHasData()) {
                     console.warn("[Sync] Firebase vide mais local a des données — push local vers Firebase");
                     saveData();
+                    updateSyncStatus('ok');
+                    return;
+                }
+                // Si Firebase est vide ET local est vide → ne rien faire
+                if (!payloadHasData(data) && !localHasData()) {
+                    console.log("[Sync] Firebase et local tous deux vides — rien à faire");
                     updateSyncStatus('ok');
                     return;
                 }
