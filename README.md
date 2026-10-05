@@ -26,12 +26,12 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 - Ajout et modification des poules avec photo (compressée), race, date d’arrivée et statut.
 - Déclaration de décès et page Cimetière (avec possibilité de remettre une poule au poulailler).
 - Prénom modifiable depuis la page d’accueil.
-- Réglages : version de l’app, forcer la mise à jour, suppression sécurisée de toutes les données (saisie de « SUPPRIMER »).
+- Réglages : version de l’app, forcer la mise à jour, suppression sécurisée de toutes les données (saisie de « SUPPRIMER »), photos et cimetière.
 - PWA installable et cache offline (réseau d’abord, version du cache dans `sw.js`).
 
 ## Version
 
-Version actuelle : **1.1.0**. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
+Version actuelle : **1.2.0**. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
 
 ## Firebase
 
