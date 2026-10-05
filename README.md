@@ -23,7 +23,15 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 - Mode démo local activable depuis l’écran de connexion si Email/Password n’est pas encore activé.
 - Synchronisation Firestore sécurisée par `userId` sur `egg_entries`, avec bascule automatique en mode démo si Firebase n’est pas accessible.
 - Statistiques avancées : taux de ponte moyen, comparaison par race, revenus, coûts d’alimentation, autres coûts et résultat net paramétrable.
-- PWA installable et cache offline.
+- Ajout et modification des poules avec photo (compressée), race, date d’arrivée et statut.
+- Déclaration de décès et page Cimetière (avec possibilité de remettre une poule au poulailler).
+- Prénom modifiable depuis la page d’accueil.
+- Réglages : version de l’app, forcer la mise à jour, suppression sécurisée de toutes les données (saisie de « SUPPRIMER »).
+- PWA installable et cache offline (réseau d’abord, version du cache dans `sw.js`).
+
+## Version
+
+Version actuelle : **1.1.0**. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
 
 ## Firebase
 
@@ -43,6 +51,10 @@ service cloud.firestore {
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    match /hens/{henId} {
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
   }
 }
