@@ -16,7 +16,7 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 - Graphique de production sur 7 ou 14 jours.
 - Journal des activités récentes.
 - Équipe des poules avec races et statut.
-- Récolte groupée en une seule fois : plusieurs lignes de quantités, couleurs et poules pondeuses dans la même récolte, avec édition depuis le journal.
+- Récolte groupée en une seule fois : plusieurs lignes de quantités dans la même récolte ; la couleur est automatiquement déterminée par la poule sélectionnée (Araucana bleu, Soie blanc, etc.), avec édition depuis le journal.
 - Pages séparées Accueil, Journal, Poules et Statistiques avec navigation persistante.
 - Journal fonctionnel avec ajout de récoltes depuis sa propre page.
 - Authentification Firebase par e-mail / mot de passe, connexion Google, création de compte, profil et déconnexion.
@@ -31,7 +31,7 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 
 ## Version
 
-Version actuelle : **1.4.0**. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
+Version actuelle : **1.5.0**. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
 
 ## Firebase
 
