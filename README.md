@@ -23,15 +23,15 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 - Mode démo local activable depuis l’écran de connexion si Email/Password n’est pas encore activé.
 - Synchronisation Firestore sécurisée par `userId` sur `egg_entries`, avec bascule automatique en mode démo si Firebase n’est pas accessible.
 - Statistiques avancées : taux de ponte moyen, comparaison par race, revenus, coûts d’alimentation, autres coûts et résultat net paramétrable.
-- Ajout et modification des poules avec photo (compressée), sélection complète de race (avec « Autre » par défaut et enregistrement indépendant de la validation native du navigateur), couleur habituelle des œufs, date d’arrivée et statut.
+- Ajout et modification des poules avec photo redimensionnée et compressée avant sauvegarde (compressée), sélection complète de race (avec « Autre » par défaut et enregistrement indépendant de la validation native du navigateur), couleur habituelle des œufs, date d’arrivée et statut.
 - Déclaration de décès et page Cimetière (avec possibilité de remettre une poule au poulailler).
 - Prénom modifiable depuis la page d’accueil.
-- Réglages : version de l’app, forcer la mise à jour, suppression sécurisée de toutes les données (saisie de « SUPPRIMER »), photos et cimetière.
+- Réglages : version de l’app, forcer la mise à jour, suppression sécurisée et persistante de toutes les données (saisie de « SUPPRIMER »), photos et cimetière.
 - PWA installable et cache offline (réseau d’abord, version du cache dans `sw.js`).
 
 ## Version
 
-Version actuelle : **1.9.0**. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
+Version actuelle : **2.0.0**. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
 
 ## Firebase
 

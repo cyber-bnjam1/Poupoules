@@ -1,4 +1,4 @@
-const VERSION = '1.9.0';
+const VERSION = '2.0.0';
 const CACHE = `poupoules-v${VERSION}`;
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './firebase-config.js', './manifest.webmanifest', './icon.png'];
 
