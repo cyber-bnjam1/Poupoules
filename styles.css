@@ -59,3 +59,5 @@ body{touch-action:pan-x pan-y;min-width:100%}
 .app-shell{min-width:100%;overflow-x:visible}
 main{overflow-x:auto;scrollbar-width:thin}
 .page{min-width:0}
+.activity-edit{margin-left:8px;background:#edf5e9;color:var(--green-deep);border-radius:9px;padding:7px 9px;font-size:10px;font-weight:700;white-space:nowrap}
+.breed-name small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}

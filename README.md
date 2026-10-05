@@ -31,7 +31,7 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 
 ## Version
 
-Version actuelle : **1.2.0**. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
+Version actuelle : **1.3.0**. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
 
 ## Firebase
 
