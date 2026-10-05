@@ -31,7 +31,9 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 
 ## Version
 
-Version actuelle : **2.1.0**. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
+Version actuelle : **2.2.0**
+
+Les statistiques comprennent désormais un graphique de production sur 12 mois, le prix de vente d’une boîte de 6 œufs, les dépenses mensuelles par catégorie (grains, litière, paille, produits) et des bilans mensuels.. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
 
 ## Firebase
 
