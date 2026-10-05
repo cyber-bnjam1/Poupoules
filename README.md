@@ -31,7 +31,7 @@ Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer su
 
 ## Version
 
-Version actuelle : **2.4.0**
+Version actuelle : **2.4.1**
 
 Le démarrage PWA est désormais robuste et les statistiques permettent maintenant de saisir chaque achat ou vente daté et comprennent désormais un graphique de production sur 12 mois, le prix de vente d’une boîte de 6 œufs, les dépenses mensuelles par catégorie (grains, litière, paille, produits) et des bilans mensuels.. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
 
