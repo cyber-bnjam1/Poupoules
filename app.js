@@ -3,7 +3,7 @@ import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, li
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const APP_VERSION = '2.4.1';
+const APP_VERSION = '2.4.2';
 const $ = selector => document.querySelector(selector);
 const saved = (() => { try { return JSON.parse(localStorage.getItem('poupoules-state') || '{}'); } catch { return {}; } })();
 const wasWiped = localStorage.getItem('poupoules-wiped') === '1';
