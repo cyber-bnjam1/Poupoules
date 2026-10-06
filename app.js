@@ -3,7 +3,7 @@ import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, li
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const APP_VERSION = '2.4.2';
+const APP_VERSION = '2.5.0';
 const $ = selector => document.querySelector(selector);
 const saved = (() => { try { return JSON.parse(localStorage.getItem('poupoules-state') || '{}'); } catch { return {}; } })();
 const wasWiped = localStorage.getItem('poupoules-wiped') === '1';
@@ -33,6 +33,11 @@ const persist = () => { try { localStorage.setItem('poupoules-state', JSON.strin
 const toast = message => { const element = $('#toast'); element.textContent = message; element.classList.add('show'); setTimeout(() => element.classList.remove('show'), 2800); };
 const euro = value => `${Number(value).toFixed(2).replace('.', ',')} €`;
 const today = () => new Date().toISOString().slice(0, 10);
+const weatherDescriptions = { 0: ['☀︎', 'Ciel dégagé'], 1: ['🌤️', 'Plutôt dégagé'], 2: ['⛅', 'Partiellement nuageux'], 3: ['☁︎', 'Couvert'], 45: ['🌫️', 'Brouillard'], 48: ['🌫️', 'Brouillard givrant'], 51: ['🌦️', 'Bruine légère'], 53: ['🌦️', 'Bruine'], 55: ['🌧️', 'Bruine forte'], 61: ['🌦️', 'Pluie légère'], 63: ['🌧️', 'Pluie'], 65: ['🌧️', 'Forte pluie'], 71: ['🌨️', 'Neige légère'], 73: ['🌨️', 'Neige'], 75: ['❄️', 'Forte neige'], 80: ['🌦️', 'Averses'], 81: ['🌧️', 'Averses soutenues'], 82: ['⛈️', 'Fortes averses'], 95: ['⛈️', 'Orage'], 96: ['⛈️', 'Orage et grêle'], 99: ['⛈️', 'Orage et forte grêle'] };
+function renderWeather(current, stale = false) { const description = weatherDescriptions[current.weather_code] || ['☼', 'Conditions actuelles']; $('#weather-icon').textContent = description[0]; $('#weather-temp').innerHTML = `${Math.round(Number(current.temperature_2m))}°<sup>C</sup>`; $('#weather-condition').textContent = `${description[1]}${stale ? ' · dernière mesure' : ''}`; $('#weather-humidity').textContent = `${Math.round(Number(current.relative_humidity_2m))}%`; $('#weather-wind').textContent = `${Math.round(Number(current.wind_speed_10m))} km/h`; const uv = Number(current.uv_index); $('#weather-uv').textContent = uv < 3 ? 'Faible' : uv < 6 ? 'Modéré' : uv < 8 ? 'Élevé' : 'Très élevé'; }
+function weatherFallback(message = 'Autorisez la localisation') { $('#weather-temp').innerHTML = `—<sup>°C</sup>`; $('#weather-condition').textContent = message; $('#weather-humidity').textContent = '—'; $('#weather-wind').textContent = '—'; $('#weather-uv').textContent = '—'; }
+async function loadWeather() { const cached = (() => { try { return JSON.parse(localStorage.getItem('poupoules-weather') || 'null'); } catch { return null; } })(); if (cached?.current) renderWeather(cached.current, true); if (!navigator.geolocation) return weatherFallback('Géolocalisation indisponible'); navigator.geolocation.getCurrentPosition(async position => { try { const { latitude, longitude } = position.coords; const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude.toFixed(4)}&longitude=${longitude.toFixed(4)}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,uv_index&timezone=auto`); if (!response.ok) throw new Error('weather'); const data = await response.json(); renderWeather(data.current); localStorage.setItem('poupoules-weather', JSON.stringify({ current: data.current, savedAt: Date.now() })); } catch { if (!cached?.current) weatherFallback('Météo indisponible'); } }, () => { if (!cached?.current) weatherFallback('Autorisez la localisation'); }, { enableHighAccuracy: false, maximumAge: 1800000, timeout: 8000 }); }
+
 function closeDialog(dialog) { if (dialog?.open) dialog.close(); }
 const breedEggColors = { Araucana: 'bleu', Ameraucana: 'bleu', 'Cream Legbar': 'bleu', 'Olive Egger': 'vert', Marans: 'chocolat', Rousse: 'brun', Harco: 'brun', Sussex: 'crème', Leghorn: 'blanc', Soie: 'blanc', Brahma: 'brun', Orpington: 'brun', Wyandotte: 'brun', Coucou: 'brun' };
 const getHenEggColor = hen => hen?.eggColor || breedEggColors[hen?.breed] || 'brun';
@@ -97,5 +102,5 @@ $('#auth-form').addEventListener('submit', handleAuth); $('#auth-toggle').addEve
 
 $('#hen-breed').addEventListener('change', event => { const defaults = breedEggColors; if (defaults[event.target.value]) $('#hen-egg-color').value = defaults[event.target.value]; }); populateHenSelect(); $('#box-price').value = economics.boxPrice; if ($('#transaction-date')) $('#transaction-date').value = today(); $('#app-version').textContent = `v${APP_VERSION}`;
 if (localStorage.getItem('poupoules-demo')) currentUser = { demo: true, displayName: 'Éleveur démo', email: 'Démo locale' };
-renderHens(); renderCemetery(); renderActivities(); renderChart(); calculateStats(); renderProfile(); initFirebase();
+renderHens(); renderCemetery(); renderActivities(); renderChart(); calculateStats(); renderProfile(); loadWeather(); window.setInterval(loadWeather, 30 * 60 * 1000); initFirebase();
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));

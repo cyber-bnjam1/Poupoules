@@ -75,3 +75,6 @@ main{overflow-x:auto;scrollbar-width:thin}
 input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:44px;min-height:44px;padding:10px 12px;font-size:13px;line-height:20px;background:#fff;border:1px solid var(--line);border-radius:13px;color:var(--ink)}
 input[type="date"]::-webkit-date-and-time-value{text-align:left}
 input[type="date"]::-webkit-calendar-picker-indicator{opacity:.55;margin-left:auto}
+/* Météo dynamique et proportions du Journal */
+.metric-card.temp{text-align:center}.metric-card.temp .metric-icon{margin-left:auto;margin-right:auto}.metric-card.temp .weather-copy{display:block}.metric-card.temp .weather-copy strong{font-size:32px}.metric-card.temp .weather-details{justify-content:center}.metric-card.temp .weather-details span{min-width:64px}
+#page-journal .page-intro{padding-bottom:4px}#page-journal .page-intro p{margin-bottom:4px}#page-journal .section-heading.compact{margin-top:8px;margin-bottom:12px}
