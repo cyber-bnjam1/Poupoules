@@ -1,6 +1,6 @@
-# Poupoules
+# Poupoules v3
 
-Première version locale de la webapp iOS-first pour gérer un poulailler et suivre les récoltes d’œufs.
+Le carnet du poulailler : récolte du jour dans une boîte à œufs, stock et fraîcheur, poules, soins et routines, bilan mensuel. PWA en vanilla JS, synchronisée avec Firebase.
 
 ## Lancer en local
 
@@ -8,58 +8,52 @@ Première version locale de la webapp iOS-first pour gérer un poulailler et sui
 python3 -m http.server 4173
 ```
 
-Puis ouvrir <http://localhost:4173> dans Safari ou Chrome. Pour l’installer sur iPhone, ouvrir l’URL en Safari puis **Partager → Sur l’écran d’accueil**.
+Ouvrir <http://localhost:4173>. Sur iPhone : Safari → Partager → Sur l’écran d’accueil.
 
-## Fonctionnalités incluses
+## Écrans
 
-- Tableau de bord responsive style Apple avec métriques du jour.
-- Graphique de production sur 7 ou 14 jours.
-- Journal des activités récentes.
-- Équipe des poules avec races et statut.
-- Récolte groupée en une seule fois avec quantités réglables par boutons − / + : plusieurs lignes de quantités dans la même récolte ; la couleur est automatiquement déterminée par la poule sélectionnée (Araucana bleu, Soie blanc, etc.) et un bouton flottant permet de lancer rapidement une récolte depuis l’accueil, avec édition depuis le journal.
-- Pages séparées Accueil, Journal, Poules et Statistiques avec navigation persistante.
-- Journal fonctionnel avec ajout de récoltes depuis sa propre page.
-- Authentification Firebase par e-mail / mot de passe, connexion Google, création de compte, profil et déconnexion.
-- Mode démo local activable depuis l’écran de connexion si Email/Password n’est pas encore activé.
-- Synchronisation Firestore sécurisée par `userId` sur `egg_entries`, avec bascule automatique en mode démo si Firebase n’est pas accessible.
-- Statistiques avancées : taux de ponte moyen, comparaison par race, revenus, coûts d’alimentation, autres coûts et résultat net paramétrable.
-- Ajout et modification des poules avec photo redimensionnée et compressée avant sauvegarde (compressée), sélection complète de race (avec « Autre » par défaut et enregistrement indépendant de la validation native du navigateur), couleur habituelle des œufs, date d’arrivée et statut.
-- Déclaration de décès et page Cimetière (avec possibilité de remettre une poule au poulailler).
-- Prénom modifiable depuis la page d’accueil.
-- Réglages : version de l’app, forcer la mise à jour, suppression sécurisée et persistante de toutes les données (saisie de « SUPPRIMER »), photos et cimetière.
-- PWA installable et cache offline (réseau d’abord, version du cache dans `sw.js`).
+- **Accueil — La récolte** : une boîte de 12 alvéoles. Un tap pose un œuf, chaque tap suivant change sa couleur (dans l’ordre des couleurs choisies dans les réglages), puis le retire. Une deuxième boîte apparaît au-delà de 12 œufs. Flèches ‹ › pour les jours précédents, calendrier en touchant la date, graphique des 7 derniers jours (un jour oublié s’affiche en pointillés avec « ? »). Bouton « Aucun œuf aujourd’hui » pour distinguer un jour sans ponte d’un oubli. Widgets stock et météo (alerte gel ou forte chaleur).
+- **Œufs** : stock calculé (les plus anciens sortent en premier), fraîcheur (< 7 j, 1–3 semaines, 3–4 semaines à consommer vite, > 28 jours), sorties consommés / vendus / donnés / cassés (par boîte de 6 ou à l’unité, prix et client pour les ventes), inventaire pour corriger le stock, journal complet.
+- **Poules** : liste par couleur d’œuf, recherche, au repos, cimetière. Fiche avec photo, race, arrivée et âge, ponte estimée de la couleur, soins à venir et historique, suivis en cours (mue, couvaison).
+- **Soins** : routines du jour à cocher (badge sur l’onglet), tâches ajoutées par la météo, routines à venir, suivis en cours, historique. Routines par défaut : eau, aliment et grit (tous les jours), pondoirs et abreuvoir (chaque semaine), litière (toutes les 2 semaines), grand nettoyage et coquilles d’huîtres (tous les mois), vermifuge (tous les 6 mois), contrôle des poux rouges (mensuel d’avril à octobre).
+- **Bilan** : œufs, moyenne par jour noté, coût par œuf, recettes, dépenses, solde ; production sur 12 mois, répartition par couleur, destination des œufs, dépenses du mois.
+- **Réglages** : compte (Google ou e-mail), prénom, prix de la boîte de 6 (1,50 € par défaut), couleurs d’œufs, export / import JSON, forcer la mise à jour, suppression complète.
+- **iPhone ouvert / tablette** (≥ 720 px) : mises en page sur 2 colonnes, liste des poules et fiche côte à côte.
 
-## Version
+## Données et synchronisation
 
-Version actuelle : **2.5.0**
+- Sans compte, tout reste sur l’appareil (`localStorage`, clé `poupoules-v3`).
+- Connecté, tout est synchronisé dans Firestore sous `users/{uid}/…` : `hens`, `days` (un document par date), `moves`, `tasks`, `care`, `expenses`, et `meta/settings`. Le cache hors ligne de Firestore est activé.
+- Le SDK Firebase est chargé à la demande : l’app démarre même hors ligne.
 
-La météo de l’accueil est dynamique via Open-Meteo et le démarrage PWA est désormais robuste et les statistiques permettent maintenant de saisir chaque achat ou vente daté et comprennent désormais un graphique de production sur 12 mois, le prix de vente d’une boîte de 6 œufs, les dépenses mensuelles par catégorie (grains, litière, paille, produits) et des bilans mensuels.. Le journal mémorise la date, la quantité, la couleur et la poule pondeuse ; les statistiques comptent les œufs par poule. À chaque livraison, mettre à jour `APP_VERSION` dans `app.js` **et** `VERSION` dans `sw.js`.
+### Migration depuis la v2.5
 
-## Firebase
+- Au premier lancement, les données locales de la v2.5 (`poupoules-state`) sont converties : poules (les 6 poules de démo jamais modifiées sont ignorées), récoltes, achats (→ dépenses), ventes (→ recettes), prix de la boîte, prénom.
+- À la première connexion, les anciennes récoltes Firestore (`egg_entries`) sont aussi reprises, puis tout est envoyé dans la nouvelle structure.
+- Couleurs : crème → blanc, chocolat et tacheté → brun, vert → bleu.
+- Le stock démarre le jour de la migration : faire un inventaire dans l’onglet Œufs.
 
-La configuration client Web à jour se trouve dans `firebase-config.js`. Il faut activer **Authentication → Sign-in method → Google** et, si souhaité, **Email/Password** dans Firebase, puis publier des règles Firestore avant un usage multi-utilisateur. Si ce fournisseur n’est pas encore activé, l’écran affiche maintenant l’erreur exacte et propose le mode démo local. La webapp filtre les récoltes par `userId`. La clé API web n’est pas un secret ; la protection doit être faite par les règles Firestore et l’authentification.
+### Règles Firestore
 
-L’icône `icon.png` existante du dépôt est conservée et utilisée par la PWA.
-
-### Règles Firestore de départ
-
-À publier dans Firebase Console → Firestore Database → Rules (à adapter si d’autres collections sont ajoutées) :
+À publier dans Firebase Console → Firestore Database → Rules :
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /egg_entries/{entryId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
     }
-    match /hens/{henId} {
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    // Anciennes récoltes v2.5 : lecture pour la migration, suppression possible.
+    match /egg_entries/{entryId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
   }
 }
 ```
 
-Pour les requêtes avec `where('userId', '==', user.uid)` et `orderBy('createdAt')`, Firebase peut demander la création d’un index composite : le lien est fourni automatiquement dans la console si nécessaire.
+Aucun index composite n’est nécessaire.
+
+## Version
+
+**3.0.0** — à chaque livraison, mettre à jour `APP_VERSION` dans `app.js`, `VERSION` dans `sw.js` et le `?v=` dans `index.html`.
